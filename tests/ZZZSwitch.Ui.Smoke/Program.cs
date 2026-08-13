@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -40,7 +41,11 @@ internal static class Program
                 "可复用服务器卡片未正确接收 B服展示属性。");
             Assert(bilibiliColumn.Width.IsStar,
                 "B服服务器列在普通 Release 界面中未启用。");
-            Assert(versionText.Text == "v1.2.2",
+            var expectedVersion = typeof(MainWindow).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion.Split('+')[0]
+                ?? throw new InvalidOperationException("程序集缺少信息版本。");
+            Assert(versionText.Text == $"v{expectedVersion}",
                 $"界面版本号不正确：{versionText.Text}");
             Assert(main.Title == "ZZZSwitch",
                 "Window title should not include the version number.");

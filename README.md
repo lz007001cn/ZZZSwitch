@@ -488,7 +488,7 @@ publish\ZZZSwitch-win-x64-v<版本号>
 
 `.github/workflows/release.yml` 会在推送 `v<主版本>.<次版本>.<修订号>` 标签时自动执行 Release 构建、核心测试、WPF UI 冒烟测试，并创建带 Windows x64 便携 ZIP 和 SHA-256 文件的 GitHub Release。标签版本必须与 `src\ZZZSwitch\ZZZSwitch.csproj` 中的 `Version` 完全一致，否则工作流会停止。
 
-例如发布 `1.2.3`：
+例如发布 `1.2.3`：先将 `src\ZZZSwitch\ZZZSwitch.csproj` 中唯一的 `<Version>` 改为 `1.2.3`，提交并推送 `main`，再执行：
 
 ```powershell
 git tag -a v1.2.3 -m "ZZZSwitch v1.2.3"
