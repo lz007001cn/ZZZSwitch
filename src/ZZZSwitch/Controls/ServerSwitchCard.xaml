@@ -1,0 +1,45 @@
+<UserControl x:Class="ZZZSwitch.Controls.ServerSwitchCard"
+             x:Name="Root"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             IsTabStop="False">
+    <Button Command="{Binding Command, ElementName=Root}"
+            Style="{StaticResource SwitchButtonStyle}"
+            AutomationProperties.Name="{Binding ServerName, ElementName=Root}">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border Width="48"
+                    Height="48"
+                    CornerRadius="10"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    ClipToBounds="True"
+                    VerticalAlignment="Center">
+                <Image Source="{Binding IconSource, ElementName=Root}"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+            </Border>
+            <StackPanel Grid.Column="1"
+                        Margin="13,0"
+                        VerticalAlignment="Center">
+                <TextBlock Text="{Binding ServerName, ElementName=Root}"
+                           FontSize="15"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Description, ElementName=Root}"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           FontSize="11"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+            <TextBlock Grid.Column="2"
+                       Text="&#xE72A;"
+                       FontFamily="Segoe Fluent Icons"
+                       Foreground="{StaticResource MutedTextBrush}"
+                       VerticalAlignment="Center" />
+        </Grid>
+    </Button>
+</UserControl>

@@ -1,0 +1,13 @@
+{
+  "id": "cn_official",
+  "displayName": "绝区零国服",
+  "packageDirectoryName": "cn_official",
+  "enabled": true,
+  "keyFiles": [
+    { "path": "GameAssembly.dll", "length": 546872608 },
+    { "path": "ZenlessZoneZero.exe", "length": 10363168 },
+    { "path": "mhypbase.dll", "length": 26719176 },
+    { "path": "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\global-metadata.dat", "length": 120118564 },
+    { "path": "ZenlessZoneZero_Data\\resources.assets", "length": 19323728 }
+  ]
+}

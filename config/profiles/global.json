@@ -1,0 +1,13 @@
+{
+  "id": "global",
+  "displayName": "绝区零国际服",
+  "packageDirectoryName": "global",
+  "enabled": true,
+  "keyFiles": [
+    { "path": "GameAssembly.dll", "length": 546892080 },
+    { "path": "ZenlessZoneZero.exe", "length": 10360624 },
+    { "path": "mhypbase.dll", "length": 26739680 },
+    { "path": "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\global-metadata.dat", "length": 120118252 },
+    { "path": "ZenlessZoneZero_Data\\resources.assets", "length": 19323736 }
+  ]
+}

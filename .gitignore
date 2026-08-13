@@ -1,0 +1,14 @@
+.vs/
+**/bin/
+**/obj/
+publish/
+dist/
+_release-staging/
+tmp/
+tools/bilibili-test-assets/*.dll
+*.user
+*.suo
+_verification/
+tools/bilibili-package-assets/*.dll
+AGENTS.md
+docs/PROJECT-CONTEXT.md

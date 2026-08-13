@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\ZZZSwitch.ico</ApplicationIcon>
+    <AssemblyName>ZZZSwitch</AssemblyName>
+    <RootNamespace>ZZZSwitch</RootNamespace>
+    <Version>1.2.2</Version>
+    <AssemblyVersion>1.2.2.0</AssemblyVersion>
+    <FileVersion>1.2.2.0</FileVersion>
+    <InformationalVersion>1.2.2</InformationalVersion>
+    <Product>ZZZSwitch</Product>
+    <Title>ZZZSwitch</Title>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ZZZSwitch.Core\ZZZSwitch.Core.csproj" />
+    <Resource Include="Assets\ZZZSwitch.ico" />
+    <Resource Include="Assets\ZZZSwitch-Icon.png" />
+    <Resource Include="Assets\ZZZSwitch-Wordmark.png" />
+    <Resource Include="Assets\Server-CN.png" />
+    <Resource Include="Assets\Server-Global.png" />
+    <Resource Include="Assets\Server-Bilibili.png" />
+    <Content Include="..\..\config\**\*">
+      <Link>config\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

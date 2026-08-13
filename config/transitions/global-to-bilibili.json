@@ -1,0 +1,685 @@
+{
+    "sourceProfile":  "global",
+    "targetProfile":  "bilibili",
+    "gameVersion":  "3.1.0",
+    "enabled":  true,
+    "expectedReplaceCount":  105,
+    "expectedDeleteCount":  0,
+    "replaceFiles":  [
+                         {
+                             "source":  "GameAssembly.dll",
+                             "target":  "GameAssembly.dll",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  546872608,
+                             "sha256":  "251F48B343393C3FD21A5D820F8DCC5BA3C45C7682D9682BE7E918D011B73FEF"
+                         },
+                         {
+                             "source":  "HoYoKProtect.sys",
+                             "target":  "HoYoKProtect.sys",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  4063424,
+                             "sha256":  "514D4C4B41A39AAB552C28D0EC5BED472E1576437514CB82BC8BB0908700CCD3"
+                         },
+                         {
+                             "source":  "mhypbase.dll",
+                             "target":  "mhypbase.dll",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  26719176,
+                             "sha256":  "B7F866F5B385E1D75036A7E348C4036774A1E99EF123EEE066D0C9FC0AA5E18A"
+                         },
+                         {
+                             "source":  "pkg_version",
+                             "target":  "pkg_version",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  1781238,
+                             "sha256":  "9DF282E71ED0CB3DBE5ABB69DF2FBA652D8E7435196CCCC50245289F33037FB5"
+                         },
+                         {
+                             "source":  "version_info",
+                             "target":  "version_info",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  14,
+                             "sha256":  "71CBA7CA0F6CE5C16650EBBC6E93129802E55847F53A3A1A967DA91A617F7756"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero.exe",
+                             "target":  "ZenlessZoneZero.exe",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  10363168,
+                             "sha256":  "72F0BFEAA1BE9CE5D920E3456B949CB1066A8CD73DBB2A46BDB33E69E045DAA5"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\globalgamemanagers",
+                             "target":  "ZenlessZoneZero_Data\\globalgamemanagers",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  2609652,
+                             "sha256":  "F0D6ACC5158082DCB5662FF0C3D5D45C292FD4C0BD52B028F78A64640C804405"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\globalgamemanagers.assets",
+                             "target":  "ZenlessZoneZero_Data\\globalgamemanagers.assets",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  67500576,
+                             "sha256":  "A9F0133116A0CF0C59A0BF559E3ADE0960D9C25CAF23D8C3EB851E16A4123CBD"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\globalgamemanagers.assets.resS",
+                             "target":  "ZenlessZoneZero_Data\\globalgamemanagers.assets.resS",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  11582580,
+                             "sha256":  "849DFE8E94172C979ABD101BE288621DE904BAE4A03546CAEDAEE2C877ECB6B4"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\global-metadata.dat",
+                             "target":  "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\global-metadata.dat",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  120118564,
+                             "sha256":  "3575100A382D2D185C7958B97F31B4A54445AFBFE5C84CF43C7B99ABE35260AC"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\startup-metadata.dat",
+                             "target":  "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\startup-metadata.dat",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  7228788,
+                             "sha256":  "BDC4AD4C454BF19A06118D9C133D2687073FCDBAEA7777ECB3C2712F0B67EBC4"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\level0",
+                             "target":  "ZenlessZoneZero_Data\\level0",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  15092,
+                             "sha256":  "141A927E43FB8C197969E12B3858FFEEAB98DEAC2CF6BCD70ACE0434BD3058DB"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\Persistent\\audio_revision",
+                             "target":  "ZenlessZoneZero_Data\\Persistent\\audio_revision",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  8,
+                             "sha256":  "706635C4BC794C2AFE0C2CD1AE63DBC02A45A4A7B26CE39AB18A0ADFBCE10B51"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\Persistent\\base_version_hash",
+                             "target":  "ZenlessZoneZero_Data\\Persistent\\base_version_hash",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  80,
+                             "sha256":  "4AE378639D16627EA243FC8810A0A2051909F9162F87AEA9564233CE27F95869"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\Persistent\\data_revision",
+                             "target":  "ZenlessZoneZero_Data\\Persistent\\data_revision",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  8,
+                             "sha256":  "609769EE88D9681993A9D27F65BDEF9E6FC8155B177CE4AAD1DC145621D289CF"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\Persistent\\data_version_persist",
+                             "target":  "ZenlessZoneZero_Data\\Persistent\\data_version_persist",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  6524,
+                             "sha256":  "CA2575D0E6E8F180CC3CBBBC5A67D8987B286D0B8E0FEFCAD5EEB6BD6661A902"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\Persistent\\res_revision",
+                             "target":  "ZenlessZoneZero_Data\\Persistent\\res_revision",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  8,
+                             "sha256":  "609769EE88D9681993A9D27F65BDEF9E6FC8155B177CE4AAD1DC145621D289CF"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\Persistent\\res_version_persist",
+                             "target":  "ZenlessZoneZero_Data\\Persistent\\res_version_persist",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  3104846,
+                             "sha256":  "06474B6B68D42BD37F684139BEF769D5222C68B1AC61664B85FBB67E6BCEB2D2"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\Persistent\\silence_revision",
+                             "target":  "ZenlessZoneZero_Data\\Persistent\\silence_revision",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  8,
+                             "sha256":  "167B6B74659A0C55E6157ACF911F0A8C264114302CAB0EA3C3E85DCEF4BA6076"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\Persistent\\silence_version_persist",
+                             "target":  "ZenlessZoneZero_Data\\Persistent\\silence_version_persist",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  552,
+                             "sha256":  "C7670255C84AEB5DE43FAF0EEA5546A47BF9FE364A8B8B499EB2A8A59E979429"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\resources.assets",
+                             "target":  "ZenlessZoneZero_Data\\resources.assets",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  19323728,
+                             "sha256":  "33B031E36CF56004497E85F805DF7DDAE829FD106CFA9E13D01A9F8AAEE7C673"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\resources.assets.resS",
+                             "target":  "ZenlessZoneZero_Data\\resources.assets.resS",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  15381124,
+                             "sha256":  "23B20DB1238E527B147BE3B8655F4820E21480C7ED8A274D15D1F56220DDA388"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\sharedassets0.assets",
+                             "target":  "ZenlessZoneZero_Data\\sharedassets0.assets",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  48528,
+                             "sha256":  "62955032441A387C5ECFAD00317283F1EAEC132B18545A4A9B294B0F4F965B21"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\StreamingAssets\\APMConfig.json",
+                             "target":  "ZenlessZoneZero_Data\\StreamingAssets\\APMConfig.json",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  110,
+                             "sha256":  "09004478E135935EC84083C2574212F242C6188202E1D36CB3622EF6C27B72BF"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\StreamingAssets\\audio_revision",
+                             "target":  "ZenlessZoneZero_Data\\StreamingAssets\\audio_revision",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  8,
+                             "sha256":  "962CDEB3B112F275A636968C3372E30E8836080A0A167F2281C2FB8F4E22A833"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\StreamingAssets\\audio_version",
+                             "target":  "ZenlessZoneZero_Data\\StreamingAssets\\audio_version",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  43267,
+                             "sha256":  "3FEF08D154DAB004853BD5A562F5D8AC328DE5CAAC1DCD3F9946CBC9617294C7"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\StreamingAssets\\data_revision",
+                             "target":  "ZenlessZoneZero_Data\\StreamingAssets\\data_revision",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  8,
+                             "sha256":  "962CDEB3B112F275A636968C3372E30E8836080A0A167F2281C2FB8F4E22A833"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\StreamingAssets\\data_version",
+                             "target":  "ZenlessZoneZero_Data\\StreamingAssets\\data_version",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  2953,
+                             "sha256":  "AF580A81C6F337CBDE72AF8A8C9F878AD220C2FB4FC4883EE8A6398A01DB5CF0"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\StreamingAssets\\res_revision",
+                             "target":  "ZenlessZoneZero_Data\\StreamingAssets\\res_revision",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  8,
+                             "sha256":  "962CDEB3B112F275A636968C3372E30E8836080A0A167F2281C2FB8F4E22A833"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\StreamingAssets\\res_version",
+                             "target":  "ZenlessZoneZero_Data\\StreamingAssets\\res_version",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  1447607,
+                             "sha256":  "BF487153A4ECE3CDB13987E7BA692A17A1A330C66908FA59E86B759E405C49D7"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\StreamingAssets\\silence_revision",
+                             "target":  "ZenlessZoneZero_Data\\StreamingAssets\\silence_revision",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  8,
+                             "sha256":  "962CDEB3B112F275A636968C3372E30E8836080A0A167F2281C2FB8F4E22A833"
+                         },
+                         {
+                             "source":  "ZenlessZoneZero_Data\\StreamingAssets\\silence_version",
+                             "target":  "ZenlessZoneZero_Data\\StreamingAssets\\silence_version",
+                             "sourcePackageDirectoryName":  "cn_official",
+                             "length":  140,
+                             "sha256":  "67748888CB4E55399F95A60C486A8016652FB06F753F05375974B94BBFDAD7EA"
+                         },
+                         {
+                             "source":  "PCGameSDK.dll",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\PCGameSDK.dll",
+                             "length":  5905408,
+                             "sha256":  "28CDC496571B194924EA23398810B4F128D9FF390FDCC00C789EC628F2B73D57"
+                         },
+                         {
+                             "source":  "sdk_pkg_version",
+                             "target":  "sdk_pkg_version",
+                             "length":  126,
+                             "sha256":  "C09BC0F386A559D5F0A91C16694AC35B17D107C48E771F6CEB322B99B01B71AD"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\cef.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\cef.pak",
+                             "length":  2133001,
+                             "sha256":  "F7C12B789CD28AD0879B848CC31CF91AFCF4FB6CC27D6F26CB0311A3782CFECC"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\cef_100_percent.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\cef_100_percent.pak",
+                             "length":  654037,
+                             "sha256":  "2625E4C9319C4D1FBE08A32AA47F2A280485FB5BF932D5783B24B8E9C2E9837A"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\cef_200_percent.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\cef_200_percent.pak",
+                             "length":  808292,
+                             "sha256":  "D712AA641E2B72B9F02B05F473AEBA45B288C6287B2F515E4BE6EEB039ECA568"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\cef_extensions.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\cef_extensions.pak",
+                             "length":  1772827,
+                             "sha256":  "9C6A3F971AA395BBCCFD7E8F62291C5052AC01099F5E4C701743F7E48B649603"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\chrome_elf.dll",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\chrome_elf.dll",
+                             "length":  991248,
+                             "sha256":  "ADC6D9036348FB5F00C58E356A2E1BAF7D8B9B4BEC8D1D42946EA489584FA45D"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\d3dcompiler_47.dll",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\d3dcompiler_47.dll",
+                             "length":  4368656,
+                             "sha256":  "BE8702AC21CBA0F5C96F42E487EA82F14A571185A63613B968B7AA96EB05AB57"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\devtools_resources.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\devtools_resources.pak",
+                             "length":  7015266,
+                             "sha256":  "D922D6086DFC479097C148DF52251577E5539F5A3CB5FBD6D74320DB5043110C"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\icudtl.dat",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\icudtl.dat",
+                             "length":  10505952,
+                             "sha256":  "594637E10B8F5C97157413528F0CBF5BC65B4AB9E79F5FA34FE268092655EC57"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\libcef.dll",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\libcef.dll",
+                             "length":  118148624,
+                             "sha256":  "183C8DB291FC41227B4A2FB91CA982A4E78E46C743874436F4F84D6AB09C3043"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\libEGL.dll",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\libEGL.dll",
+                             "length":  386064,
+                             "sha256":  "D51DA30848520C5226EBDB0DEC7557F9329373816C5C47FECE4E11F475006FF3"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\libGLESv2.dll",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\libGLESv2.dll",
+                             "length":  7968784,
+                             "sha256":  "304130E7DCA473652528723265E51EA0DE0C98B9DA426B3AED922131376EF481"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\am.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\am.pak",
+                             "length":  352926,
+                             "sha256":  "5BD72584CCA4271AFD6961B137C256F909C69B8CBAA20EE3CB0F56E0A2DF8729"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\ar.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ar.pak",
+                             "length":  355088,
+                             "sha256":  "C18E55D8FB846FB9F31C63D81124335698C42E17574609B628CF92BF43571C21"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\bg.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\bg.pak",
+                             "length":  401521,
+                             "sha256":  "70DAE9B5B2F692AE99F698DA6822388996BDA6E5B21DBB3626561C514B8D44E6"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\bn.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\bn.pak",
+                             "length":  516903,
+                             "sha256":  "73EF727320C98843496F7D3E7BB91A98F180270D7F612B45CD60A089CDD0640F"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\ca.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ca.pak",
+                             "length":  250093,
+                             "sha256":  "D4AD5CDBA6D19D490A208FF80A40AABCEB7B3460F5567D4AA881B418213CD060"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\cs.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\cs.pak",
+                             "length":  254040,
+                             "sha256":  "F8294C4A1886088AF715F6C62E83AAD34B09028068F2F406398FBCDDBACA0BCB"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\da.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\da.pak",
+                             "length":  228312,
+                             "sha256":  "59134BBEA624084D253E7935BCA2E66B6E49610CE77D122831D0518BEF4335FA"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\de.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\de.pak",
+                             "length":  248889,
+                             "sha256":  "F91D72C69BC74BE69193DCF025962125726CC2D46C9F3A145657E68D99E2CDCD"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\el.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\el.pak",
+                             "length":  442205,
+                             "sha256":  "C49C6B55A03E03D69CB1637D275A9EB578765529A99A2F02E876B7EDC8B8243B"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\en-GB.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\en-GB.pak",
+                             "length":  204836,
+                             "sha256":  "BD87027B0E25F4692830309D2AF5064BF651727FFEFA2645B101CCEBDB0E5797"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\en-US.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\en-US.pak",
+                             "length":  206531,
+                             "sha256":  "A4A1B7C72A6CF829E9F023A8673CEFF385931E22FC5C23C361D8F43448B95EBC"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\es.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\es.pak",
+                             "length":  249919,
+                             "sha256":  "151CD836683F80E780A5A43BAE8A95E2EF4088EAA99C968B114E83A0DDD8EDCF"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\es-419.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\es-419.pak",
+                             "length":  245809,
+                             "sha256":  "7394E19A7511D3A73A253D15E4EB007C4F156D346635FA4455B02F1E3C966CC1"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\et.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\et.pak",
+                             "length":  222610,
+                             "sha256":  "9A4C6EE52E37582F0E770A089E0502EE36D4317F71CAE4CDCEE29C06C53B7946"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\fa.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\fa.pak",
+                             "length":  353040,
+                             "sha256":  "2DCA032314090FE1E8B45C5F19379B50F8BFC1EF250DFE2856D2C32B9A94F210"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\fi.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\fi.pak",
+                             "length":  229769,
+                             "sha256":  "C4990656698B0B2D2982E7F263062DCF325AC8485A424C2188D9CA8CC2BCB7C9"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\fil.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\fil.pak",
+                             "length":  252933,
+                             "sha256":  "711DC6748EA64EA1190C7C25032FD124A1EDD1819990E0CD0CFBB234FBD15568"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\fr.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\fr.pak",
+                             "length":  267633,
+                             "sha256":  "9E4541A4C71DDD3B39956407614D3883B96932D1E666C89931E32DDFF57AD905"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\gu.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\gu.pak",
+                             "length":  497075,
+                             "sha256":  "F4DEC19BA7577897675E34EF6729DA814507BD7D10F59B0468FDE66253671039"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\he.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\he.pak",
+                             "length":  301333,
+                             "sha256":  "0A9C01573C099244966F1CCF9E1B6C0B97F9D7928B6FC7EDD81928A3E11CA66E"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\hi.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\hi.pak",
+                             "length":  510101,
+                             "sha256":  "7FB85FF3934101AF4E5A6ED94937088175375F0180A96F6194A776E8319DC53F"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\hr.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\hr.pak",
+                             "length":  241834,
+                             "sha256":  "532F894C38D05DDB771938B944E8C9B058AF57A3FAD957072B114D8F7863747C"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\hu.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\hu.pak",
+                             "length":  263428,
+                             "sha256":  "1FE0100F6F5FF44000673DB31A96872820AD30A4B85260C399FC5C97D96659E9"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\id.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\id.pak",
+                             "length":  221326,
+                             "sha256":  "B3844D5F9D6330C541CF1DCB41EA79463C3A37661E7A753B9534074B2F82F543"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\it.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\it.pak",
+                             "length":  241201,
+                             "sha256":  "2B8996B55EF50065ADC54F1A331D13FC9B282EF06DA83B488AE45693B7B7F5D3"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\ja.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ja.pak",
+                             "length":  299857,
+                             "sha256":  "338F63438D6587359A9D798756BE97035985964B6128BC5D490C4090EB30096B"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\kn.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\kn.pak",
+                             "length":  578424,
+                             "sha256":  "E325DF8B2987D6D5B205B2D0E38025D004FCA46660C43F11DBD9B833E778704B"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\ko.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ko.pak",
+                             "length":  252196,
+                             "sha256":  "3715074338753169A7D0B824AA68A96C01A7A93804A5262EBE52170CC1E33847"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\lt.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\lt.pak",
+                             "length":  258878,
+                             "sha256":  "1311AF18D92EDC293EBC0DE8E734AAFE064A9C88B2503AA18E49101E686E0969"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\lv.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\lv.pak",
+                             "length":  257465,
+                             "sha256":  "140B4455CA56D5AFDF8DFB3C1F27BF45D3EFF10B4831398C388C2F99AD331ADC"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\ml.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ml.pak",
+                             "length":  617634,
+                             "sha256":  "60C7DC39E9A8DB10D1DED18C6BBFC64B324E075B639E2075B3D7F0038B45BDB7"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\mr.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\mr.pak",
+                             "length":  492853,
+                             "sha256":  "ACD92201A92A8A19DFFF2987EED89FD67D6AAC29C5BE17477E2061DD60BD5232"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\ms.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ms.pak",
+                             "length":  229260,
+                             "sha256":  "D03A99F763EB97AA84FE00912F6293F1C23B7EB436972B182822E9981990F703"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\nb.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\nb.pak",
+                             "length":  225090,
+                             "sha256":  "990E7777F4C705FFCACC78EA75EB98301B53E4E82835A65123A01530A070EE08"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\nl.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\nl.pak",
+                             "length":  235024,
+                             "sha256":  "0E232B618A6F4D14FD0170E7958DBF3251B23DF331C77A66EF1AF7981FB34277"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\pl.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\pl.pak",
+                             "length":  251100,
+                             "sha256":  "66F6DAFA265D2C84751A8331E61BAF0B2D00B30A7FA3A19933865C9F70B9E7B8"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\pt-BR.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\pt-BR.pak",
+                             "length":  242019,
+                             "sha256":  "AEC14236B11777161E7B6D66CA91A8112B2DC8770A759EAAF94AF686754EE65E"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\pt-PT.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\pt-PT.pak",
+                             "length":  245314,
+                             "sha256":  "354C5F58E330996BBA13F8AA66FCAE4D9118F073B48CF4DD6B04935284F81530"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\ro.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ro.pak",
+                             "length":  250362,
+                             "sha256":  "F2916BCC0131219734BFB43581821E29D1BBE05512E9286E9ED25983FE35B859"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\ru.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ru.pak",
+                             "length":  392556,
+                             "sha256":  "FF38A84652FF0373BE225BB85C51B49F770F7010AB143EC3F1CC7E9823350A1C"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\sk.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sk.pak",
+                             "length":  257057,
+                             "sha256":  "C95CFFCCC91AFF323596754B4CED2BCCAB322836CA8CEB820FD58FD3FDF7A6D8"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\sl.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sl.pak",
+                             "length":  243557,
+                             "sha256":  "206A4F5434E766320FCE443EA76AC46F61DF2A84BBEE93A42DE352FA33689EAD"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\sr.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sr.pak",
+                             "length":  377367,
+                             "sha256":  "52F4550EE69A83E5EBAE7FBE2D5725EBDC4139A486F5858BF72414AADDD156F2"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\sv.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sv.pak",
+                             "length":  227131,
+                             "sha256":  "B635E61B53A4634011C79CAD0E153750E4068C2E1A99B693634BA5E7330F70EF"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\sw.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sw.pak",
+                             "length":  232318,
+                             "sha256":  "C5291FE71675AA10CF9CC8086FD1C4DCB7BEB97556F77767EAEC4118973CD290"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\ta.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ta.pak",
+                             "length":  587585,
+                             "sha256":  "F1B3D8A864BB143D08802EA190A311E6800DA353CC4109A53A979EDA92766C2E"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\te.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\te.pak",
+                             "length":  555475,
+                             "sha256":  "FF4610E0F4EB562FEEF2205BBE99686D91149B0315AA1DFAED4ADBE00BBBDF98"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\th.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\th.pak",
+                             "length":  471760,
+                             "sha256":  "5C3FD0729115DA93A2B548BFEEDFCE1E97BBE63ABD83E82CE9139115E628E966"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\tr.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\tr.pak",
+                             "length":  241433,
+                             "sha256":  "2A3BA2386F53C3AACE4B04D3E65C41F0BE6BEAEFADB7560E9928A0BF00A6DD91"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\uk.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\uk.pak",
+                             "length":  394688,
+                             "sha256":  "0D640B4678EA0A491CB97250C3C5F31376F117E192406EDBCDE01812A9053D57"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\vi.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\vi.pak",
+                             "length":  279590,
+                             "sha256":  "58349C690036067C5AFEB5A1B534ED64BBAABE21726A687D4E4BDFFD85E18143"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\zh-CN.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\zh-CN.pak",
+                             "length":  208989,
+                             "sha256":  "25747D79BE46EE8759CD806B4A5B1F6992291867156C055B1D88F5485FC702F4"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\locales\\zh-TW.pak",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\zh-TW.pak",
+                             "length":  209140,
+                             "sha256":  "5DD354FF08D890EEF5174956F564ADCD8517B0209B504ED9C636F3737DF62F0C"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\snapshot_blob.bin",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\snapshot_blob.bin",
+                             "length":  240472,
+                             "sha256":  "007D065C8B317F2A0C686899B5BE75FC68D6C3BA7D1C47A86126A7D6CD257D81"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\swiftshader\\libEGL.dll",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\swiftshader\\libEGL.dll",
+                             "length":  421392,
+                             "sha256":  "3DA726F1AD81FE33EC80E12E75E053CA827B63BCAFDFBE2D6ACB2ECD51FEA60E"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\swiftshader\\libGLESv2.dll",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\swiftshader\\libGLESv2.dll",
+                             "length":  3791888,
+                             "sha256":  "99B74A3C310E22B0855CA36E7C782639EDC06FF47FABBD02E89A45F068CF6B9B"
+                         },
+                         {
+                             "source":  "BLPlatform64\\BLWebbrowser\\v8_context_snapshot.bin",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\v8_context_snapshot.bin",
+                             "length":  559000,
+                             "sha256":  "1E9B99985E53B10EF4EF0F01264117B8D7C3E0E19E65E1670326445562D7FF24"
+                         },
+                         {
+                             "source":  "BLPlatform64\\game_security_protection.exe",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\game_security_protection.exe",
+                             "length":  5630976,
+                             "sha256":  "4E7A885A2790D01E3CB8E88355923F2970961A26153012D82264C1E63F1FABFE"
+                         },
+                         {
+                             "source":  "BLPlatform64\\PCGamePlatform.exe",
+                             "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\PCGamePlatform.exe",
+                             "length":  7280128,
+                             "sha256":  "7CE9DCC27FF96DE5DC3D4FE2B953135AFE8A4CBB0FC088F4633A6689AFC825AD"
+                         }
+                     ],
+    "iniPatches":  [
+                       {
+                           "target":  "config.ini",
+                           "section":  "General",
+                           "values":  {
+                                          "cps":  "zzz_bilibili_pc",
+                                          "channel":  "14",
+                                          "sub_channel":  "0",
+                                          "uapc":  "{\"hyp\":{\"uapc\":\"\"},\"nap_cn\":{\"uapc\":\"\"}}"
+                                      }
+                       }
+                   ],
+    "deleteFiles":  [
+
+                    ],
+    "optionalDeleteFiles":  [
+
+                            ],
+    "notes":  "Reuse cn_official package files, then add the Bilibili SDK/login window."
+}

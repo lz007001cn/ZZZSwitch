@@ -1,0 +1,301 @@
+<Window x:Class="ZZZSwitch.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ZZZSwitch.Controls"
+        Title="ZZZSwitch"
+        Width="980" Height="760"
+        MinWidth="820" MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        Icon="Assets/ZZZSwitch-Icon.png"
+        Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI, Microsoft YaHei UI"
+        UseLayoutRounding="True">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="64" />
+            <RowDefinition Height="1" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{StaticResource SidebarBrush}">
+            <Grid Margin="28,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Image Source="Assets/ZZZSwitch-Wordmark.png"
+                       Width="146"
+                       Height="28"
+                       Stretch="Uniform"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       AutomationProperties.Name="ZZZSwitch" />
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Border Style="{StaticResource PillStyle}"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6"
+                                     Height="6"
+                                     Fill="{StaticResource GreenBrush}"
+                                     Margin="0,0,7,0"
+                                     VerticalAlignment="Center" />
+                            <TextBlock x:Name="AppVersionText"
+                                       Text="{Binding AppVersion}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource MutedTextBrush}" />
+                            <TextBlock Text=" · "
+                                       FontSize="11"
+                                       Foreground="{StaticResource SubtleTextBrush}" />
+                            <TextBlock Text="Windows x64"
+                                       FontSize="11"
+                                       Foreground="{StaticResource MutedTextBrush}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Background="{StaticResource BorderBrush}" />
+
+        <ScrollViewer Grid.Row="2"
+                      VerticalScrollBarVisibility="Visible"
+                      HorizontalScrollBarVisibility="Disabled"
+                      HorizontalContentAlignment="Stretch">
+            <Grid>
+                <StackPanel x:Name="MainContentPanel"
+                            Margin="30,24,30,32"
+                            MaxWidth="880"
+                            HorizontalAlignment="Stretch">
+
+                <Border x:Name="ContentWidthAnchor"
+                        Style="{StaticResource CardStyle}"
+                        Margin="0,0,0,14">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="游戏目录"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   FontSize="12"
+                                   Margin="0,0,0,9" />
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="GamePathTextBox"
+                                     Text="{Binding GamePath, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding IsInteractionEnabled}"
+                                     VerticalContentAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    x:Name="AutoDetectButton"
+                                    Content="自动检测"
+                                    Command="{Binding AutoDetectCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Margin="8,0,6,0" />
+                            <Button Grid.Column="2"
+                                    x:Name="ChooseDirectoryButton"
+                                    Content="选择"
+                                    Command="{Binding ChooseDirectoryCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <controls:InspectionSummaryCard x:Name="InspectionSummary"
+                                                Margin="0,0,0,20"
+                                                CacheManagementCommand="{Binding CacheManagementCommand}"
+                                                InitializeCacheCommand="{Binding InitializeCacheCommand}" />
+
+                <TextBlock Text="切换服务器"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Margin="2,0,0,11" />
+
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="BilibiliColumn" Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <controls:ServerSwitchCard x:Name="SwitchGlobalButton"
+                                               ServerName="国际服"
+                                               Description="切换并恢复国际服缓存"
+                                               IconSource="Assets/Server-Global.png"
+                                               Command="{Binding SwitchGlobalCommand}"
+                                               Margin="0,0,6,0" />
+
+                    <controls:ServerSwitchCard Grid.Column="1"
+                                               x:Name="SwitchCnButton"
+                                               ServerName="国服"
+                                               Description="切换并恢复国服缓存"
+                                               IconSource="Assets/Server-CN.png"
+                                               Command="{Binding SwitchCnCommand}"
+                                               Margin="6,0,6,0" />
+
+                    <controls:ServerSwitchCard Grid.Column="2"
+                                               x:Name="SwitchBilibiliButton"
+                                               ServerName="B服"
+                                               Description="国服资源与B站登录窗"
+                                               IconSource="Assets/Server-Bilibili.png"
+                                               Command="{Binding SwitchBilibiliCommand}"
+                                               Margin="6,0,0,0" />
+                </Grid>
+
+                <Border x:Name="OperationStatusCard"
+                        Style="{StaticResource CardStyle}"
+                        Margin="0,0,0,14"
+                        Visibility="{Binding HasStatusIssues, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="OperationStatusText"
+                                       Text="{Binding OperationStatus}"
+                                       FontSize="12"
+                                       FontWeight="Normal" />
+                            <TextBlock Grid.Column="1"
+                                       x:Name="IssueSummaryText"
+                                       Text="{Binding IssueSummary}"
+                                       FontSize="12"
+                                       Foreground="{StaticResource MutedTextBrush}" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Expander x:Name="DetailsExpander"
+                          IsExpanded="False"
+                          Width="{Binding ActualWidth, ElementName=ContentWidthAnchor}"
+                          Margin="0,0,0,14">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2,5">
+                            <TextBlock Text="详细检查信息"
+                                       FontWeight="SemiBold"
+                                       FontSize="13" />
+                        </StackPanel>
+                    </Expander.Header>
+                    <Border Style="{StaticResource CardStyle}"
+                            Margin="0,9,0,0"
+                            Padding="12">
+                        <TextBox x:Name="ReportTextBox"
+                                 Text="{Binding Report}"
+                                 Height="230"
+                                 IsReadOnly="True"
+                                 AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 FontFamily="Cascadia Mono, Consolas, Microsoft YaHei UI"
+                                 FontSize="11"
+                                 TextWrapping="NoWrap" />
+                    </Border>
+                </Expander>
+
+                <Border Style="{StaticResource CardStyle}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="工具"
+                                       FontSize="14"
+                                       FontWeight="SemiBold" />
+                        </StackPanel>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="BackupsButton"
+                                    Command="{Binding BackupsCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Margin="0,0,5,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8F7;"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Margin="0,0,7,0" />
+                                    <TextBlock Text="备份历史" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="1"
+                                    Command="{Binding LogsCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Margin="5,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE9D5;"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Margin="0,0,7,0" />
+                                    <TextBlock Text="运行日志" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="2"
+                                    Command="{Binding OpenPackagesCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Margin="5,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8B7;"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Margin="0,0,7,0" />
+                                    <TextBlock Text="差异包目录" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3"
+                                    x:Name="BackupDirectoryButton"
+                                    Command="{Binding BackupDirectoryCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Margin="5,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8B7;"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Margin="0,0,7,0" />
+                                    <TextBlock Text="备份目录" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                x:Name="BusyIndicator"
+                Style="{StaticResource CardStyle}"
+                Width="300"
+                Margin="0,16,42,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Panel.ZIndex="10"
+                Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock x:Name="BusyStatusText"
+                           Text="{Binding BusyStatus}"
+                           FontSize="12"
+                           TextTrimming="CharacterEllipsis" />
+                <ProgressBar Grid.Row="1"
+                             x:Name="OperationProgress"
+                             Height="2"
+                             Minimum="0"
+                             Maximum="1"
+                             Value="0"
+                             Margin="0,12,0,0" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

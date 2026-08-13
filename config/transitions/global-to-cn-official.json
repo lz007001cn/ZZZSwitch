@@ -1,0 +1,205 @@
+{
+  "sourceProfile": "global",
+  "targetProfile": "cn_official",
+  "gameVersion": "3.1.0",
+  "enabled": true,
+  "expectedReplaceCount": 32,
+  "expectedDeleteCount": 0,
+  "replaceFiles": [
+    {
+      "source": "GameAssembly.dll",
+      "target": "GameAssembly.dll",
+      "length": 546872608,
+      "sha256": "251F48B343393C3FD21A5D820F8DCC5BA3C45C7682D9682BE7E918D011B73FEF"
+    },
+    {
+      "source": "HoYoKProtect.sys",
+      "target": "HoYoKProtect.sys",
+      "length": 4063424,
+      "sha256": "514D4C4B41A39AAB552C28D0EC5BED472E1576437514CB82BC8BB0908700CCD3"
+    },
+    {
+      "source": "mhypbase.dll",
+      "target": "mhypbase.dll",
+      "length": 26719176,
+      "sha256": "B7F866F5B385E1D75036A7E348C4036774A1E99EF123EEE066D0C9FC0AA5E18A"
+    },
+    {
+      "source": "pkg_version",
+      "target": "pkg_version",
+      "length": 1781238,
+      "sha256": "9DF282E71ED0CB3DBE5ABB69DF2FBA652D8E7435196CCCC50245289F33037FB5"
+    },
+    {
+      "source": "version_info",
+      "target": "version_info",
+      "length": 14,
+      "sha256": "71CBA7CA0F6CE5C16650EBBC6E93129802E55847F53A3A1A967DA91A617F7756"
+    },
+    {
+      "source": "ZenlessZoneZero.exe",
+      "target": "ZenlessZoneZero.exe",
+      "length": 10363168,
+      "sha256": "72F0BFEAA1BE9CE5D920E3456B949CB1066A8CD73DBB2A46BDB33E69E045DAA5"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\globalgamemanagers",
+      "target": "ZenlessZoneZero_Data\\globalgamemanagers",
+      "length": 2609652,
+      "sha256": "F0D6ACC5158082DCB5662FF0C3D5D45C292FD4C0BD52B028F78A64640C804405"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\globalgamemanagers.assets",
+      "target": "ZenlessZoneZero_Data\\globalgamemanagers.assets",
+      "length": 67500576,
+      "sha256": "A9F0133116A0CF0C59A0BF559E3ADE0960D9C25CAF23D8C3EB851E16A4123CBD"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\globalgamemanagers.assets.resS",
+      "target": "ZenlessZoneZero_Data\\globalgamemanagers.assets.resS",
+      "length": 11582580,
+      "sha256": "849DFE8E94172C979ABD101BE288621DE904BAE4A03546CAEDAEE2C877ECB6B4"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\global-metadata.dat",
+      "target": "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\global-metadata.dat",
+      "length": 120118564,
+      "sha256": "3575100A382D2D185C7958B97F31B4A54445AFBFE5C84CF43C7B99ABE35260AC"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\startup-metadata.dat",
+      "target": "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\startup-metadata.dat",
+      "length": 7228788,
+      "sha256": "BDC4AD4C454BF19A06118D9C133D2687073FCDBAEA7777ECB3C2712F0B67EBC4"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\level0",
+      "target": "ZenlessZoneZero_Data\\level0",
+      "length": 15092,
+      "sha256": "141A927E43FB8C197969E12B3858FFEEAB98DEAC2CF6BCD70ACE0434BD3058DB"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\Persistent\\audio_revision",
+      "target": "ZenlessZoneZero_Data\\Persistent\\audio_revision",
+      "length": 8,
+      "sha256": "706635C4BC794C2AFE0C2CD1AE63DBC02A45A4A7B26CE39AB18A0ADFBCE10B51"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\Persistent\\base_version_hash",
+      "target": "ZenlessZoneZero_Data\\Persistent\\base_version_hash",
+      "length": 80,
+      "sha256": "4AE378639D16627EA243FC8810A0A2051909F9162F87AEA9564233CE27F95869"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\Persistent\\data_revision",
+      "target": "ZenlessZoneZero_Data\\Persistent\\data_revision",
+      "length": 8,
+      "sha256": "609769EE88D9681993A9D27F65BDEF9E6FC8155B177CE4AAD1DC145621D289CF"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\Persistent\\data_version_persist",
+      "target": "ZenlessZoneZero_Data\\Persistent\\data_version_persist",
+      "length": 6524,
+      "sha256": "CA2575D0E6E8F180CC3CBBBC5A67D8987B286D0B8E0FEFCAD5EEB6BD6661A902"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\Persistent\\res_revision",
+      "target": "ZenlessZoneZero_Data\\Persistent\\res_revision",
+      "length": 8,
+      "sha256": "609769EE88D9681993A9D27F65BDEF9E6FC8155B177CE4AAD1DC145621D289CF"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\Persistent\\res_version_persist",
+      "target": "ZenlessZoneZero_Data\\Persistent\\res_version_persist",
+      "length": 3104846,
+      "sha256": "06474B6B68D42BD37F684139BEF769D5222C68B1AC61664B85FBB67E6BCEB2D2"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\Persistent\\silence_revision",
+      "target": "ZenlessZoneZero_Data\\Persistent\\silence_revision",
+      "length": 8,
+      "sha256": "167B6B74659A0C55E6157ACF911F0A8C264114302CAB0EA3C3E85DCEF4BA6076"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\Persistent\\silence_version_persist",
+      "target": "ZenlessZoneZero_Data\\Persistent\\silence_version_persist",
+      "length": 552,
+      "sha256": "C7670255C84AEB5DE43FAF0EEA5546A47BF9FE364A8B8B499EB2A8A59E979429"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\resources.assets",
+      "target": "ZenlessZoneZero_Data\\resources.assets",
+      "length": 19323728,
+      "sha256": "33B031E36CF56004497E85F805DF7DDAE829FD106CFA9E13D01A9F8AAEE7C673"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\resources.assets.resS",
+      "target": "ZenlessZoneZero_Data\\resources.assets.resS",
+      "length": 15381124,
+      "sha256": "23B20DB1238E527B147BE3B8655F4820E21480C7ED8A274D15D1F56220DDA388"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\sharedassets0.assets",
+      "target": "ZenlessZoneZero_Data\\sharedassets0.assets",
+      "length": 48528,
+      "sha256": "62955032441A387C5ECFAD00317283F1EAEC132B18545A4A9B294B0F4F965B21"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\StreamingAssets\\APMConfig.json",
+      "target": "ZenlessZoneZero_Data\\StreamingAssets\\APMConfig.json",
+      "length": 110,
+      "sha256": "09004478E135935EC84083C2574212F242C6188202E1D36CB3622EF6C27B72BF"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\StreamingAssets\\audio_revision",
+      "target": "ZenlessZoneZero_Data\\StreamingAssets\\audio_revision",
+      "length": 8,
+      "sha256": "962CDEB3B112F275A636968C3372E30E8836080A0A167F2281C2FB8F4E22A833"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\StreamingAssets\\audio_version",
+      "target": "ZenlessZoneZero_Data\\StreamingAssets\\audio_version",
+      "length": 43267,
+      "sha256": "3FEF08D154DAB004853BD5A562F5D8AC328DE5CAAC1DCD3F9946CBC9617294C7"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\StreamingAssets\\data_revision",
+      "target": "ZenlessZoneZero_Data\\StreamingAssets\\data_revision",
+      "length": 8,
+      "sha256": "962CDEB3B112F275A636968C3372E30E8836080A0A167F2281C2FB8F4E22A833"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\StreamingAssets\\data_version",
+      "target": "ZenlessZoneZero_Data\\StreamingAssets\\data_version",
+      "length": 2953,
+      "sha256": "AF580A81C6F337CBDE72AF8A8C9F878AD220C2FB4FC4883EE8A6398A01DB5CF0"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\StreamingAssets\\res_revision",
+      "target": "ZenlessZoneZero_Data\\StreamingAssets\\res_revision",
+      "length": 8,
+      "sha256": "962CDEB3B112F275A636968C3372E30E8836080A0A167F2281C2FB8F4E22A833"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\StreamingAssets\\res_version",
+      "target": "ZenlessZoneZero_Data\\StreamingAssets\\res_version",
+      "length": 1447607,
+      "sha256": "BF487153A4ECE3CDB13987E7BA692A17A1A330C66908FA59E86B759E405C49D7"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\StreamingAssets\\silence_revision",
+      "target": "ZenlessZoneZero_Data\\StreamingAssets\\silence_revision",
+      "length": 8,
+      "sha256": "962CDEB3B112F275A636968C3372E30E8836080A0A167F2281C2FB8F4E22A833"
+    },
+    {
+      "source": "ZenlessZoneZero_Data\\StreamingAssets\\silence_version",
+      "target": "ZenlessZoneZero_Data\\StreamingAssets\\silence_version",
+      "length": 140,
+      "sha256": "67748888CB4E55399F95A60C486A8016652FB06F753F05375974B94BBFDAD7EA"
+    }
+  ],
+  "deleteFiles": [],
+  "optionalDeleteFiles": [],
+  "notes": "按只读盘点得到的国服包完整文件集替换；没有发现可信删除规则。"
+}

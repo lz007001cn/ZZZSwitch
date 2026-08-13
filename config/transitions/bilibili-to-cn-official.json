@@ -1,0 +1,245 @@
+{
+    "sourceProfile":  "bilibili",
+    "targetProfile":  "cn_official",
+    "gameVersion":  "3.1.0",
+    "enabled":  true,
+    "expectedReplaceCount":  1,
+    "expectedDeleteCount":  0,
+    "replaceFiles":  [
+
+                     ],
+    "iniPatches":  [
+                       {
+                           "target":  "config.ini",
+                           "section":  "General",
+                           "values":  {
+                                          "cps":  "zzz_mktbackup2_pc",
+                                          "channel":  "1",
+                                          "sub_channel":  "2",
+                                          "uapc":  "{\"hyp\":{\"uapc\":\"\"},\"nap_cn\":{\"uapc\":\"\"}}"
+                                      }
+                       }
+                   ],
+    "deleteFiles":  [
+
+                    ],
+    "optionalDeleteFiles":  [
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\PCGameSDK.dll"
+                                },
+                                {
+                                    "target":  "sdk_pkg_version"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\cef.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\cef_100_percent.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\cef_200_percent.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\cef_extensions.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\chrome_elf.dll"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\d3dcompiler_47.dll"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\devtools_resources.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\icudtl.dat"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\libcef.dll"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\libEGL.dll"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\libGLESv2.dll"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\am.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ar.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\bg.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\bn.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ca.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\cs.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\da.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\de.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\el.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\en-GB.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\en-US.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\es.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\es-419.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\et.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\fa.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\fi.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\fil.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\fr.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\gu.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\he.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\hi.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\hr.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\hu.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\id.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\it.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ja.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\kn.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ko.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\lt.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\lv.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ml.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\mr.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ms.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\nb.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\nl.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\pl.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\pt-BR.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\pt-PT.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ro.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ru.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sk.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sl.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sr.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sv.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\sw.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\ta.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\te.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\th.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\tr.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\uk.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\vi.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\zh-CN.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\locales\\zh-TW.pak"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\snapshot_blob.bin"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\swiftshader\\libEGL.dll"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\swiftshader\\libGLESv2.dll"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\BLWebbrowser\\v8_context_snapshot.bin"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\game_security_protection.exe"
+                                },
+                                {
+                                    "target":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\PCGamePlatform.exe"
+                                }
+                            ],
+    "notes":  "Keep CN core, remove Bilibili overlay files when present, and restore CN config values."
+}

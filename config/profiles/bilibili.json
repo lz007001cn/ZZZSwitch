@@ -1,0 +1,43 @@
+{
+    "id":  "bilibili",
+    "displayName":  "绝区零B服",
+    "packageDirectoryName":  "bilibili",
+    "enabled":  true,
+    "keyFiles":  [
+                     {
+                         "path":  "GameAssembly.dll",
+                         "length":  546872608
+                     },
+                     {
+                         "path":  "ZenlessZoneZero.exe",
+                         "length":  10363168
+                     },
+                     {
+                         "path":  "mhypbase.dll",
+                         "length":  26719176
+                     },
+                     {
+                         "path":  "ZenlessZoneZero_Data\\il2cpp_data\\Metadata\\global-metadata.dat",
+                         "length":  120118564
+                     },
+                     {
+                         "path":  "ZenlessZoneZero_Data\\resources.assets",
+                         "length":  19323728
+                     },
+                     {
+                         "path":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\PCGameSDK.dll",
+                         "length":  5905408,
+                         "sha256":  "28CDC496571B194924EA23398810B4F128D9FF390FDCC00C789EC628F2B73D57"
+                     },
+                     {
+                         "path":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\PCGamePlatform.exe",
+                         "length":  7280128,
+                         "sha256":  "7CE9DCC27FF96DE5DC3D4FE2B953135AFE8A4CBB0FC088F4633A6689AFC825AD"
+                     },
+                     {
+                         "path":  "ZenlessZoneZero_Data\\Plugins\\x86_64\\BLPlatform64\\game_security_protection.exe",
+                         "length":  5630976,
+                         "sha256":  "4E7A885A2790D01E3CB8E88355923F2970961A26153012D82264C1E63F1FABFE"
+                     }
+                 ]
+}
