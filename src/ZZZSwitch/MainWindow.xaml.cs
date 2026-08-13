@@ -58,6 +58,7 @@ public partial class MainWindow : Window
         var app = (App)System.Windows.Application.Current;
         _theme = app.Theme;
         _localization = app.Localization;
+        _viewModel.ApplyInitialLanguage(_localization.Language);
         _uiSettingsService = new UiSettingsService(_paths);
         _uiSettings = _uiSettingsService.Load();
         ApplyWindowPlacement(_uiSettings);
@@ -270,7 +271,11 @@ public partial class MainWindow : Window
                 report.Game.GameVersion,
                 report.Game.GamePath,
                 activeProfile is null ? null : ProfileIds.ToResourceProfile(activeProfile))).ToArray();
-        var presentation = _inspectionPresentation.Build(report, _lastCacheStatuses, readOnlyBanner);
+        var presentation = _inspectionPresentation.Build(
+            report,
+            _lastCacheStatuses,
+            readOnlyBanner,
+            _localization.Language);
         _viewModel.ApplyInspection(presentation);
         _viewModel.ProfileAccent = ProfileBrush(presentation.ActiveProfile);
         OperationProgress.Value = 0;
@@ -588,6 +593,10 @@ public partial class MainWindow : Window
     {
         _uiSettings = settings;
         DetailsExpander.IsExpanded = settings.ShowDetailedStatus;
+        if (_lastReport is not null)
+        {
+            RenderReport(_lastReport, readOnlyBanner: false);
+        }
     }
 
     private void ApplyWindowPlacement(UiSettings settings)

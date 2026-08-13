@@ -176,6 +176,36 @@ internal static class Program
             Assert(presentation.Packages.Contains("B服", StringComparison.Ordinal) &&
                    presentation.Report.Contains("[仅检查模式]", StringComparison.Ordinal),
                 "扫描展示格式化器未生成完整摘要或只读说明。");
+            var englishPresentation = presentationBuilder.Build(
+                new InspectionReport
+                {
+                    Game = new GameDirectoryResult
+                    {
+                        GamePath = Path.Combine(tempRoot, "Game"),
+                        IsValid = true,
+                        GameVersion = "3.1.0"
+                    },
+                    Detection = new DetectionResult { Profile = DetectedProfile.Global },
+                    Packages =
+                    [
+                        Package(ProfileIds.Bilibili, "B服", 72),
+                        Package(ProfileIds.CnOfficial, "国服", 32),
+                        Package(ProfileIds.Global, "国际服", 24)
+                    ]
+                },
+                [
+                    Cache(ProfileIds.Global, isActive: true, 710L * 1024 * 1024),
+                    Cache(ProfileIds.CnOfficial, isActive: false, 10L * 1024 * 1024 * 1024)
+                ],
+                readOnlyBanner: true,
+                AppLanguage.English);
+            Assert(englishPresentation.Profile == "Global" &&
+                   englishPresentation.Packages.Contains("CN Official  Available · 32 files", StringComparison.Ordinal) &&
+                   englishPresentation.CacheSummary.Contains("Global: Active", StringComparison.Ordinal) &&
+                   englishPresentation.Report.Contains("[Inspection only]", StringComparison.Ordinal) &&
+                   !englishPresentation.Packages.Contains("可用", StringComparison.Ordinal) &&
+                   !englishPresentation.CacheSummary.Contains("活动中", StringComparison.Ordinal),
+                "English 动态检测结果仍混有中文。" );
             var summary = Require<InspectionSummaryCard>(main, "InspectionSummary");
             Assert(Require<Button>(summary, "CacheManagementButton").IsEnabled,
                 "摘要控件未绑定缓存管理可用状态。");
@@ -362,6 +392,12 @@ internal static class Program
             "English 语言未更新主界面按钮。");
         Assert(Require<ServerSwitchCard>(main, "SwitchBilibiliButton").ServerName == "Bilibili",
             "English 语言未更新服务器卡片。");
+        var initialState = new MainWindowViewModel();
+        initialState.ApplyInitialLanguage(AppLanguage.English);
+        Assert(initialState.Profile == "Waiting for detection" &&
+               initialState.Packages == "Waiting for scan" &&
+               initialState.CacheSummary == "Waiting for inspection",
+            "English 扫描前状态仍混有中文。" );
 
         localization.SetLanguage(AppLanguage.Chinese);
         main.UpdateLayout();

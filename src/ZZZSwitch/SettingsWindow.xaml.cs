@@ -58,12 +58,16 @@ public partial class SettingsWindow : Window
         CachePathTextBlock.ToolTip = data.CacheUsage?.CacheRootPath;
         CacheUsageText.Text = data.CacheUsage is null
             ? data.CacheError ?? "—"
-            : $"{data.CacheUsage.FileCount:N0} files / 文件 · {DisplayFormatting.FormatBytes(data.CacheUsage.TotalBytes)}";
+            : localization.Language == AppLanguage.English
+                ? $"{data.CacheUsage.FileCount:N0} files · {DisplayFormatting.FormatBytes(data.CacheUsage.TotalBytes)}"
+                : $"{data.CacheUsage.FileCount:N0} 个文件 · {DisplayFormatting.FormatBytes(data.CacheUsage.TotalBytes)}";
         BackupPathTextBlock.Text = data.BackupUsage?.BackupRootPath ?? "—";
         BackupPathTextBlock.ToolTip = data.BackupUsage?.BackupRootPath;
         BackupUsageText.Text = data.BackupUsage is null
             ? data.BackupError ?? "—"
-            : $"{data.BackupUsage.BackupCount:N0} backups / 备份 · {DisplayFormatting.FormatBytes(data.BackupUsage.TotalBytes)}";
+            : localization.Language == AppLanguage.English
+                ? $"{data.BackupUsage.BackupCount:N0} backups · {DisplayFormatting.FormatBytes(data.BackupUsage.TotalBytes)}"
+                : $"{data.BackupUsage.BackupCount:N0} 个备份 · {DisplayFormatting.FormatBytes(data.BackupUsage.TotalBytes)}";
 
         OriginalSettings = data.Settings;
     }

@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using ZZZSwitch.Commands;
 using ZZZSwitch.Core.Models;
+using ZZZSwitch.Core.Services;
 using ZZZSwitch.Presentation;
 using MediaBrush = System.Windows.Media.Brush;
 
@@ -166,6 +167,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         Report = presentation.Report;
         HasStatusIssues = presentation.HasStatusIssues;
         SetInspectionCapabilities(presentation.CanManageCache, presentation.CanInitializeCache);
+    }
+
+    public void ApplyInitialLanguage(AppLanguage language)
+    {
+        if (language == AppLanguage.English)
+        {
+            Profile = "Waiting for detection";
+            Packages = "Waiting for scan";
+            CacheSummary = "Waiting for inspection";
+            OperationStatus = "Inspecting";
+            BusyStatus = "Working…";
+            return;
+        }
+
+        Profile = "等待检测";
+        Packages = "等待扫描";
+        CacheSummary = "等待检查";
+        OperationStatus = "检查中";
+        BusyStatus = "正在处理…";
     }
 
     public void ConfigureCommands(MainWindowCommandHandlers handlers)
