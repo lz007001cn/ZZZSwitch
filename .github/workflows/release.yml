@@ -67,25 +67,20 @@ jobs:
         shell: pwsh
         run: ./publish-win-x64.ps1 -Version $env:RELEASE_VERSION
 
-      - name: Create ZIP and checksum
+      - name: Create ZIP
         shell: pwsh
         run: |
           $publishDirectory = "publish/ZZZSwitch-win-x64-v$env:RELEASE_VERSION"
           $archive = "dist/ZZZSwitch-win-x64-v$env:RELEASE_VERSION.zip"
-          $checksum = "$archive.sha256"
 
           New-Item -ItemType Directory -Path 'dist' -Force | Out-Null
           Compress-Archive -Path "$publishDirectory/*" -DestinationPath $archive -CompressionLevel Optimal
-          $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
-          "$hash  $([System.IO.Path]::GetFileName($archive))" | Set-Content -LiteralPath $checksum -Encoding utf8
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: ZZZSwitch-win-x64-${{ github.ref_name }}
-          path: |
-            dist/*.zip
-            dist/*.sha256
+          path: dist/*.zip
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -94,10 +89,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $archive = "dist/ZZZSwitch-win-x64-v$env:RELEASE_VERSION.zip"
-          $checksum = "$archive.sha256"
           gh release create $env:RELEASE_TAG `
             "$archive" `
-            "$checksum" `
             --verify-tag `
             --generate-notes `
             --title "ZZZSwitch $env:RELEASE_TAG"

@@ -59,13 +59,6 @@ ZZZSwitch-Packages-3.1.0.zip
 `ZZZSwitch-Packages-3.1.0.zip` 已同时包含 `global`、`cn_official` 和
 `bilibili` 三个差异目录，不再单独分发 B服扩展压缩包。
 
-同时提供：
-
-```text
-SHA256SUMS-v1.2.2.txt
-```
-
-可使用 SHA-256 校验压缩包是否完整。
 
 热更新缓存不会随发布包分发。每台电脑都需要在本机初始化自己的国服/国际服资源缓存；B服与国服共用同一份缓存。
 
@@ -486,7 +479,7 @@ publish\ZZZSwitch-win-x64-v<版本号>
 
 ### GitHub Actions 自动发布
 
-`.github/workflows/release.yml` 会在推送 `v<主版本>.<次版本>.<修订号>` 标签时自动执行 Release 构建、核心测试、WPF UI 冒烟测试，并创建带 Windows x64 便携 ZIP 和 SHA-256 文件的 GitHub Release。标签版本必须与 `src\ZZZSwitch\ZZZSwitch.csproj` 中的 `Version` 完全一致，否则工作流会停止。
+`.github/workflows/release.yml` 会在推送 `v<主版本>.<次版本>.<修订号>` 标签时自动执行 Release 构建、核心测试、WPF UI 冒烟测试，并创建带 Windows x64 便携 ZIP 的 GitHub Release。标签版本必须与 `src\ZZZSwitch\ZZZSwitch.csproj` 中的 `Version` 完全一致，否则工作流会停止。
 
 例如发布 `1.2.3`：先将 `src\ZZZSwitch\ZZZSwitch.csproj` 中唯一的 `<Version>` 改为 `1.2.3`，提交并推送 `main`，再执行：
 
