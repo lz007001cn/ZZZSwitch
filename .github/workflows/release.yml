@@ -1,0 +1,103 @@
+name: Build and release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  RELEASE_TAG: ${{ github.ref_name }}
+
+jobs:
+  release:
+    name: Build, test, and publish Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Validate release tag and project version
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
+            throw "Release tag must use the form v1.2.3. Actual tag: $env:RELEASE_TAG"
+          }
+
+          $releaseVersion = $Matches.version
+          [xml] $project = Get-Content 'src/ZZZSwitch/ZZZSwitch.csproj' -Raw
+          $projectVersion = [string] $project.Project.PropertyGroup.Version
+          if ($projectVersion -ne $releaseVersion) {
+            throw "Tag version $releaseVersion does not match project version $projectVersion."
+          }
+
+          "RELEASE_VERSION=$releaseVersion" >> $env:GITHUB_ENV
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore ZZZSwitch.sln
+
+      - name: Build
+        shell: pwsh
+        run: dotnet build ZZZSwitch.sln -c Release --no-restore --nologo
+
+      - name: Run core tests
+        shell: pwsh
+        run: dotnet run --project tests/ZZZSwitch.Core.Tests/ZZZSwitch.Core.Tests.csproj -c Release --no-build
+
+      - name: Run WPF UI smoke tests
+        shell: pwsh
+        run: dotnet run --project tests/ZZZSwitch.Ui.Smoke/ZZZSwitch.Ui.Smoke.csproj -c Release --no-build
+
+      - name: Publish portable application
+        shell: pwsh
+        run: ./publish-win-x64.ps1 -Version $env:RELEASE_VERSION
+
+      - name: Create ZIP and checksum
+        shell: pwsh
+        run: |
+          $publishDirectory = "publish/ZZZSwitch-win-x64-v$env:RELEASE_VERSION"
+          $archive = "dist/ZZZSwitch-win-x64-v$env:RELEASE_VERSION.zip"
+          $checksum = "$archive.sha256"
+
+          New-Item -ItemType Directory -Path 'dist' -Force | Out-Null
+          Compress-Archive -Path "$publishDirectory/*" -DestinationPath $archive -CompressionLevel Optimal
+          $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
+          "$hash  $([System.IO.Path]::GetFileName($archive))" | Set-Content -LiteralPath $checksum -Encoding utf8
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZZZSwitch-win-x64-${{ github.ref_name }}
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $archive = "dist/ZZZSwitch-win-x64-v$env:RELEASE_VERSION.zip"
+          $checksum = "$archive.sha256"
+          gh release create $env:RELEASE_TAG `
+            "$archive#Windows x64 portable package" `
+            "$checksum#SHA-256 checksum" `
+            --verify-tag `
+            --generate-notes `
+            --title "ZZZSwitch $env:RELEASE_TAG"

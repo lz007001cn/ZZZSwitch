@@ -460,7 +460,7 @@ dotnet run --project tests\ZZZSwitch.Ui.Smoke\ZZZSwitch.Ui.Smoke.csproj -c Relea
 当前自动测试数量：
 
 ```text
-79/79
+81/81
 ```
 
 为新游戏版本生成或核对差异文件清单哈希：
@@ -478,11 +478,24 @@ python tools\update_package_hashes.py config "E:\HoYoPlay\games\.zzzswitch\packa
 powershell -ExecutionPolicy Bypass -File .\publish-win-x64.ps1
 ```
 
-发布输出：
+发布输出（版本号读取自 `src\ZZZSwitch\ZZZSwitch.csproj`）：
 
 ```text
-publish\ZZZSwitch-win-x64-v1.2.2
+publish\ZZZSwitch-win-x64-v<版本号>
 ```
+
+### GitHub Actions 自动发布
+
+`.github/workflows/release.yml` 会在推送 `v<主版本>.<次版本>.<修订号>` 标签时自动执行 Release 构建、核心测试、WPF UI 冒烟测试，并创建带 Windows x64 便携 ZIP 和 SHA-256 文件的 GitHub Release。标签版本必须与 `src\ZZZSwitch\ZZZSwitch.csproj` 中的 `Version` 完全一致，否则工作流会停止。
+
+例如发布 `1.2.3`：
+
+```powershell
+git tag -a v1.2.3 -m "ZZZSwitch v1.2.3"
+git push origin v1.2.3
+```
+
+推送普通分支不会发布版本。发布工作流只打包应用程序，不上传游戏差异包或热更新缓存。
 
 ## 项目结构
 

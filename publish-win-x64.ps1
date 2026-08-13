@@ -1,15 +1,34 @@
 [CmdletBinding()]
-param()
+param(
+    [ValidatePattern('^\d+\.\d+\.\d+$')]
+    [string]$Version,
+
+    [string]$OutputRoot = (Join-Path $PSScriptRoot 'publish')
+)
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
-$appVersion = '1.2.2'
-$publishDirectory = Join-Path $projectRoot "publish\ZZZSwitch-win-x64-v$appVersion"
+$projectPath = Join-Path $projectRoot 'src\ZZZSwitch\ZZZSwitch.csproj'
 
-dotnet publish (Join-Path $projectRoot 'src\ZZZSwitch\ZZZSwitch.csproj') `
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    [xml]$project = Get-Content -LiteralPath $projectPath -Raw
+    $Version = [string]$project.Project.PropertyGroup.Version
+}
+
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Invalid application version: $Version"
+}
+
+$publishDirectory = Join-Path $OutputRoot "ZZZSwitch-win-x64-v$Version"
+
+dotnet publish $projectPath `
     -c Release `
     -r win-x64 `
     --self-contained true `
+    -p:Version=$Version `
+    -p:AssemblyVersion="$Version.0" `
+    -p:FileVersion="$Version.0" `
+    -p:InformationalVersion=$Version `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:EnableCompressionInSingleFile=true `
@@ -23,4 +42,4 @@ if ($LASTEXITCODE -ne 0) {
 
 Copy-Item (Join-Path $projectRoot 'README.md') (Join-Path $publishDirectory 'README.md') -Force
 
-Write-Host "ZZZSwitch v$appVersion published: $publishDirectory"
+Write-Host "ZZZSwitch v$Version published: $publishDirectory"
