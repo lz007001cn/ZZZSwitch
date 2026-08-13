@@ -96,8 +96,8 @@ jobs:
           $archive = "dist/ZZZSwitch-win-x64-v$env:RELEASE_VERSION.zip"
           $checksum = "$archive.sha256"
           gh release create $env:RELEASE_TAG `
-            "$archive#Windows x64 portable package" `
-            "$checksum#SHA-256 checksum" `
+            "$archive" `
+            "$checksum" `
             --verify-tag `
             --generate-notes `
             --title "ZZZSwitch $env:RELEASE_TAG"
