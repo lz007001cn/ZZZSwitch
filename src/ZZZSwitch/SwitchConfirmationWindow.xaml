@@ -9,8 +9,8 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{StaticResource WindowBrush}"
-        Foreground="{StaticResource TextBrush}"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI">
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -28,7 +28,7 @@
             <TextBlock Text="请核对目标服务器与本次文件操作"
                        Margin="0,5,0,0"
                        FontSize="12"
-                       Foreground="{StaticResource MutedTextBrush}" />
+                       Foreground="{DynamicResource MutedTextBrush}" />
         </StackPanel>
 
         <Border Grid.Row="1"
@@ -47,11 +47,15 @@
                            Width="42"
                            Height="42"
                            Stretch="Uniform"
-                           Margin="0,0,12,0" />
+                           Margin="0,0,12,0">
+                        <Image.Clip>
+                            <RectangleGeometry Rect="0,0,42,42" RadiusX="8" RadiusY="8" />
+                        </Image.Clip>
+                    </Image>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="当前服务器"
                                    FontSize="11"
-                                   Foreground="{StaticResource MutedTextBrush}" />
+                                   Foreground="{DynamicResource MutedTextBrush}" />
                         <TextBlock x:Name="SourceProfileText"
                                    Margin="0,4,0,0"
                                    FontSize="16"
@@ -62,7 +66,7 @@
                 <TextBlock Grid.Column="1"
                            Text="→"
                            FontSize="21"
-                           Foreground="{StaticResource SubtleTextBrush}"
+                           Foreground="{DynamicResource SubtleTextBrush}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center" />
 
@@ -73,11 +77,15 @@
                            Width="42"
                            Height="42"
                            Stretch="Uniform"
-                           Margin="0,0,12,0" />
+                           Margin="0,0,12,0">
+                        <Image.Clip>
+                            <RectangleGeometry Rect="0,0,42,42" RadiusX="8" RadiusY="8" />
+                        </Image.Clip>
+                    </Image>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="目标服务器"
                                    FontSize="11"
-                                   Foreground="{StaticResource MutedTextBrush}" />
+                                   Foreground="{DynamicResource MutedTextBrush}" />
                         <TextBlock x:Name="TargetProfileText"
                                    Margin="0,4,0,0"
                                    FontSize="16"
@@ -126,7 +134,7 @@
                 <TextBlock x:Name="BackupPathText"
                            Grid.Row="4"
                            Grid.Column="1"
-                           Foreground="{StaticResource MutedTextBrush}"
+                           Foreground="{DynamicResource MutedTextBrush}"
                            TextWrapping="Wrap" />
             </Grid>
         </Border>
@@ -135,8 +143,8 @@
                 Margin="0,10,0,0"
                 Padding="14,12"
                 CornerRadius="8"
-                Background="#28251D"
-                BorderBrush="#4A4027"
+                Background="{DynamicResource WarningSurfaceBrush}"
+                BorderBrush="{DynamicResource WarningSurfaceBorderBrush}"
                 BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -146,13 +154,13 @@
                 <Ellipse Width="7"
                          Height="7"
                          Margin="1,5,11,0"
-                         Fill="{StaticResource WarningBrush}"
+                         Fill="{DynamicResource WarningBrush}"
                          VerticalAlignment="Top" />
                 <TextBlock Grid.Column="1"
                            Text="开始前请确认游戏和 HoYoPlay 已完全退出。若文件操作意外中断，程序会尝试从本次备份自动回滚。"
                            FontSize="12"
                            LineHeight="19"
-                           Foreground="#D8CDAF"
+                           Foreground="{DynamicResource WarningSurfaceTextBrush}"
                            TextWrapping="Wrap" />
             </Grid>
         </Border>

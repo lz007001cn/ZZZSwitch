@@ -22,7 +22,7 @@ public partial class BackupWindow : Window
         string currentGamePath)
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => DarkWindowHelper.Apply(this);
+        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
         _backups = backups;
         _restore = restore;
         _safetyPolicy = safetyPolicy;

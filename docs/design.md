@@ -8,7 +8,7 @@
 
 核心库不依赖 WPF，可以独立测试。文件操作和进程检测通过接口注入，以便故障注入测试不会触碰真实游戏目录。
 
-主窗口采用渐进式 MVVM：`MainWindowViewModel` 管理路径、扫描摘要、报告、忙碌状态、交互可用性和界面 Command，XAML 不再直接绑定主窗口 `Click` 事件；`RelayCommand` / `AsyncRelayCommand` 统一 `CanExecute`、重复执行保护和异常转交。`InspectionPresentationBuilder` 将核心扫描结果转换为只读 UI 摘要和详细报告；`ServerSwitchWorkflow`、`CacheManagementWorkflow`、`BackupManagementWorkflow` 分别编排切换、缓存与备份目录操作，并通过 `MainWindowWorkflowContext` 回调窗口状态、进度和目录打开行为。核心 `SwitchPlanner`、`SwitchEngine`、恢复策略、跨进程互斥与回滚顺序保持不变。重复的三服入口由 `ServerSwitchCard` 统一图标、标题、说明与交互样式，客户端/版本/差异包/缓存区域由独立的 `InspectionSummaryCard` 承载。
+主窗口采用渐进式 MVVM：`MainWindowViewModel` 管理路径、扫描摘要、报告、忙碌状态、交互可用性和界面 Command，XAML 不再直接绑定主窗口 `Click` 事件；`RelayCommand` / `AsyncRelayCommand` 统一 `CanExecute`、重复执行保护和异常转交。`InspectionPresentationBuilder` 将核心扫描结果转换为只读 UI 摘要和详细报告；`ServerSwitchWorkflow`、`CacheManagementWorkflow`、`BackupManagementWorkflow`、`PackageImportWorkflow`、`SettingsWorkflow` 分别编排切换、缓存、备份目录、差异包导入和全局设置，并通过 `MainWindowWorkflowContext` 回调窗口状态、进度和目录打开行为。核心 `SwitchPlanner`、`SwitchEngine`、恢复策略、跨进程互斥与回滚顺序保持不变。重复的三服入口由 `ServerSwitchCard` 统一图标、标题、说明与交互样式，客户端/版本/差异包/缓存区域由独立的 `InspectionSummaryCard` 承载；`ThemeManager` 以动态资源统一切换跟随 Windows、深色和浅色配色并同步窗口标题栏，`LocalizationManager` 动态切换主界面与设置页的中文/English 资源。设置页仅保留界面、存储、启动和日志四组常用选项；日志按选择的 7/30 天周期自动清理。
 
 `MainWindowDialogCoordinator` 通过 `IMainWindowDialogs` 统一消息窗、游戏目录候选、系统文件夹选择、切换确认、缓存管理和备份窗口的 Owner/取消语义，也让工作流测试可替换交互边界；`StartupWorkflow` 仅编排既有的未完成事务恢复、状态警告传递和备份轮换。实际恢复仍由核心 `PendingTransactionRecoveryService` 执行，最后备份保护路径仍来自重新加载的 `state.json`，轮换失败继续采用不阻断启动的 best-effort 规则。
 

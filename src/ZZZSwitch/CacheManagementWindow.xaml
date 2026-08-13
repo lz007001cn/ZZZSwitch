@@ -9,8 +9,8 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{StaticResource WindowBrush}"
-        Foreground="{StaticResource TextBrush}"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI">
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -27,7 +27,7 @@
             <TextBlock Text="管理双服热更新缓存的位置与旧版本内容"
                        Margin="0,5,0,0"
                        FontSize="12"
-                       Foreground="{StaticResource MutedTextBrush}" />
+                       Foreground="{DynamicResource MutedTextBrush}" />
         </StackPanel>
 
         <Border Grid.Row="1"
@@ -36,7 +36,7 @@
             <StackPanel>
                 <TextBlock Text="当前缓存目录"
                            FontSize="12"
-                           Foreground="{StaticResource MutedTextBrush}" />
+                           Foreground="{DynamicResource MutedTextBrush}" />
                 <TextBox x:Name="CachePathTextBox"
                          IsReadOnly="True"
                          Margin="0,9,0,0"
@@ -44,7 +44,7 @@
                 <TextBlock x:Name="LocationModeText"
                            Margin="0,8,0,0"
                            FontSize="11"
-                           Foreground="{StaticResource MutedTextBrush}" />
+                           Foreground="{DynamicResource MutedTextBrush}" />
             </StackPanel>
         </Border>
 
@@ -60,7 +60,7 @@
                 <StackPanel Margin="0,0,18,0">
                     <TextBlock Text="当前游戏缓存"
                                FontSize="12"
-                               Foreground="{StaticResource MutedTextBrush}" />
+                               Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="TotalCacheText"
                                Margin="0,8,0,0"
                                FontSize="18"
@@ -68,13 +68,13 @@
                     <TextBlock x:Name="TotalFilesText"
                                Margin="0,5,0,0"
                                FontSize="11"
-                               Foreground="{StaticResource MutedTextBrush}" />
+                               Foreground="{DynamicResource MutedTextBrush}" />
                 </StackPanel>
-                <Border Grid.Column="1" Background="{StaticResource BorderBrush}" />
+                <Border Grid.Column="1" Background="{DynamicResource BorderBrush}" />
                 <StackPanel Grid.Column="2" Margin="18,0,0,0">
                     <TextBlock Text="旧版本缓存"
                                FontSize="12"
-                               Foreground="{StaticResource MutedTextBrush}" />
+                               Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="ObsoleteCacheText"
                                Margin="0,8,0,0"
                                FontSize="18"
@@ -82,7 +82,7 @@
                     <TextBlock x:Name="ObsoleteVersionsText"
                                Margin="0,5,0,0"
                                FontSize="11"
-                               Foreground="{StaticResource MutedTextBrush}" />
+                               Foreground="{DynamicResource MutedTextBrush}" />
                 </StackPanel>
             </Grid>
         </Border>

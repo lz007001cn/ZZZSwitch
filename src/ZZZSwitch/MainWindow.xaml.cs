@@ -34,6 +34,8 @@ public partial class MainWindow : Window
     private readonly ServerSwitchWorkflow _serverSwitchWorkflow;
     private readonly CacheManagementWorkflow _cacheManagementWorkflow;
     private readonly BackupManagementWorkflow _backupManagementWorkflow;
+    private readonly PackageImportWorkflow _packageImportWorkflow;
+    private readonly SettingsWorkflow _settingsWorkflow;
     private readonly StorageLayoutService _storageLayout;
     private readonly CacheLocationService _cacheLocations;
     private readonly IProcessMonitor _processMonitor;
@@ -44,19 +46,31 @@ public partial class MainWindow : Window
     private string? _lastHealthPromptKey;
     private bool _busy;
     private readonly string? _startupStateWarning;
+    private readonly ThemeManager _theme;
+    private readonly LocalizationManager _localization;
+    private readonly UiSettingsService _uiSettingsService;
+    private UiSettings _uiSettings;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = _viewModel;
+        var app = (App)System.Windows.Application.Current;
+        _theme = app.Theme;
+        _localization = app.Localization;
+        _uiSettingsService = new UiSettingsService(_paths);
+        _uiSettings = _uiSettingsService.Load();
+        ApplyWindowPlacement(_uiSettings);
+        DetailsExpander.IsExpanded = _uiSettings.ShowDetailedStatus;
+        Closing += (_, _) => SaveWindowPlacement();
         _dialogs = new MainWindowDialogCoordinator(this);
         var informationalVersion = GetType().Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion.Split('+')[0];
-        var displayVersion = $"v{informationalVersion ?? "1.2.2"}";
+        var displayVersion = $"v{informationalVersion ?? "1.2.6"}";
         _viewModel.AppVersion = displayVersion;
         Title = "ZZZSwitch";
-        SourceInitialized += (_, _) => DarkWindowHelper.Apply(this);
+        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
         _operations = new OperationCoordinator(_paths);
         _configuration = new ConfigurationRepository(_paths);
         _stateStore = new StateStore(_paths);
@@ -125,11 +139,34 @@ public partial class MainWindow : Window
             _operations,
             _dialogs,
             workflowContext);
+        _packageImportWorkflow = new PackageImportWorkflow(
+            new PackageImportService(_configuration),
+            _processMonitor,
+            _operations,
+            _dialogs,
+            workflowContext);
+        _settingsWorkflow = new SettingsWorkflow(
+            this,
+            _paths,
+            _uiSettingsService,
+            _theme,
+            _localization,
+            _cacheLocations,
+            _backupLocations,
+            new LogMaintenanceService(_paths),
+            () => _viewModel.GamePath,
+            () => _lastReport?.Game.GameVersion ?? _stateStore.Load()?.GameVersion,
+            _cacheManagementWorkflow.ManageAsync,
+            _backupManagementWorkflow.ManageDirectoryAsync,
+            OpenDirectory,
+            ApplyRuntimeSettings);
 
         var stateLoad = _stateStore.LoadWithStatus();
         _startupStateWarning = stateLoad.Warning;
         var savedPath = stateLoad.State?.GamePath;
-        _viewModel.GamePath = !string.IsNullOrWhiteSpace(savedPath) ? savedPath : string.Empty;
+        _viewModel.GamePath = _uiSettings.ShowLastGameDirectory && !string.IsNullOrWhiteSpace(savedPath)
+            ? savedPath
+            : string.Empty;
         _viewModel.ConfigureCommands(new MainWindowCommandHandlers(
             AutoDetectAsync,
             ChooseDirectoryAsync,
@@ -139,7 +176,8 @@ public partial class MainWindow : Window
             _backupManagementWorkflow.ShowHistory,
             _backupManagementWorkflow.ManageDirectoryAsync,
             OpenLogs,
-            OpenPackages,
+            _packageImportWorkflow.ImportAsync,
+            _settingsWorkflow.ShowAsync,
             ShowUnexpectedCommandError));
         Loaded += async (_, _) =>
         {
@@ -163,7 +201,14 @@ public partial class MainWindow : Window
                     "已忽略损坏记录");
             }
 
-            await RefreshInspectionAsync(offerStorageRecovery: true);
+            if (_uiSettings.AutoDetectGameDirectory)
+            {
+                await AutoDetectAsync();
+            }
+            else if (_uiSettings.AutoInspectOnStartup && !string.IsNullOrWhiteSpace(_viewModel.GamePath))
+            {
+                await RefreshInspectionAsync(offerStorageRecovery: true);
+            }
         };
     }
 
@@ -545,20 +590,54 @@ public partial class MainWindow : Window
 
     private void OpenLogs() => OpenDirectory(_paths.LogsRoot, false);
 
-    private void OpenPackages()
+    private void ApplyRuntimeSettings(UiSettings settings)
     {
-        var gamePath = _viewModel.GamePath.Trim();
-        var version = _lastReport?.Game.GameVersion ?? _stateStore.Load()?.GameVersion;
-        if (string.IsNullOrWhiteSpace(version))
+        _uiSettings = settings;
+        DetailsExpander.IsExpanded = settings.ShowDetailedStatus;
+    }
+
+    private void ApplyWindowPlacement(UiSettings settings)
+    {
+        if (!settings.RememberWindowPlacement ||
+            settings.WindowWidth is null ||
+            settings.WindowHeight is null)
         {
-            _dialogs.Show(
-                "无法打开差异包目录",
-                "当前游戏版本未知。",
-                MessageTone.Warning);
             return;
         }
 
-        OpenDirectory(GameStorageLayout.GetPackageRoot(gamePath, version), true);
+        Width = settings.WindowWidth.Value;
+        Height = settings.WindowHeight.Value;
+        var area = SystemParameters.WorkArea;
+        Left = Math.Clamp(settings.WindowLeft ?? area.Left, area.Left, Math.Max(area.Left, area.Right - Width));
+        Top = Math.Clamp(settings.WindowTop ?? area.Top, area.Top, Math.Max(area.Top, area.Bottom - Height));
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        if (settings.WindowMaximized)
+        {
+            WindowState = WindowState.Maximized;
+        }
+    }
+
+    private void SaveWindowPlacement()
+    {
+        if (!IsLoaded || !_uiSettings.RememberWindowPlacement)
+        {
+            return;
+        }
+
+        var bounds = RestoreBounds;
+        _uiSettings.WindowLeft = bounds.Left;
+        _uiSettings.WindowTop = bounds.Top;
+        _uiSettings.WindowWidth = bounds.Width;
+        _uiSettings.WindowHeight = bounds.Height;
+        _uiSettings.WindowMaximized = WindowState == WindowState.Maximized;
+        try
+        {
+            _uiSettingsService.Save(_uiSettings);
+        }
+        catch
+        {
+            // Window placement persistence must never block application shutdown.
+        }
     }
 
     private void OpenDirectory(string path, bool mustExist)

@@ -31,6 +31,7 @@ public interface IMainWindowDialogs
 
     GameDirectoryCandidate? SelectGameDirectory(IReadOnlyList<GameDirectoryCandidate> candidates);
     string? SelectFolder(string description, string? currentPath = null, bool showNewFolderButton = true);
+    string? SelectPackageArchive();
     CacheManagementAction SelectCacheManagementAction(CacheUsageSummary usage);
     BackupLocationAction SelectBackupLocationAction(BackupLocationUsage usage);
     bool ConfirmSwitch(SwitchConfirmationRequest request);
@@ -103,6 +104,18 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
                !string.IsNullOrWhiteSpace(dialog.SelectedPath)
             ? dialog.SelectedPath
             : null;
+    }
+
+    public string? SelectPackageArchive()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "选择文件",
+            Filter = "ZZZSwitch 差异包 (*.zip)|*.zip",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        return dialog.ShowDialog(_owner) == true ? dialog.FileName : null;
     }
 
     public CacheManagementAction SelectCacheManagementAction(CacheUsageSummary usage)

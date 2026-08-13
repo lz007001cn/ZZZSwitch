@@ -6,8 +6,8 @@
         MinWidth="760" MinHeight="400"
         WindowStartupLocation="CenterOwner"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{StaticResource WindowBrush}"
-        Foreground="{StaticResource TextBrush}"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI">
     <Grid Margin="22">
         <Grid.RowDefinitions>
@@ -18,7 +18,7 @@
         <StackPanel Margin="0,0,0,16">
             <TextBlock Text="备份历史" FontSize="24" FontWeight="SemiBold" />
             <TextBlock Text="可以恢复或删除已完成的事务备份"
-                       Foreground="{StaticResource MutedTextBrush}"
+                       Foreground="{DynamicResource MutedTextBrush}"
                        Margin="0,5,0,0" />
         </StackPanel>
         <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="1">
@@ -26,24 +26,24 @@
                       IsReadOnly="True"
                       AutoGenerateColumns="False"
                       SelectionMode="Single"
-                      Background="{StaticResource SurfaceBrush}"
-                      Foreground="{StaticResource TextBrush}"
-                      RowBackground="{StaticResource SurfaceBrush}"
-                      AlternatingRowBackground="{StaticResource RaisedSurfaceBrush}"
+                      Background="{DynamicResource SurfaceBrush}"
+                      Foreground="{DynamicResource TextBrush}"
+                      RowBackground="{DynamicResource SurfaceBrush}"
+                      AlternatingRowBackground="{DynamicResource RaisedSurfaceBrush}"
                       BorderThickness="0"
-                      HorizontalGridLinesBrush="{StaticResource BorderBrush}"
+                      HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
                       VerticalGridLinesBrush="Transparent"
                       HeadersVisibility="Column"
                       GridLinesVisibility="Horizontal">
                 <DataGrid.Resources>
                     <Style TargetType="DataGridColumnHeader">
-                        <Setter Property="Background" Value="#1D1D1D" />
-                        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
-                        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                        <Setter Property="Background" Value="{DynamicResource TableHeaderBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
                         <Setter Property="Padding" Value="10,8" />
                     </Style>
                     <Style TargetType="DataGridCell">
-                        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         <Setter Property="BorderThickness" Value="0" />
                         <Setter Property="Padding" Value="8,6" />
                     </Style>

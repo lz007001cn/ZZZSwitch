@@ -12,7 +12,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private static readonly ICommand DisabledCommand = new RelayCommand(() => { }, () => false);
     private readonly List<Action> _refreshCommandStates = [];
-    private string _appVersion = "v1.2.2";
+    private string _appVersion = "v1.2.6";
     private string _gamePath = string.Empty;
     private string _profile = "等待检测";
     private string _gameVersion = "—";
@@ -41,6 +41,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ICommand BackupDirectoryCommand { get; private set; } = DisabledCommand;
     public ICommand LogsCommand { get; private set; } = DisabledCommand;
     public ICommand OpenPackagesCommand { get; private set; } = DisabledCommand;
+    public ICommand SettingsCommand { get; private set; } = DisabledCommand;
 
     public string AppVersion
     {
@@ -201,7 +202,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             () => IsInteractionEnabled,
             handlers.HandleUnexpectedError);
         LogsCommand = Sync(handlers.OpenLogs, handleError: handlers.HandleUnexpectedError);
-        OpenPackagesCommand = Sync(handlers.OpenPackages, handleError: handlers.HandleUnexpectedError);
+        OpenPackagesCommand = Async(
+            handlers.ImportPackages,
+            () => IsInteractionEnabled,
+            handlers.HandleUnexpectedError);
+        SettingsCommand = Async(
+            handlers.OpenSettings,
+            () => IsInteractionEnabled,
+            handlers.HandleUnexpectedError);
 
         foreach (var propertyName in CommandPropertyNames)
         {
@@ -251,7 +259,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         nameof(BackupsCommand),
         nameof(BackupDirectoryCommand),
         nameof(LogsCommand),
-        nameof(OpenPackagesCommand)
+        nameof(OpenPackagesCommand),
+        nameof(SettingsCommand)
     ];
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
@@ -279,5 +288,6 @@ public sealed record MainWindowCommandHandlers(
     Action ShowBackups,
     Func<Task> ManageBackupDirectory,
     Action OpenLogs,
-    Action OpenPackages,
+    Func<Task> ImportPackages,
+    Func<Task> OpenSettings,
     Action<Exception> HandleUnexpectedError);

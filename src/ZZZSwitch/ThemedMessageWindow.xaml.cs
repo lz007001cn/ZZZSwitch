@@ -25,7 +25,7 @@ public partial class ThemedMessageWindow : Window
         MediaBrush? accentBrush = null)
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => DarkWindowHelper.Apply(this);
+        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
 
         Title = title;
         TitleText.Text = title;

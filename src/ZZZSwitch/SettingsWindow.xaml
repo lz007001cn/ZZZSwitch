@@ -1,0 +1,205 @@
+<Window x:Class="ZZZSwitch.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource L.Settings.Title}"
+        Width="680"
+        Height="600"
+        MinWidth="620"
+        MinHeight="480"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Icon="Assets/ZZZSwitch-Icon.png"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}">
+    <Window.Resources>
+        <Style x:Key="SettingsCardStyle" TargetType="Border" BasedOn="{StaticResource CardStyle}">
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style x:Key="SettingsButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style x:Key="SettingsSectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="SettingsLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="20,18,20,14">
+                <Border Style="{StaticResource SettingsCardStyle}" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource L.Settings.Interface}"
+                                   Style="{StaticResource SettingsSectionTitleStyle}"
+                                   Margin="0,0,0,11" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="78" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="58" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{DynamicResource L.Settings.Language}"
+                                       Style="{StaticResource SettingsLabelStyle}" />
+                            <ComboBox Grid.Column="1"
+                                      x:Name="LanguageComboBox"
+                                      DisplayMemberPath="DisplayName" />
+                            <TextBlock Grid.Column="3"
+                                       Text="{DynamicResource L.Settings.Theme}"
+                                       Style="{StaticResource SettingsLabelStyle}" />
+                            <ComboBox Grid.Column="4"
+                                      x:Name="ThemeComboBox"
+                                      DisplayMemberPath="DisplayName" />
+                        </Grid>
+                        <WrapPanel Margin="0,12,0,0">
+                            <CheckBox x:Name="ShowDetailsCheckBox"
+                                      Content="{DynamicResource L.Settings.ShowDetails}"
+                                      Margin="0,0,24,0" />
+                            <CheckBox x:Name="RememberWindowCheckBox"
+                                      Content="{DynamicResource L.Settings.RememberWindow}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SettingsCardStyle}" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource L.Settings.Storage}"
+                                   Style="{StaticResource SettingsSectionTitleStyle}"
+                                   Margin="0,0,0,10" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource L.Settings.Cache}"
+                                           FontWeight="SemiBold"
+                                           FontSize="12" />
+                                <TextBlock x:Name="CachePathTextBlock"
+                                           Margin="0,3,14,0"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="CacheUsageText"
+                                           Margin="0,2,14,0"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource SubtleTextBrush}" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="{DynamicResource L.Settings.ManageCache}"
+                                    Click="ManageCache_Click"
+                                    Style="{StaticResource SettingsButtonStyle}"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+
+                        <Border Height="1"
+                                Background="{DynamicResource BorderBrush}"
+                                Margin="0,11" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource L.Settings.Backup}"
+                                           FontWeight="SemiBold"
+                                           FontSize="12" />
+                                <TextBlock x:Name="BackupPathTextBlock"
+                                           Margin="0,3,14,0"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="BackupUsageText"
+                                           Margin="0,2,14,0"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource SubtleTextBrush}" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="{DynamicResource L.Settings.ManageBackup}"
+                                    Click="ManageBackup_Click"
+                                    Style="{StaticResource SettingsButtonStyle}"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SettingsCardStyle}" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource L.Settings.Startup}"
+                                   Style="{StaticResource SettingsSectionTitleStyle}"
+                                   Margin="0,0,0,10" />
+                        <WrapPanel>
+                            <CheckBox x:Name="AutoDetectCheckBox"
+                                      Content="{DynamicResource L.Settings.AutoDetect}"
+                                      Margin="0,0,22,8" />
+                            <CheckBox x:Name="AutoInspectCheckBox"
+                                      Content="{DynamicResource L.Settings.AutoInspect}"
+                                      Margin="0,0,22,8" />
+                            <CheckBox x:Name="ShowLastGameCheckBox"
+                                      Content="{DynamicResource L.Settings.ShowLastGame}"
+                                      Margin="0,0,0,8" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SettingsCardStyle}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource L.Settings.Logs}"
+                                       Style="{StaticResource SettingsSectionTitleStyle}" />
+                            <TextBlock Text="{DynamicResource L.Settings.LogRetention}"
+                                       Margin="0,3,12,0"
+                                       Style="{StaticResource SettingsLabelStyle}" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1"
+                                  x:Name="LogRetentionComboBox"
+                                  Width="112"
+                                  VerticalAlignment="Center"
+                                  DisplayMemberPath="DisplayName" />
+                        <Button Grid.Column="3"
+                                Content="{DynamicResource L.Settings.OpenLogs}"
+                                Click="OpenLogs_Click"
+                                Style="{StaticResource SettingsButtonStyle}"
+                                VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="1"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="16,10">
+            <Button x:Name="SaveButton"
+                    Content="{DynamicResource L.Common.Save}"
+                    Click="Save_Click"
+                    Style="{StaticResource SettingsButtonStyle}"
+                    MinWidth="72"
+                    HorizontalAlignment="Right" />
+        </Border>
+    </Grid>
+</Window>

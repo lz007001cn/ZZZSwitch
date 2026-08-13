@@ -18,7 +18,7 @@ public partial class SwitchConfirmationWindow : Window
         string backupPath)
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => DarkWindowHelper.Apply(this);
+        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
 
         SourceProfileText.Text = sourceName;
         TargetProfileText.Text = targetName;

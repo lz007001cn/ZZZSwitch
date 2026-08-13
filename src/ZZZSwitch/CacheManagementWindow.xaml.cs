@@ -16,7 +16,7 @@ public partial class CacheManagementWindow : Window
     public CacheManagementWindow(CacheUsageSummary usage)
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => DarkWindowHelper.Apply(this);
+        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
         CachePathTextBox.Text = usage.CacheRootPath;
         LocationModeText.Text = usage.IsCustomLocation ? "自定义位置" : "默认位置（游戏目录同级）";
         TotalCacheText.Text = FormatBytes(usage.TotalBytes);

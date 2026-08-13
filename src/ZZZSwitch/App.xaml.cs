@@ -7,9 +7,17 @@ public partial class App : System.Windows.Application
 {
     private Mutex? _singleInstanceMutex;
     private ApplicationInstanceLock? _applicationInstanceLock;
+    private ThemeManager? _theme;
+    private LocalizationManager? _localization;
+
+    internal ThemeManager Theme => _theme ??= new ThemeManager(this, new AppPaths());
+    internal LocalizationManager Localization =>
+        _localization ??= new LocalizationManager(this, new AppPaths());
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        _ = Theme;
+        _ = Localization;
         _singleInstanceMutex = new Mutex(true, @"Local\ZZZSwitch.SingleInstance", out var createdNew);
         if (!createdNew)
         {
@@ -43,6 +51,9 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _theme?.Dispose();
+        _theme = null;
+        _localization = null;
         _applicationInstanceLock?.Dispose();
         _applicationInstanceLock = null;
         ReleaseNamedMutex();

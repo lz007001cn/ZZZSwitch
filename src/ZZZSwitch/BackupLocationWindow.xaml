@@ -8,8 +8,8 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{StaticResource WindowBrush}"
-        Foreground="{StaticResource TextBrush}"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI">
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -23,14 +23,14 @@
             <TextBlock Text="管理事务备份的存储位置"
                        Margin="0,5,0,0"
                        FontSize="12"
-                       Foreground="{StaticResource MutedTextBrush}" />
+                       Foreground="{DynamicResource MutedTextBrush}" />
         </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0,18,0,0">
             <StackPanel>
                 <TextBlock Text="当前备份目录"
                            FontSize="12"
-                           Foreground="{StaticResource MutedTextBrush}" />
+                           Foreground="{DynamicResource MutedTextBrush}" />
                 <TextBox x:Name="BackupPathTextBox"
                          IsReadOnly="True"
                          Margin="0,9,0,0"
@@ -38,11 +38,11 @@
                 <TextBlock x:Name="LocationModeText"
                            Margin="0,8,0,0"
                            FontSize="11"
-                           Foreground="{StaticResource MutedTextBrush}" />
+                           Foreground="{DynamicResource MutedTextBrush}" />
                 <TextBlock x:Name="UsageText"
                            Margin="0,5,0,0"
                            FontSize="11"
-                           Foreground="{StaticResource MutedTextBrush}" />
+                           Foreground="{DynamicResource MutedTextBrush}" />
             </StackPanel>
         </Border>
 

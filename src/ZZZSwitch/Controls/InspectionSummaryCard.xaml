@@ -19,8 +19,8 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="当前客户端"
-                               Foreground="{StaticResource MutedTextBrush}"
+                    <TextBlock Text="{DynamicResource L.Summary.CurrentClient}"
+                               Foreground="{DynamicResource MutedTextBrush}"
                                FontSize="12" />
                     <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
                         <Ellipse Width="8"
@@ -34,8 +34,8 @@
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="游戏版本"
-                               Foreground="{StaticResource MutedTextBrush}"
+                    <TextBlock Text="{DynamicResource L.Summary.GameVersion}"
+                               Foreground="{DynamicResource MutedTextBrush}"
                                FontSize="12" />
                     <TextBlock Text="{Binding GameVersion}"
                                FontSize="20"
@@ -43,8 +43,8 @@
                                Margin="0,9,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="4">
-                    <TextBlock Text="差异包"
-                               Foreground="{StaticResource MutedTextBrush}"
+                    <TextBlock Text="{DynamicResource L.Summary.Packages}"
+                               Foreground="{DynamicResource MutedTextBrush}"
                                FontSize="12" />
                     <TextBlock Text="{Binding Packages}"
                                ToolTip="{Binding Packages}"
@@ -55,7 +55,7 @@
                 </StackPanel>
             </Grid>
 
-            <Border Grid.Row="1" Background="{StaticResource BorderBrush}" />
+            <Border Grid.Row="1" Background="{DynamicResource BorderBrush}" />
 
             <Grid Grid.Row="2" Margin="0,16,0,0">
                 <Grid.ColumnDefinitions>
@@ -64,8 +64,8 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="双服热更新缓存"
-                               Foreground="{StaticResource MutedTextBrush}"
+                    <TextBlock Text="{DynamicResource L.Summary.Cache}"
+                               Foreground="{DynamicResource MutedTextBrush}"
                                FontSize="12" />
                     <TextBlock Text="{Binding CacheSummary}"
                                ToolTip="{Binding CacheSummary}"
@@ -76,7 +76,7 @@
                 </StackPanel>
                 <Button Grid.Column="1"
                         x:Name="CacheManagementButton"
-                        Content="缓存管理"
+                        Content="{DynamicResource L.Summary.CacheManagement}"
                         Command="{Binding CacheManagementCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         Style="{StaticResource SecondaryButtonStyle}"
                         IsEnabled="{Binding CanManageCache}"
@@ -84,7 +84,7 @@
                         VerticalAlignment="Center" />
                 <Button Grid.Column="2"
                         x:Name="InitializeCacheButton"
-                        Content="初始化当前服缓存"
+                        Content="{DynamicResource L.Summary.InitializeCache}"
                         Command="{Binding InitializeCacheCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         Style="{StaticResource SecondaryButtonStyle}"
                         IsEnabled="{Binding CanInitializeCache}"

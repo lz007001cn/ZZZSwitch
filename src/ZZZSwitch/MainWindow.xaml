@@ -7,8 +7,8 @@
         MinWidth="820" MinHeight="640"
         WindowStartupLocation="CenterScreen"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{StaticResource WindowBrush}"
-        Foreground="{StaticResource TextBrush}"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI"
         UseLayoutRounding="True">
     <Grid>
@@ -18,20 +18,24 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="{StaticResource SidebarBrush}">
+        <Border Grid.Row="0" x:Name="HeaderBorder" Background="{DynamicResource SidebarBrush}">
             <Grid Margin="28,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Image Source="Assets/ZZZSwitch-Wordmark.png"
-                       Width="146"
-                       Height="28"
-                       Stretch="Uniform"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Center"
-                       AutomationProperties.Name="ZZZSwitch" />
+                <Rectangle x:Name="BrandMark"
+                           Width="146"
+                           Height="28"
+                           Fill="{DynamicResource TextBrush}"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           AutomationProperties.Name="ZZZSwitch">
+                    <Rectangle.OpacityMask>
+                        <ImageBrush ImageSource="Assets/ZZZSwitch-Wordmark.png" Stretch="Uniform" />
+                    </Rectangle.OpacityMask>
+                </Rectangle>
 
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
@@ -41,26 +45,26 @@
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="6"
                                      Height="6"
-                                     Fill="{StaticResource GreenBrush}"
+                                     Fill="{DynamicResource GreenBrush}"
                                      Margin="0,0,7,0"
                                      VerticalAlignment="Center" />
                             <TextBlock x:Name="AppVersionText"
                                        Text="{Binding AppVersion}"
                                        FontSize="11"
-                                       Foreground="{StaticResource MutedTextBrush}" />
+                                       Foreground="{DynamicResource MutedTextBrush}" />
                             <TextBlock Text=" · "
                                        FontSize="11"
-                                       Foreground="{StaticResource SubtleTextBrush}" />
+                                       Foreground="{DynamicResource SubtleTextBrush}" />
                             <TextBlock Text="Windows x64"
                                        FontSize="11"
-                                       Foreground="{StaticResource MutedTextBrush}" />
+                                       Foreground="{DynamicResource MutedTextBrush}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <Border Grid.Row="1" Background="{StaticResource BorderBrush}" />
+        <Border Grid.Row="1" Background="{DynamicResource BorderBrush}" />
 
         <ScrollViewer Grid.Row="2"
                       VerticalScrollBarVisibility="Visible"
@@ -80,8 +84,8 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="游戏目录"
-                                   Foreground="{StaticResource MutedTextBrush}"
+                        <TextBlock Text="{DynamicResource L.Main.GameDirectory}"
+                                   Foreground="{DynamicResource MutedTextBrush}"
                                    FontSize="12"
                                    Margin="0,0,0,9" />
                         <Grid Grid.Row="1">
@@ -96,13 +100,13 @@
                                      VerticalContentAlignment="Center" />
                             <Button Grid.Column="1"
                                     x:Name="AutoDetectButton"
-                                    Content="自动检测"
+                                    Content="{DynamicResource L.Main.AutoDetect}"
                                     Command="{Binding AutoDetectCommand}"
                                     Style="{StaticResource SecondaryButtonStyle}"
                                     Margin="8,0,6,0" />
                             <Button Grid.Column="2"
                                     x:Name="ChooseDirectoryButton"
-                                    Content="选择"
+                                    Content="{DynamicResource L.Common.Select}"
                                     Command="{Binding ChooseDirectoryCommand}"
                                     Style="{StaticResource SecondaryButtonStyle}" />
                         </Grid>
@@ -114,7 +118,7 @@
                                                 CacheManagementCommand="{Binding CacheManagementCommand}"
                                                 InitializeCacheCommand="{Binding InitializeCacheCommand}" />
 
-                <TextBlock Text="切换服务器"
+                <TextBlock Text="{DynamicResource L.Main.SwitchServer}"
                            FontSize="15"
                            FontWeight="SemiBold"
                            Margin="2,0,0,11" />
@@ -127,24 +131,24 @@
                     </Grid.ColumnDefinitions>
 
                     <controls:ServerSwitchCard x:Name="SwitchGlobalButton"
-                                               ServerName="国际服"
-                                               Description="切换并恢复国际服缓存"
+                                               ServerName="{DynamicResource L.Server.Global}"
+                                               Description="{DynamicResource L.Server.GlobalDescription}"
                                                IconSource="Assets/Server-Global.png"
                                                Command="{Binding SwitchGlobalCommand}"
                                                Margin="0,0,6,0" />
 
                     <controls:ServerSwitchCard Grid.Column="1"
                                                x:Name="SwitchCnButton"
-                                               ServerName="国服"
-                                               Description="切换并恢复国服缓存"
+                                               ServerName="{DynamicResource L.Server.Cn}"
+                                               Description="{DynamicResource L.Server.CnDescription}"
                                                IconSource="Assets/Server-CN.png"
                                                Command="{Binding SwitchCnCommand}"
                                                Margin="6,0,6,0" />
 
                     <controls:ServerSwitchCard Grid.Column="2"
                                                x:Name="SwitchBilibiliButton"
-                                               ServerName="B服"
-                                               Description="国服资源与B站登录窗"
+                                               ServerName="{DynamicResource L.Server.Bilibili}"
+                                               Description="{DynamicResource L.Server.BilibiliDescription}"
                                                IconSource="Assets/Server-Bilibili.png"
                                                Command="{Binding SwitchBilibiliCommand}"
                                                Margin="6,0,0,0" />
@@ -168,7 +172,7 @@
                                        x:Name="IssueSummaryText"
                                        Text="{Binding IssueSummary}"
                                        FontSize="12"
-                                       Foreground="{StaticResource MutedTextBrush}" />
+                                       Foreground="{DynamicResource MutedTextBrush}" />
                         </Grid>
                     </Grid>
                 </Border>
@@ -179,7 +183,7 @@
                           Margin="0,0,0,14">
                     <Expander.Header>
                         <StackPanel Orientation="Horizontal" Margin="2,5">
-                            <TextBlock Text="详细检查信息"
+                            <TextBlock Text="{DynamicResource L.Main.Details}"
                                        FontWeight="SemiBold"
                                        FontSize="13" />
                         </StackPanel>
@@ -207,7 +211,7 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <StackPanel Margin="0,0,0,12">
-                            <TextBlock Text="工具"
+                            <TextBlock Text="{DynamicResource L.Main.Tools}"
                                        FontSize="14"
                                        FontWeight="SemiBold" />
                         </StackPanel>
@@ -222,45 +226,62 @@
                                     Command="{Binding BackupsCommand}"
                                     Style="{StaticResource SecondaryButtonStyle}"
                                     Margin="0,0,5,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE8F7;"
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock x:Name="BackupHistoryIcon"
+                                               Text="&#xE8F7;"
                                                FontFamily="Segoe Fluent Icons"
+                                               FontSize="15"
+                                               VerticalAlignment="Center"
                                                Margin="0,0,7,0" />
-                                    <TextBlock Text="备份历史" />
+                                    <TextBlock Text="{DynamicResource L.Main.BackupHistory}"
+                                               VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <Button Grid.Column="1"
-                                    Command="{Binding LogsCommand}"
-                                    Style="{StaticResource SecondaryButtonStyle}"
-                                    Margin="5,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE9D5;"
-                                               FontFamily="Segoe Fluent Icons"
-                                               Margin="0,0,7,0" />
-                                    <TextBlock Text="运行日志" />
-                                </StackPanel>
-                            </Button>
-                            <Button Grid.Column="2"
                                     Command="{Binding OpenPackagesCommand}"
                                     Style="{StaticResource SecondaryButtonStyle}"
                                     Margin="5,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE8B7;"
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock x:Name="ImportPackageIcon"
+                                               Text="&#xE8B7;"
                                                FontFamily="Segoe Fluent Icons"
+                                               FontSize="15"
+                                               VerticalAlignment="Center"
                                                Margin="0,0,7,0" />
-                                    <TextBlock Text="差异包目录" />
+                                    <TextBlock Text="{DynamicResource L.Main.ImportPackage}"
+                                               VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
-                            <Button Grid.Column="3"
+                            <Button Grid.Column="2"
                                     x:Name="BackupDirectoryButton"
                                     Command="{Binding BackupDirectoryCommand}"
                                     Style="{StaticResource SecondaryButtonStyle}"
-                                    Margin="5,0,0,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE8B7;"
+                                    Margin="5,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock x:Name="BackupDirectoryIcon"
+                                               Text="&#xE8B7;"
                                                FontFamily="Segoe Fluent Icons"
+                                               FontSize="15"
+                                               VerticalAlignment="Center"
                                                Margin="0,0,7,0" />
-                                    <TextBlock Text="备份目录" />
+                                    <TextBlock Text="{DynamicResource L.Main.BackupDirectory}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3"
+                                    x:Name="SettingsButton"
+                                    Command="{Binding SettingsCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Margin="5,0,0,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock x:Name="SettingsIcon"
+                                               Text="&#xE713;"
+                                               FontFamily="Segoe Fluent Icons"
+                                               FontSize="15"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,7,0" />
+                                    <TextBlock Text="{DynamicResource L.Main.Settings}"
+                                               VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </Grid>

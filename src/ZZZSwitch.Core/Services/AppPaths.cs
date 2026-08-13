@@ -29,6 +29,7 @@ public sealed class AppPaths
     public string StateFile => Path.Combine(DataRoot, "state.json");
     public string CacheLocationsFile => Path.Combine(DataRoot, "cache-locations.json");
     public string BackupLocationFile => Path.Combine(DataRoot, "backup-location.json");
+    public string UiSettingsFile => Path.Combine(DataRoot, "ui-settings.json");
 
     internal void SetBackupsRoot(string path) =>
         _backupsRoot = BackupLocationService.NormalizeBackupRoot(path);

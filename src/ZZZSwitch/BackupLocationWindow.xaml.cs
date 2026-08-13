@@ -16,7 +16,7 @@ public partial class BackupLocationWindow : Window
     public BackupLocationWindow(BackupLocationUsage usage)
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => DarkWindowHelper.Apply(this);
+        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
         BackupPathTextBox.Text = usage.BackupRootPath;
         LocationModeText.Text = usage.IsCustomLocation
             ? "自定义位置"

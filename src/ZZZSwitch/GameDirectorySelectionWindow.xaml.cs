@@ -9,7 +9,7 @@ public partial class GameDirectorySelectionWindow : Window
         IReadOnlyList<GameDirectoryCandidate> candidates)
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => DarkWindowHelper.Apply(this);
+        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
         PathsList.ItemsSource = candidates;
         PathsList.SelectedIndex = candidates.Count > 0 ? 0 : -1;
     }

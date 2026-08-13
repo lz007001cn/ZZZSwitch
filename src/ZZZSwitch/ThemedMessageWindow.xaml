@@ -9,8 +9,8 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{StaticResource WindowBrush}"
-        Foreground="{StaticResource TextBrush}"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI">
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -27,14 +27,14 @@
             <Border Width="32"
                     Height="32"
                     CornerRadius="16"
-                    Background="{StaticResource RaisedSurfaceBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
+                    Background="{DynamicResource RaisedSurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
                     VerticalAlignment="Top">
                 <Ellipse x:Name="ToneDot"
                          Width="8"
                          Height="8"
-                         Fill="{StaticResource NeutralBrush}"
+                         Fill="{DynamicResource NeutralBrush}"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Center" />
             </Border>
@@ -45,7 +45,7 @@
                 <TextBlock x:Name="SubtitleText"
                            Margin="0,4,0,0"
                            FontSize="11"
-                           Foreground="{StaticResource MutedTextBrush}" />
+                           Foreground="{DynamicResource MutedTextBrush}" />
             </StackPanel>
         </Grid>
 

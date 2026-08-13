@@ -6,8 +6,8 @@
         MinWidth="560" MinHeight="300"
         WindowStartupLocation="CenterOwner"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{StaticResource WindowBrush}"
-        Foreground="{StaticResource TextBrush}"
+        Background="{DynamicResource WindowBrush}"
+        Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI">
     <Grid Margin="22">
         <Grid.RowDefinitions>
@@ -21,7 +21,7 @@
                        FontSize="22"
                        FontWeight="SemiBold" />
             <TextBlock Text="请选择要由 ZZZSwitch 管理的绝区零目录"
-                       Foreground="{StaticResource MutedTextBrush}"
+                       Foreground="{DynamicResource MutedTextBrush}"
                        Margin="0,5,0,0" />
         </StackPanel>
 
@@ -31,11 +31,11 @@
             <ListBox x:Name="PathsList"
                      Background="Transparent"
                      BorderThickness="0"
-                     Foreground="{StaticResource TextBrush}"
+                     Foreground="{DynamicResource TextBrush}"
                      SelectionMode="Single">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
-                        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                         <Setter Property="Padding" Value="12,10" />
                         <Setter Property="Margin" Value="0,0,0,4" />
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -49,7 +49,7 @@
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="{Binding Source}"
                                        FontSize="11"
-                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Foreground="{DynamicResource MutedTextBrush}"
                                        Margin="0,3,0,0" />
                         </StackPanel>
                     </DataTemplate>

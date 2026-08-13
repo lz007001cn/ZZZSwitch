@@ -63,12 +63,18 @@ public sealed class CacheLocationService : ICacheRootResolver
                 currentGameVersion,
                 StringComparison.OrdinalIgnoreCase))
             .ToArray();
+        var obsoleteVersions = obsoleteDirectories
+            .Select(path => Path.GetFileName(path)!)
+            .Concat(GetManifestVersions(gamePath))
+            .Where(version => !string.Equals(version, currentGameVersion, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         var obsolete = MeasureDirectories(obsoleteDirectories);
         return new(
             cacheRoot,
             all.FileCount,
             all.TotalBytes,
-            obsoleteDirectories.Length,
+            obsoleteVersions.Length,
             obsolete.FileCount,
             obsolete.TotalBytes,
             IsUsingCustomLocation(gamePath));
@@ -78,27 +84,37 @@ public sealed class CacheLocationService : ICacheRootResolver
     {
         var cacheRoot = GetCacheRoot(gamePath);
         var gameCacheRoot = GetGameCacheRoot(cacheRoot, gamePath);
-        if (!Directory.Exists(gameCacheRoot))
-        {
-            return new(0, 0, 0);
-        }
-
-        var obsoleteDirectories = Directory.GetDirectories(gameCacheRoot)
+        var obsoleteDirectories = Directory.Exists(gameCacheRoot)
+            ? Directory.GetDirectories(gameCacheRoot)
             .Where(path => !string.Equals(
                 Path.GetFileName(path),
                 currentGameVersion,
                 StringComparison.OrdinalIgnoreCase))
+            .ToArray()
+            : [];
+        var obsoleteVersions = obsoleteDirectories
+            .Select(path => Path.GetFileName(path)!)
+            .Concat(GetManifestVersions(gamePath))
+            .Where(version => !string.Equals(version, currentGameVersion, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var measured = MeasureDirectories(obsoleteDirectories);
         foreach (var directory in obsoleteDirectories)
         {
             EnsureChildPath(gameCacheRoot, directory);
-            Directory.Delete(directory, true);
-            DeleteManifestVersion(gamePath, Path.GetFileName(directory));
+            DeleteDirectoryRobust(directory);
         }
 
-        DeleteIfEmpty(gameCacheRoot);
-        return new(obsoleteDirectories.Length, measured.FileCount, measured.TotalBytes);
+        foreach (var version in obsoleteVersions)
+        {
+            DeleteManifestVersion(gamePath, version);
+        }
+
+        if (Directory.Exists(gameCacheRoot))
+        {
+            DeleteIfEmpty(gameCacheRoot);
+        }
+        return new(obsoleteVersions.Length, measured.FileCount, measured.TotalBytes);
     }
 
     public CacheMigrationResult ChangeLocation(string gamePath, string requestedCacheRoot)
@@ -293,9 +309,54 @@ public sealed class CacheLocationService : ICacheRootResolver
         if (Directory.Exists(versionPath))
         {
             EnsureChildPath(identityRoot, versionPath);
-            Directory.Delete(versionPath, true);
+            DeleteDirectoryRobust(versionPath);
             DeleteIfEmpty(identityRoot);
         }
+    }
+
+    private IEnumerable<string> GetManifestVersions(string gamePath)
+    {
+        var identityRoot = Path.Combine(
+            _paths.HotUpdateManifestsRoot,
+            GameStorageLayout.GetGameIdentity(gamePath));
+        return Directory.Exists(identityRoot)
+            ? Directory.GetDirectories(identityRoot).Select(path => Path.GetFileName(path)!).ToArray()
+            : [];
+    }
+
+    private static void DeleteDirectoryRobust(string path)
+    {
+        var root = new DirectoryInfo(path);
+        if ((root.Attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new InvalidOperationException($"拒绝清理重解析点缓存目录：{path}");
+        }
+
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            AttributesToSkip = FileAttributes.ReparsePoint,
+            IgnoreInaccessible = false
+        };
+        foreach (var file in root.EnumerateFiles("*", options))
+        {
+            if (file.IsReadOnly || (file.Attributes & FileAttributes.System) != 0)
+            {
+                file.Attributes &= ~(FileAttributes.ReadOnly | FileAttributes.System);
+            }
+        }
+
+        foreach (var directory in root.EnumerateDirectories("*", options)
+                     .OrderByDescending(item => item.FullName.Length))
+        {
+            if ((directory.Attributes & (FileAttributes.ReadOnly | FileAttributes.System)) != 0)
+            {
+                directory.Attributes &= ~(FileAttributes.ReadOnly | FileAttributes.System);
+            }
+        }
+
+        root.Attributes &= ~(FileAttributes.ReadOnly | FileAttributes.System);
+        root.Delete(true);
     }
 
     private static DirectoryMeasure MeasureDirectories(IEnumerable<string> directories)

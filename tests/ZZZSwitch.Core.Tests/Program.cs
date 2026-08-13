@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using ZZZSwitch.Core.Models;
@@ -66,6 +67,16 @@ internal static class Program
         ("自定义缓存目录会校验迁移并保留现有内容", CustomCacheLocationMigratesContent),
         ("缓存迁移后旧清单自动解析到新位置", MigratedCacheManifestUsesCustomLocation),
         ("旧游戏版本缓存可独立清理", ObsoleteCacheVersionsCanBeCleaned),
+        ("只读旧缓存与残留清单均可清理", ReadOnlyCacheAndOrphanManifestCanBeCleaned),
+        ("切走当前服时自动保存新增热更新缓存", SwitchCapturesNewHotUpdateFiles),
+        ("游戏升级后旧版本缓存不会用于新版本", UpgradeDoesNotReuseOldVersionCache),
+        ("软件内导入并原子替换三服差异包", PackageArchiveImportsAtomically),
+        ("差异包导入可恢复替换中断残留", PackageArchiveRecoversInterruptedReplacement),
+        ("差异包导入拒绝跨目录路径", PackageArchiveRejectsTraversal),
+        ("差异包导入拒绝错误游戏版本", PackageArchiveRejectsWrongVersion),
+        ("主题偏好可持久化且损坏设置安全回退", ThemePreferencePersistsAndFallsBack),
+        ("界面与启动设置整体持久化", UiSettingsPersistAsOneDocument),
+        ("日志保留只清理超过设定天数的文件", ExpiredLogsFollowRetention),
         ("检测 .zzzswitch 根目录缺失", StorageRootMissingDetected),
         ("修复仅重建标准目录结构", StorageLayoutRepair),
         ("单个服务器差异包缺失不误报为目录结构损坏", MissingProfilePackageIsNotStructuralDamage),
@@ -1295,6 +1306,272 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    private static Task ReadOnlyCacheAndOrphanManifestCanBeCleaned()
+    {
+        using var fixture = new TempFixture();
+        var locations = new CacheLocationService(fixture.Paths);
+        var oldBlocks = GameStorageLayout.GetStoredBlocksPath(
+            fixture.Game,
+            "3.0.0",
+            ProfileIds.Global);
+        Directory.CreateDirectory(oldBlocks);
+        var readOnly = Path.Combine(oldBlocks, "readonly.bin");
+        File.WriteAllText(readOnly, "old");
+        File.SetAttributes(readOnly, File.GetAttributes(readOnly) | FileAttributes.ReadOnly);
+
+        var orphanManifest = Path.Combine(
+            fixture.Paths.HotUpdateManifestsRoot,
+            GameStorageLayout.GetGameIdentity(fixture.Game),
+            "2.9.0",
+            ProfileIds.Global,
+            "cache.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(orphanManifest)!);
+        File.WriteAllText(orphanManifest, "{}");
+
+        var usage = locations.GetUsage(fixture.Game, "3.1.0");
+        var result = locations.DeleteObsoleteVersions(fixture.Game, "3.1.0");
+
+        Equal(2, usage.ObsoleteVersionCount);
+        Equal(2, result.RemovedVersionCount);
+        True(!Directory.Exists(Path.Combine(
+            fixture.Paths.HotUpdateManifestsRoot,
+            GameStorageLayout.GetGameIdentity(fixture.Game),
+            "2.9.0")), "仅残留清单的旧版本也应删除。");
+        True(!Directory.Exists(Path.Combine(
+            locations.GetCacheRoot(fixture.Game),
+            GameStorageLayout.GetGameIdentity(fixture.Game),
+            "3.0.0")), "含只读文件的旧缓存目录应删除。");
+        return Task.CompletedTask;
+    }
+
+    private static Task SwitchCapturesNewHotUpdateFiles()
+    {
+        using var fixture = new TempFixture();
+        var service = new HotUpdateCacheService(fixture.Paths, new FakeProcessMonitor());
+        var active = Path.Combine(fixture.Game, HotUpdateCacheService.BlocksRelativePath);
+        Directory.CreateDirectory(active);
+        File.WriteAllText(Path.Combine(active, "base.blk"), "base");
+        service.InitializeActive(ProfileIds.Global, "3.1.0", fixture.Game);
+        File.WriteAllText(Path.Combine(active, "hot-update.blk"), "new");
+
+        var issues = new List<ValidationIssue>();
+        var plan = service.CreateTransitionPlan(
+            ProfileIds.Global,
+            ProfileIds.CnOfficial,
+            "3.1.0",
+            fixture.Game,
+            issues) ?? throw new InvalidOperationException("首次切换计划未生成。");
+        var transaction = service.BeginTransition(plan);
+        var saved = service.GetStatus(
+            ProfileIds.Global,
+            "3.1.0",
+            fixture.Game,
+            ProfileIds.CnOfficial);
+
+        True(saved.IsAvailable && saved.FileCount == 2,
+            saved.Detail ?? "切走时应把新增热更新文件纳入来源服缓存清单。");
+        True(service.Rollback(transaction), "测试结束时应恢复活动 Blocks。");
+        return Task.CompletedTask;
+    }
+
+    private static Task UpgradeDoesNotReuseOldVersionCache()
+    {
+        using var fixture = new TempFixture();
+        var service = new HotUpdateCacheService(fixture.Paths, new FakeProcessMonitor());
+        var active = Path.Combine(fixture.Game, HotUpdateCacheService.BlocksRelativePath);
+        Directory.CreateDirectory(active);
+        File.WriteAllText(Path.Combine(active, "cache.blk"), "old-version");
+        service.InitializeActive(ProfileIds.Global, "3.1.0", fixture.Game);
+
+        var issues = new List<ValidationIssue>();
+        var plan = service.CreateTransitionPlan(
+            ProfileIds.Global,
+            ProfileIds.CnOfficial,
+            "3.2.0",
+            fixture.Game,
+            issues);
+
+        True(plan is null, "新版本尚未初始化时必须停止切换。");
+        True(issues.Any(issue => issue.Code == "hot-cache.source.missing"),
+            "升级后的停止原因应明确为新版本来源缓存未初始化。");
+        True(service.GetStatus(ProfileIds.Global, "3.1.0", fixture.Game, ProfileIds.Global).IsAvailable,
+            "停止新版本切换时不应破坏旧版本缓存。");
+        return Task.CompletedTask;
+    }
+
+    private static Task PackageArchiveImportsAtomically()
+    {
+        using var fixture = new TempFixture();
+        const string content = "verified-package";
+        PreparePackageImportConfiguration(fixture, content);
+        var archive = CreatePackageArchive(fixture, "3.1.0", content);
+        var existing = GameStorageLayout.GetPackageRoot(fixture.Game, "3.1.0");
+        Directory.CreateDirectory(existing);
+        File.WriteAllText(Path.Combine(existing, "old.bin"), "old");
+
+        var result = new PackageImportService(new ConfigurationRepository(fixture.Paths))
+            .Import(archive, fixture.Game, "3.1.0");
+
+        True(result.ReplacedExisting && result.RetainedPreviousPath is null,
+            "完整导入后应替换并清理旧同版本目录。");
+        Equal(content, File.ReadAllText(Path.Combine(existing, ProfileIds.CnOfficial, "payload.bin")));
+        True(!File.Exists(Path.Combine(existing, "old.bin")), "旧差异包内容不应与新包混合。");
+        return Task.CompletedTask;
+    }
+
+    private static Task PackageArchiveRejectsTraversal()
+    {
+        using var fixture = new TempFixture();
+        PreparePackageImportConfiguration(fixture, "payload");
+        var archivePath = Path.Combine(fixture.Root, "traversal.zip");
+        using (var archive = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+        {
+            using var writer = new StreamWriter(archive.CreateEntry(
+                ".zzzswitch/packages/3.1.0/../outside.bin").Open());
+            writer.Write("bad");
+        }
+
+        var rejected = false;
+        try
+        {
+            new PackageImportService(new ConfigurationRepository(fixture.Paths))
+                .Import(archivePath, fixture.Game, "3.1.0");
+        }
+        catch (InvalidDataException)
+        {
+            rejected = true;
+        }
+
+        True(rejected, "包含 .. 的 ZIP 路径必须在解压前拒绝。");
+        True(!File.Exists(Path.Combine(GameStorageLayout.GetPackagesRoot(fixture.Game), "outside.bin")),
+            "拒绝的 ZIP 不得写出目标版本目录。");
+        return Task.CompletedTask;
+    }
+
+    private static Task PackageArchiveRecoversInterruptedReplacement()
+    {
+        using var fixture = new TempFixture();
+        const string content = "recovered-import";
+        PreparePackageImportConfiguration(fixture, content);
+        var archive = CreatePackageArchive(fixture, "3.1.0", content);
+        var packagesRoot = GameStorageLayout.GetPackagesRoot(fixture.Game);
+        var previous = Path.Combine(packagesRoot, ".previous-3.1.0-interrupted");
+        var importing = Path.Combine(packagesRoot, ".importing-3.1.0-interrupted");
+        Directory.CreateDirectory(previous);
+        Directory.CreateDirectory(importing);
+        File.WriteAllText(Path.Combine(previous, "old.bin"), "recoverable-old");
+        File.WriteAllText(Path.Combine(importing, "partial.bin"), "partial");
+
+        var result = new PackageImportService(new ConfigurationRepository(fixture.Paths))
+            .Import(archive, fixture.Game, "3.1.0");
+
+        Equal(content, File.ReadAllText(Path.Combine(
+            result.PackageRoot,
+            ProfileIds.CnOfficial,
+            "payload.bin")));
+        True(!Directory.GetDirectories(packagesRoot, ".previous-3.1.0-*").Any() &&
+             !Directory.GetDirectories(packagesRoot, ".importing-3.1.0-*").Any(),
+            "恢复并提交后不应遗留中断导入目录。");
+        return Task.CompletedTask;
+    }
+
+    private static Task PackageArchiveRejectsWrongVersion()
+    {
+        using var fixture = new TempFixture();
+        PreparePackageImportConfiguration(fixture, "payload");
+        var archive = CreatePackageArchive(fixture, "3.0.0", "payload");
+        var rejected = false;
+        try
+        {
+            new PackageImportService(new ConfigurationRepository(fixture.Paths))
+                .Import(archive, fixture.Game, "3.1.0");
+        }
+        catch (InvalidDataException)
+        {
+            rejected = true;
+        }
+
+        True(rejected, "3.0.0 差异包不得导入到 3.1.0 目录。");
+        True(!Directory.Exists(GameStorageLayout.GetPackageRoot(fixture.Game, "3.1.0")),
+            "版本不匹配时不得创建目标差异包目录。");
+        return Task.CompletedTask;
+    }
+
+    private static Task ThemePreferencePersistsAndFallsBack()
+    {
+        using var fixture = new TempFixture();
+        var settings = new UiSettingsService(fixture.Paths);
+        Equal(ThemePreference.FollowWindows, settings.LoadThemePreference());
+        settings.SaveThemePreference(ThemePreference.Light);
+        Equal(ThemePreference.Light, new UiSettingsService(fixture.Paths).LoadThemePreference());
+        File.WriteAllText(fixture.Paths.UiSettingsFile, "{broken");
+        Equal(ThemePreference.FollowWindows, settings.LoadThemePreference());
+        return Task.CompletedTask;
+    }
+
+    private static Task UiSettingsPersistAsOneDocument()
+    {
+        using var fixture = new TempFixture();
+        var service = new UiSettingsService(fixture.Paths);
+        service.Save(new UiSettings
+        {
+            Theme = ThemePreference.Dark,
+            Language = AppLanguage.English,
+            AutoDetectGameDirectory = true,
+            AutoInspectOnStartup = false,
+            ShowLastGameDirectory = false,
+            RememberWindowPlacement = true,
+            ShowDetailedStatus = true,
+            LogRetentionDays = 30,
+            WindowLeft = 120,
+            WindowTop = 80,
+            WindowWidth = 1100,
+            WindowHeight = 800,
+            WindowMaximized = true
+        });
+
+        var loaded = service.Load();
+        Equal(ThemePreference.Dark, loaded.Theme);
+        Equal(AppLanguage.English, loaded.Language);
+        True(loaded.AutoDetectGameDirectory && !loaded.AutoInspectOnStartup &&
+             !loaded.ShowLastGameDirectory && loaded.RememberWindowPlacement &&
+             loaded.ShowDetailedStatus && loaded.WindowMaximized,
+            "界面与启动布尔设置未完整持久化。");
+        Equal(30, loaded.LogRetentionDays);
+        Equal(1100d, loaded.WindowWidth);
+
+        service.SaveThemePreference(ThemePreference.Light);
+        loaded = service.Load();
+        Equal(AppLanguage.English, loaded.Language);
+        Equal(30, loaded.LogRetentionDays);
+        return Task.CompletedTask;
+    }
+
+    private static Task ExpiredLogsFollowRetention()
+    {
+        using var fixture = new TempFixture();
+        var logger = new OperationLogger(fixture.Paths);
+        logger.Write(new OperationLogEntry
+        {
+            Time = DateTimeOffset.Now,
+            OperationId = "retention-test",
+            GamePath = fixture.Game,
+            GameVersion = "3.1.0",
+            SourceProfile = ProfileIds.Global,
+            TargetProfile = ProfileIds.CnOfficial,
+            Error = "retained"
+        });
+        var oldLog = Path.Combine(fixture.Paths.LogsRoot, "old.jsonl");
+        File.WriteAllText(oldLog, "old");
+        File.SetLastWriteTimeUtc(oldLog, DateTime.UtcNow.AddDays(-31));
+        var logs = new LogMaintenanceService(fixture.Paths);
+        var cleanup = logs.CleanExpiredLogs(30);
+        Equal(1, cleanup.RemovedFileCount);
+        True(!File.Exists(oldLog) && Directory.GetFiles(fixture.Paths.LogsRoot, "*.jsonl").Length == 1,
+            "只应删除超过保留天数的日志。");
+        return Task.CompletedTask;
+    }
+
     private static Task MigratedCacheManifestUsesCustomLocation()
     {
         using var fixture = new TempFixture();
@@ -1616,15 +1893,15 @@ internal static class Program
         string sourceProfile = ProfileIds.Global,
         string? targetProfile = null,
         string operationResult = "success") => new()
-    {
-        OperationId = Guid.NewGuid().ToString("N"),
-        OperationTime = operationTime,
-        SourceProfile = sourceProfile,
-        TargetProfile = targetProfile ?? (sourceProfile == ProfileIds.Global ? ProfileIds.CnOfficial : ProfileIds.Global),
-        GameVersion = "3.0.0",
-        GamePath = gamePath,
-        OperationResult = operationResult
-    };
+        {
+            OperationId = Guid.NewGuid().ToString("N"),
+            OperationTime = operationTime,
+            SourceProfile = sourceProfile,
+            TargetProfile = targetProfile ?? (sourceProfile == ProfileIds.Global ? ProfileIds.CnOfficial : ProfileIds.Global),
+            GameVersion = "3.0.0",
+            GamePath = gamePath,
+            OperationResult = operationResult
+        };
 
     private static Task PendingFileTransactionRecovery()
     {
@@ -2221,6 +2498,72 @@ internal static class Program
             "cache.json");
 
     private static ReplaceFileEntry Entry(string path) => new() { Source = path, Target = path };
+
+    private static void PreparePackageImportConfiguration(TempFixture fixture, string content)
+    {
+        foreach (var profile in ProfileIds.All)
+        {
+            var definition = new ProfileDefinition
+            {
+                Id = profile,
+                DisplayName = profile,
+                PackageDirectoryName = profile,
+                KeyFiles = []
+            };
+            File.WriteAllText(
+                Path.Combine(fixture.Config, "profiles", profile + ".json"),
+                JsonSerializer.Serialize(definition, JsonSupport.Options));
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(content);
+        foreach (var source in ProfileIds.All)
+        {
+            foreach (var target in ProfileIds.All.Where(target => target != source))
+            {
+                var transition = new TransitionManifest
+                {
+                    SourceProfile = source,
+                    TargetProfile = target,
+                    GameVersion = "3.1.0",
+                    ExpectedReplaceCount = 1,
+                    ExpectedDeleteCount = 0,
+                    ReplaceFiles =
+                    [
+                        new ReplaceFileEntry
+                        {
+                            Source = "payload.bin",
+                            Target = "payload.bin",
+                            Length = bytes.Length,
+                            Sha256 = Convert.ToHexString(SHA256.HashData(bytes))
+                        }
+                    ]
+                };
+                File.WriteAllText(
+                    Path.Combine(fixture.Config, "transitions", $"{source}-to-{target}.json"),
+                    JsonSerializer.Serialize(transition, JsonSupport.Options));
+            }
+        }
+    }
+
+    private static string CreatePackageArchive(TempFixture fixture, string version, string content)
+    {
+        var archivePath = Path.Combine(fixture.Root, $"packages-{version}.zip");
+        using var archive = ZipFile.Open(archivePath, ZipArchiveMode.Create);
+        AddEntry("version.ini", $"version={version}");
+        AddEntry(Path.Combine(ProfileIds.Global, "payload.bin"), content);
+        AddEntry(Path.Combine(ProfileIds.CnOfficial, "payload.bin"), content);
+        AddEntry(Path.Combine(ProfileIds.Bilibili, "payload.bin"), content);
+        return archivePath;
+
+        void AddEntry(string relativePath, string value)
+        {
+            var name = $".zzzswitch/packages/{version}/{relativePath.Replace('\\', '/')}";
+            var entry = archive.CreateEntry(name, CompressionLevel.NoCompression);
+            using var stream = entry.Open();
+            var bytes = Encoding.UTF8.GetBytes(value);
+            stream.Write(bytes);
+        }
+    }
 
     private static string Sha256Text(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

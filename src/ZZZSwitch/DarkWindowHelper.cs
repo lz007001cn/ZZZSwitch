@@ -9,7 +9,7 @@ internal static class DarkWindowHelper
     private const int DwmUseImmersiveDarkMode = 20;
     private const int DwmUseImmersiveDarkModeBefore20H1 = 19;
 
-    public static void Apply(Window window)
+    public static void Apply(Window window, bool dark)
     {
         var handle = new WindowInteropHelper(window).Handle;
         if (handle == IntPtr.Zero)
@@ -17,7 +17,7 @@ internal static class DarkWindowHelper
             return;
         }
 
-        var enabled = 1;
+        var enabled = dark ? 1 : 0;
         if (DwmSetWindowAttribute(handle, DwmUseImmersiveDarkMode, ref enabled, sizeof(int)) != 0)
         {
             DwmSetWindowAttribute(handle, DwmUseImmersiveDarkModeBefore20H1, ref enabled, sizeof(int));

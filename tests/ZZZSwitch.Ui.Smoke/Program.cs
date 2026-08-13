@@ -22,11 +22,11 @@ internal static class Program
     {
         var app = new App();
         app.InitializeComponent();
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ZZZSwitch.Ui.Smoke", Guid.NewGuid().ToString("N"));
         var main = new MainWindow();
         CacheManagementWindow? cache = null;
         BackupLocationWindow? backupLocation = null;
         BackupWindow? backupHistory = null;
-        var tempRoot = Path.Combine(Path.GetTempPath(), "ZZZSwitch.Ui.Smoke", Guid.NewGuid().ToString("N"));
         try
         {
             var bilibiliButton = Require<ServerSwitchCard>(main, "SwitchBilibiliButton");
@@ -37,8 +37,15 @@ internal static class Program
             Layout(main, 980, 760);
             Assert(bilibiliButton.Visibility == Visibility.Visible,
                 "B服切换按钮在普通 Release 界面中不可见。");
-            Assert(bilibiliButton.ServerName == "B服" && bilibiliButton.IconSource is not null,
+            Assert(bilibiliButton.ServerName is "B服" or "Bilibili" && bilibiliButton.IconSource is not null,
                 "可复用服务器卡片未正确接收 B服展示属性。");
+            foreach (var cardName in new[] { "SwitchGlobalButton", "SwitchCnButton", "SwitchBilibiliButton" })
+            {
+                var card = Require<ServerSwitchCard>(main, cardName);
+                var icon = card.FindName("ServerIcon") as Image;
+                Assert(icon?.Clip is RectangleGeometry clip && clip.RadiusX == 9 && clip.RadiusY == 9,
+                    $"{cardName} 未使用圆角图标遮罩。" );
+            }
             Assert(bilibiliColumn.Width.IsStar,
                 "B服服务器列在普通 Release 界面中未启用。");
             var expectedVersion = typeof(MainWindow).Assembly
@@ -54,6 +61,8 @@ internal static class Program
             AssertScaledLayout(main, viewModel, 1.25);
             AssertScaledLayout(main, viewModel, 1.5);
             AssertScaledLayout(main, viewModel, 2.0);
+            VerifyThemeSwitching(app, main, viewModel, tempRoot);
+            VerifyLocalization(app, main, tempRoot);
 
             viewModel.IsBusy = true;
             main.UpdateLayout();
@@ -67,6 +76,17 @@ internal static class Program
             Assert(main.FindName("RestoreLatestButton") is null,
                 "主界面不应继续显示独立的恢复上次状态按钮。");
             Require<Button>(main, "BackupDirectoryButton");
+            Require<Button>(main, "SettingsButton");
+            Assert(new[]
+                   {
+                       Require<TextBlock>(main, "BackupHistoryIcon"),
+                       Require<TextBlock>(main, "ImportPackageIcon"),
+                       Require<TextBlock>(main, "BackupDirectoryIcon"),
+                       Require<TextBlock>(main, "SettingsIcon")
+                   }.All(icon => icon.VerticalAlignment == VerticalAlignment.Center && icon.FontSize == 15),
+                "工具栏图标未与文字按统一基线居中。" );
+            Assert(main.FindName("ThemeButton") is null,
+                "主窗口右上角不应继续显示旧主题按钮。");
 
             var usage = new CacheUsageSummary(
                 @"D:\ZZZSwitchCache", 2, 2048, 1, 1, 1024, true);
@@ -80,6 +100,40 @@ internal static class Program
                 @"D:\ZZZSwitchBackups", 3, 6, 4096, true));
             Assert(Require<Button>(backupLocation, "RestoreDefaultButton").IsEnabled,
                 "自定义备份位置状态下应允许恢复默认位置。");
+
+            var settingsWindow = new SettingsWindow(new SettingsViewData(
+                new UiSettings(),
+                usage,
+                null,
+                new BackupLocationUsage(@"D:\Backups", 3, 6, 4096, true),
+                null));
+            Assert(settingsWindow.FindName("LanguageComboBox") is ComboBox &&
+                   settingsWindow.FindName("ThemeComboBox") is ComboBox &&
+                   settingsWindow.FindName("CachePathTextBlock") is TextBlock &&
+                   settingsWindow.FindName("BackupPathTextBlock") is TextBlock,
+                "设置窗口缺少语言、主题、缓存或备份入口。");
+            Assert(settingsWindow.Title == "设置" &&
+                   settingsWindow.FindName("GamePathTextBox") is null,
+                "设置窗口标题不正确，或仍保留重复的游戏目录区块。");
+            Assert(Require<Button>(settingsWindow, "SaveButton").Content?.ToString() == "保存",
+                "设置窗口缺少明确的保存按钮。");
+            var themeCombo = Require<ComboBox>(settingsWindow, "ThemeComboBox");
+            Assert(themeCombo.Items.Count == 3,
+                "主题选择必须包含跟随 Windows、浅色和深色三项。");
+            themeCombo.ApplyTemplate();
+            Assert(themeCombo.Template.FindName("ComboBorder", themeCombo) is Border,
+                "主题选择框未使用项目自定义模板。");
+            var retentionCombo = Require<ComboBox>(settingsWindow, "LogRetentionComboBox");
+            Assert(retentionCombo.Items.Count == 2,
+                "日志保留天数只能提供 7 天和 30 天。");
+            var rememberWindow = Require<CheckBox>(settingsWindow, "RememberWindowCheckBox");
+            rememberWindow.ApplyTemplate();
+            Assert(rememberWindow.Template.FindName("CheckBorder", rememberWindow) is Border,
+                "复选框未使用项目自定义模板。");
+            AssertSettingsLayout(settingsWindow, 620, 480, 1.0);
+            AssertSettingsLayout(settingsWindow, 775, 600, 1.25);
+            AssertSettingsLayout(settingsWindow, 1240, 960, 2.0);
+            settingsWindow.Close();
 
             var paths = new AppPaths(Path.Combine(tempRoot, "AppData"), Path.Combine(tempRoot, "config"));
             var files = new PhysicalFileOperations();
@@ -135,6 +189,9 @@ internal static class Program
             Console.WriteLine("PASS  正式版显示国际服/国服/B服。");
             Console.WriteLine("PASS  默认与窄窗口在扫描前后宽高保持不变。");
             Console.WriteLine("PASS  125%/150%/200% 布局缩放压力验证通过。");
+            Console.WriteLine("PASS  跟随 Windows / 深色 / 浅色主题资源可动态切换。");
+            Console.WriteLine("PASS  中文 / English 主界面资源可动态切换。");
+            Console.WriteLine("PASS  设置窗口在最窄尺寸及 125%/200% 缩放下可滚动且布局有效。");
             Console.WriteLine("PASS  主窗口展示状态由 ViewModel 驱动，服务器卡片可复用。");
             Console.WriteLine("PASS  Command 路由、忙碌禁用和异步异常处理通过。");
             Console.WriteLine("PASS  启动恢复编排和非交互弹窗路由通过。");
@@ -223,11 +280,86 @@ internal static class Program
                    ?? throw new InvalidOperationException("主窗口根视觉不存在。");
         root.Measure(new Size(width, height));
         root.Arrange(new Rect(0, 0, width, height));
-        main.Dispatcher.Invoke(() => { }, DispatcherPriority.DataBind);
+        main.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
         root.UpdateLayout();
     }
 
     private static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+
+    private static void AssertSettingsLayout(
+        SettingsWindow window,
+        double width,
+        double height,
+        double scale)
+    {
+        var root = window.Content as FrameworkElement
+                   ?? throw new InvalidOperationException("设置窗口根视觉不存在。");
+        var originalTransform = root.LayoutTransform;
+        try
+        {
+            root.LayoutTransform = new ScaleTransform(scale, scale);
+            window.Width = width;
+            window.Height = height;
+            root.Measure(new Size(width, height));
+            root.Arrange(new Rect(0, 0, width, height));
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            root.UpdateLayout();
+            Assert(IsFinite(root.ActualWidth) && IsFinite(root.ActualHeight) &&
+                   root.ActualWidth > 0 && root.ActualHeight > 0 &&
+                   root.ActualWidth <= width && root.ActualHeight <= height,
+                $"设置窗口 {scale:P0} 缩放布局尺寸无效：{root.ActualWidth} × {root.ActualHeight}。");
+        }
+        finally
+        {
+            root.LayoutTransform = originalTransform;
+        }
+    }
+
+    private static void VerifyThemeSwitching(
+        App app,
+        MainWindow main,
+        MainWindowViewModel viewModel,
+        string tempRoot)
+    {
+        using var theme = new ThemeManager(
+            app,
+            new AppPaths(Path.Combine(tempRoot, "ThemeData"), Path.Combine(tempRoot, "ThemeConfig")));
+        theme.SetPreference(ThemePreference.Light);
+        Layout(main, 820, 680);
+        Assert(main.Background is SolidColorBrush light && light.Color == Color.FromRgb(246, 246, 246),
+            $"浅色主题未动态更新已创建的主窗口：{(main.Background as SolidColorBrush)?.Color}。");
+        Assert(Require<Border>(main, "HeaderBorder").Background is SolidColorBrush header &&
+               header.Color == Color.FromRgb(246, 246, 246),
+            "浅色主题的品牌栏仍然是黑色。 ");
+        Assert(Require<System.Windows.Shapes.Rectangle>(main, "BrandMark").Fill is SolidColorBrush logo &&
+               logo.Color == Color.FromRgb(28, 28, 28),
+            "浅色主题的品牌标识未切换为深色。 ");
+        AssertStableLoadingLayout(main, viewModel, 820, 680, "浅色窄窗口");
+
+        theme.SetPreference(ThemePreference.Dark);
+        Layout(main, 820, 680);
+        Assert(main.Background is SolidColorBrush dark && dark.Color == Color.FromRgb(27, 27, 27),
+            "深色主题未动态更新已创建的主窗口。");
+        AssertStableLoadingLayout(main, viewModel, 820, 680, "深色窄窗口");
+    }
+
+    private static void VerifyLocalization(App app, MainWindow main, string tempRoot)
+    {
+        var localization = new LocalizationManager(
+            app,
+            new AppPaths(Path.Combine(tempRoot, "LanguageData"), Path.Combine(tempRoot, "LanguageConfig")));
+        localization.SetLanguage(AppLanguage.English);
+        main.UpdateLayout();
+        Assert(Require<Button>(main, "AutoDetectButton").Content?.ToString() == "Auto detect",
+            "English 语言未更新主界面按钮。");
+        Assert(Require<ServerSwitchCard>(main, "SwitchBilibiliButton").ServerName == "Bilibili",
+            "English 语言未更新服务器卡片。");
+
+        localization.SetLanguage(AppLanguage.Chinese);
+        main.UpdateLayout();
+        Assert(Require<Button>(main, "AutoDetectButton").Content?.ToString() == "自动检测",
+            "中文语言未恢复主界面按钮。");
+    }
 
     private static void VerifyCommandRouting()
     {
@@ -247,7 +379,8 @@ internal static class Program
             () => { },
             () => Task.CompletedTask,
             () => throw new InvalidOperationException("sync-command-test"),
-            () => { },
+            () => Task.CompletedTask,
+            () => Task.CompletedTask,
             exception => handledException = exception));
         viewModel.SetInspectionCapabilities(canManageCache: true, canInitializeCache: true);
 
@@ -452,6 +585,8 @@ internal static class Program
             string description,
             string? currentPath = null,
             bool showNewFolderButton = true) => null;
+
+        public string? SelectPackageArchive() => null;
 
         public CacheManagementAction SelectCacheManagementAction(CacheUsageSummary usage) => CacheAction;
 

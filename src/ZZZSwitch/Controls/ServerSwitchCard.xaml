@@ -19,9 +19,16 @@
                     BorderThickness="0"
                     ClipToBounds="True"
                     VerticalAlignment="Center">
-                <Image Source="{Binding IconSource, ElementName=Root}"
+                <Image x:Name="ServerIcon"
+                       Source="{Binding IconSource, ElementName=Root}"
                        Stretch="Uniform"
-                       RenderOptions.BitmapScalingMode="HighQuality" />
+                       RenderOptions.BitmapScalingMode="HighQuality">
+                    <Image.Clip>
+                        <RectangleGeometry Rect="0,0,48,48"
+                                           RadiusX="9"
+                                           RadiusY="9" />
+                    </Image.Clip>
+                </Image>
             </Border>
             <StackPanel Grid.Column="1"
                         Margin="13,0"
@@ -30,7 +37,7 @@
                            FontSize="15"
                            FontWeight="SemiBold" />
                 <TextBlock Text="{Binding Description, ElementName=Root}"
-                           Foreground="{StaticResource MutedTextBrush}"
+                           Foreground="{DynamicResource MutedTextBrush}"
                            FontSize="11"
                            TextTrimming="CharacterEllipsis"
                            Margin="0,4,0,0" />
@@ -38,7 +45,7 @@
             <TextBlock Grid.Column="2"
                        Text="&#xE72A;"
                        FontFamily="Segoe Fluent Icons"
-                       Foreground="{StaticResource MutedTextBrush}"
+                       Foreground="{DynamicResource MutedTextBrush}"
                        VerticalAlignment="Center" />
         </Grid>
     </Button>
