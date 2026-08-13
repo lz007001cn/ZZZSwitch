@@ -19,7 +19,6 @@ public partial class ThemedMessageWindow : Window
         string title,
         string message,
         MessageTone tone = MessageTone.Information,
-        string? subtitle = null,
         bool showCancel = false,
         string primaryText = "知道了",
         MediaBrush? accentBrush = null)
@@ -29,7 +28,6 @@ public partial class ThemedMessageWindow : Window
 
         Title = title;
         TitleText.Text = title;
-        SubtitleText.Text = subtitle ?? ToneSubtitle(tone);
         MessageText.Text = message;
         ToneDot.Fill = accentBrush ?? ToneBrush(tone);
         CancelButton.Visibility = showCancel ? Visibility.Visible : Visibility.Collapsed;
@@ -41,7 +39,6 @@ public partial class ThemedMessageWindow : Window
         string title,
         string message,
         MessageTone tone = MessageTone.Information,
-        string? subtitle = null,
         bool showCancel = false,
         string primaryText = "知道了",
         MediaBrush? accentBrush = null)
@@ -50,7 +47,6 @@ public partial class ThemedMessageWindow : Window
             title,
             message,
             tone,
-            subtitle,
             showCancel,
             primaryText,
             accentBrush);
@@ -61,14 +57,6 @@ public partial class ThemedMessageWindow : Window
 
         return window.ShowDialog();
     }
-
-    private static string ToneSubtitle(MessageTone tone) => tone switch
-    {
-        MessageTone.Success => "操作已完成",
-        MessageTone.Warning => "需要确认",
-        MessageTone.Error => "操作未完成",
-        _ => "ZZZSwitch"
-    };
 
     private static MediaBrush ToneBrush(MessageTone tone) => tone switch
     {

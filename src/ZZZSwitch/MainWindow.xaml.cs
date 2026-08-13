@@ -188,8 +188,7 @@ public partial class MainWindow : Window
                 _dialogs.Show(
                     recovery.Success ? "上次切换已恢复" : "上次切换需要处理",
                     recovery.Message,
-                    recovery.Success ? MessageTone.Success : MessageTone.Warning,
-                    recovery.Success ? "自动恢复完成" : "请处理后再切换");
+                    recovery.Success ? MessageTone.Success : MessageTone.Warning);
             }
 
             if (!string.IsNullOrWhiteSpace(startup.StateWarning))
@@ -197,8 +196,7 @@ public partial class MainWindow : Window
                 _dialogs.Show(
                     "本地状态记录不可用",
                     startup.StateWarning,
-                    MessageTone.Warning,
-                    "已忽略损坏记录");
+                    MessageTone.Warning);
             }
 
             if (_uiSettings.AutoDetectGameDirectory)
@@ -305,8 +303,7 @@ public partial class MainWindow : Window
                     "ZZZSwitch 配置异常",
                     "检测到内置服务器配置或切换清单损坏。为避免创建不完整目录或执行错误切换，自动修复已停止。\n\n" +
                     "请重新解压完整的软件本体覆盖当前文件；游戏目录中的 .zzzswitch 数据不会被修改。",
-                    MessageTone.Error,
-                    "详细检查信息中已列出损坏文件");
+                    MessageTone.Error);
             }
 
             return;
@@ -371,8 +368,7 @@ public partial class MainWindow : Window
             _dialogs.Show(
                 "检测到存储异常",
                 message.ToString().TrimEnd(),
-                MessageTone.Warning,
-                "请按提示手动补全内容");
+                MessageTone.Warning);
             return;
         }
 
@@ -395,7 +391,6 @@ public partial class MainWindow : Window
                 "ZZZSwitch 存储目录异常",
                 repairMessage,
                 MessageTone.Warning,
-                "可以安全重建目录结构",
                 showCancel: true,
                 primaryText: "修复目录") != true)
         {
@@ -447,8 +442,7 @@ public partial class MainWindow : Window
             $"下一步请手动将 ZZZSwitch-Packages-{report.Game.GameVersion}.zip 解压到游戏目录的上一级，" +
             $"并确认差异文件位于：\n{repair.After.PackageVersionPath}\n\n" +
             "如果双服缓存已经丢失，需要重新初始化当前服，并在首次切换后重新下载和初始化另一服缓存。",
-            MessageTone.Success,
-            "只重建了目录，未恢复文件内容");
+            MessageTone.Success);
         await RefreshInspectionAsync();
     }
 

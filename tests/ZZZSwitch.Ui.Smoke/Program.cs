@@ -45,6 +45,8 @@ internal static class Program
                 var icon = card.FindName("ServerIcon") as Image;
                 Assert(icon?.Clip is RectangleGeometry clip && clip.RadiusX == 9 && clip.RadiusY == 9,
                     $"{cardName} 未使用圆角图标遮罩。" );
+                Assert(card.FindName("DescriptionText") is null,
+                    $"{cardName} 不应继续显示标题下说明。" );
             }
             Assert(bilibiliColumn.Width.IsStar,
                 "B服服务器列在普通 Release 界面中未启用。");
@@ -87,6 +89,12 @@ internal static class Program
                 "工具栏图标未与文字按统一基线居中。" );
             Assert(main.FindName("ThemeButton") is null,
                 "主窗口右上角不应继续显示旧主题按钮。");
+
+            var messageWindow = new ThemedMessageWindow("测试标题", "测试内容");
+            var messageHeader = Require<Grid>(messageWindow, "HeaderGrid");
+            Assert(messageHeader.Children.OfType<TextBlock>().Count() == 1,
+                "通用提示弹窗不应继续显示标题下说明。");
+            messageWindow.Close();
 
             var usage = new CacheUsageSummary(
                 @"D:\ZZZSwitchCache", 2, 2048, 1, 1, 1024, true);
@@ -569,7 +577,6 @@ internal static class Program
             string title,
             string message,
             MessageTone tone = MessageTone.Information,
-            string? subtitle = null,
             bool showCancel = false,
             string primaryText = "OK",
             Brush? accentBrush = null)

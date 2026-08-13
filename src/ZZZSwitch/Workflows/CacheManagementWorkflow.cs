@@ -115,17 +115,14 @@ public sealed class CacheManagementWorkflow
         }
 
         var displayName = DisplayFormatting.ShortProfileName(profile);
-        var prompt = $"将把当前 Persistent\\Blocks 登记为{displayName}热更新缓存。\n\n" +
-                     "开始前请确认：\n" +
+        var prompt = "开始前请确认：\n" +
                      "• 资源下载已完成\n" +
-                     "• 已成功进入游戏\n" +
-                     "• 游戏与 HoYoPlay 已完全退出\n\n" +
-                     "程序只会生成缓存清单，不会移动 Blocks 或修改游戏内容。";
+                     "• 可成功进入游戏\n" +
+                     "• 游戏与 HoYoPlay 已完全退出";
         if (_dialogs.Show(
                 $"初始化{displayName}缓存",
                 prompt,
                 MessageTone.Information,
-                "登记当前 Persistent\\Blocks",
                 showCancel: true,
                 primaryText: "开始初始化",
                 accentBrush: _context.ProfileBrush(profile)) != true)
@@ -149,8 +146,7 @@ public sealed class CacheManagementWorkflow
             _dialogs.Show(
                 "缓存初始化完成",
                 $"{manifest.FileCount} 个文件 · {DisplayFormatting.FormatBytes(manifest.TotalBytes)}\n\n现在可以切换到另一服务器进行首次初始化。",
-                MessageTone.Success,
-                $"{displayName} · {version}");
+                MessageTone.Success);
         }
         catch (Exception ex)
         {
@@ -184,9 +180,8 @@ public sealed class CacheManagementWorkflow
         if (_dialogs.Show(
                 "清理旧版本缓存",
                 $"将永久删除 {usage.ObsoleteVersionCount} 个旧游戏版本的缓存，共 {DisplayFormatting.FormatBytes(usage.ObsoleteBytes)}。\n\n" +
-                $"当前版本 {gameVersion} 的缓存不会被删除。",
+                $"当前版本 {gameVersion} 的缓存不会被删除。此操作不能撤销。",
                 MessageTone.Warning,
-                "此操作不能撤销",
                 showCancel: true,
                 primaryText: "确认清理") != true)
         {
@@ -236,12 +231,11 @@ public sealed class CacheManagementWorkflow
         if (_dialogs.Show(
                 "更改缓存位置",
                 $"当前位置：\n{usage.CacheRootPath}\n\n目标位置：\n{targetRoot}\n\n" +
-                $"将迁移 {usage.FileCount} 个文件，共 {DisplayFormatting.FormatBytes(usage.TotalBytes)}。" +
+                $"将迁移 {usage.FileCount} 个文件，共 {DisplayFormatting.FormatBytes(usage.TotalBytes)}。复制并校验完成后才会启用新位置。" +
                 (usage.ObsoleteBytes > 0
                     ? $"\n其中包含 {DisplayFormatting.FormatBytes(usage.ObsoleteBytes)} 旧版本缓存，可先返回清理后再迁移。"
                     : string.Empty),
                 MessageTone.Information,
-                "复制并校验完成后才会启用新位置",
                 showCancel: true,
                 primaryText: "开始迁移") != true)
         {

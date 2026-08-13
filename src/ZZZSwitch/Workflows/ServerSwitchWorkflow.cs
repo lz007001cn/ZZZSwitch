@@ -65,8 +65,7 @@ public sealed class ServerSwitchWorkflow
             _dialogs.Show(
                 "切换前检查未通过",
                 string.Join(Environment.NewLine, errors.Select(x => "• " + x.Message)),
-                MessageTone.Warning,
-                "请处理以下阻止项");
+                MessageTone.Warning);
             return;
         }
 

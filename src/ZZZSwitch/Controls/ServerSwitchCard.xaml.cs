@@ -12,12 +12,6 @@ public partial class ServerSwitchCard : System.Windows.Controls.UserControl
         typeof(ServerSwitchCard),
         new PropertyMetadata(string.Empty));
 
-    public static readonly DependencyProperty DescriptionProperty = DependencyProperty.Register(
-        nameof(Description),
-        typeof(string),
-        typeof(ServerSwitchCard),
-        new PropertyMetadata(string.Empty));
-
     public static readonly DependencyProperty IconSourceProperty = DependencyProperty.Register(
         nameof(IconSource),
         typeof(ImageSource),
@@ -36,12 +30,6 @@ public partial class ServerSwitchCard : System.Windows.Controls.UserControl
     {
         get => (string)GetValue(ServerNameProperty);
         set => SetValue(ServerNameProperty, value);
-    }
-
-    public string Description
-    {
-        get => (string)GetValue(DescriptionProperty);
-        set => SetValue(DescriptionProperty, value);
     }
 
     public ImageSource? IconSource

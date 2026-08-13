@@ -20,19 +20,13 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock Text="缓存管理"
-                       FontSize="22"
-                       FontWeight="SemiBold" />
-            <TextBlock Text="管理双服热更新缓存的位置与旧版本内容"
-                       Margin="0,5,0,0"
-                       FontSize="12"
-                       Foreground="{DynamicResource MutedTextBrush}" />
-        </StackPanel>
+        <TextBlock Text="缓存管理"
+                   FontSize="22"
+                   FontWeight="SemiBold" />
 
         <Border Grid.Row="1"
                 Style="{StaticResource CardStyle}"
-                Margin="0,18,0,0">
+                Margin="0,14,0,0">
             <StackPanel>
                 <TextBlock Text="当前缓存目录"
                            FontSize="12"

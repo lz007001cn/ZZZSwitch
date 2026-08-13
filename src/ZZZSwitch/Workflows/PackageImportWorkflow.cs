@@ -69,9 +69,9 @@ public sealed class PackageImportWorkflow
         if (_dialogs.Show(
                 "导入三服差异包",
                 $"文件：\n{archive}\n\n游戏版本：{gameVersion}\n导入位置：\n{target}" +
-                (replacing ? "\n\n现有同版本差异包会在新内容完整解压并校验通过后替换。" : string.Empty),
+                (replacing ? "\n\n现有同版本差异包会在新内容完整解压并校验通过后替换。" : string.Empty) +
+                "\n\n国际服、国服和 B服内容会一起校验。",
                 MessageTone.Information,
-                "ZIP 只读取；国际服、国服和 B服内容会一起校验",
                 showCancel: true,
                 primaryText: "开始导入") != true)
         {

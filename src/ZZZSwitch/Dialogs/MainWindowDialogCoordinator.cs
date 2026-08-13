@@ -24,7 +24,6 @@ public interface IMainWindowDialogs
         string title,
         string message,
         MessageTone tone = MessageTone.Information,
-        string? subtitle = null,
         bool showCancel = false,
         string primaryText = "知道了",
         MediaBrush? accentBrush = null);
@@ -53,7 +52,6 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
         string title,
         string message,
         MessageTone tone = MessageTone.Information,
-        string? subtitle = null,
         bool showCancel = false,
         string primaryText = "知道了",
         MediaBrush? accentBrush = null) =>
@@ -62,7 +60,6 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
             title,
             message,
             tone,
-            subtitle,
             showCancel,
             primaryText,
             accentBrush);

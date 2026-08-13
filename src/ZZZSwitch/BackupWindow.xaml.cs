@@ -74,9 +74,8 @@ public partial class BackupWindow : Window
         if (ThemedMessageWindow.Show(
                 this,
                 "确认恢复上次状态",
-                "将使用状态记录精确对应的最后一次切换备份，恢复切换前状态。",
+                "将使用状态记录精确对应的最后一次切换备份，恢复切换前状态。\n\n请确认游戏与启动器均已退出。",
                 MessageTone.Warning,
-                "请确认游戏与启动器均已退出",
                 showCancel: true,
                 primaryText: "恢复上次状态") != true)
         {
@@ -154,9 +153,8 @@ public partial class BackupWindow : Window
         if (ThemedMessageWindow.Show(
                 this,
                 "确认恢复",
-                $"将恢复备份：\n{row.Path}\n\n这会修改对应游戏目录中的文件。",
+                $"将恢复备份：\n{row.Path}\n\n这会修改对应游戏目录中的文件。请确认游戏与启动器均已退出。",
                 MessageTone.Warning,
-                "请确认游戏与启动器均已退出",
                 showCancel: true,
                 primaryText: "恢复备份") != true)
         {
@@ -217,9 +215,8 @@ public partial class BackupWindow : Window
         if (ThemedMessageWindow.Show(
                 this,
                 "确认删除旧备份",
-                $"永久删除以下备份？此操作不可恢复。\n\n{row.Path}",
+                $"永久删除以下备份？此操作不可恢复，也无法再通过 ZZZSwitch 恢复。\n\n{row.Path}",
                 MessageTone.Error,
-                "删除后无法通过 ZZZSwitch 恢复",
                 showCancel: true,
                 primaryText: "删除备份") != true)
         {
@@ -237,8 +234,7 @@ public partial class BackupWindow : Window
                 this,
                 "删除失败",
                 ex.Message,
-                MessageTone.Error,
-                "备份仍保留在原位置");
+                MessageTone.Error);
         }
     }
 

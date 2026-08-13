@@ -4,6 +4,8 @@ ZZZSwitch is a multi-region switcher for **Zenless Zone Zero** based on local di
 
 It can automatically detect the game installation directory and provides **differential package deployment, region cache initialization**, and fast switching between the **CN / Global / other supported regions**.
 
+![ZZZSwitch main window](docs/images/zzzswitch-main-window.png)
+
 ---
 
 ## Usage

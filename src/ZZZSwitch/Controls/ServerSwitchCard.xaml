@@ -30,18 +30,12 @@
                     </Image.Clip>
                 </Image>
             </Border>
-            <StackPanel Grid.Column="1"
-                        Margin="13,0"
-                        VerticalAlignment="Center">
-                <TextBlock Text="{Binding ServerName, ElementName=Root}"
-                           FontSize="15"
-                           FontWeight="SemiBold" />
-                <TextBlock Text="{Binding Description, ElementName=Root}"
-                           Foreground="{DynamicResource MutedTextBrush}"
-                           FontSize="11"
-                           TextTrimming="CharacterEllipsis"
-                           Margin="0,4,0,0" />
-            </StackPanel>
+            <TextBlock Grid.Column="1"
+                       Margin="13,0"
+                       Text="{Binding ServerName, ElementName=Root}"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
             <TextBlock Grid.Column="2"
                        Text="&#xE72A;"
                        FontFamily="Segoe Fluent Icons"

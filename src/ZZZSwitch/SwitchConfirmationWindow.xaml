@@ -21,19 +21,13 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock Text="确认切换服务器"
-                       FontSize="21"
-                       FontWeight="SemiBold" />
-            <TextBlock Text="请核对目标服务器与本次文件操作"
-                       Margin="0,5,0,0"
-                       FontSize="12"
-                       Foreground="{DynamicResource MutedTextBrush}" />
-        </StackPanel>
+        <TextBlock Text="确认切换服务器"
+                   FontSize="21"
+                   FontWeight="SemiBold" />
 
         <Border Grid.Row="1"
                 Style="{StaticResource CardStyle}"
-                Margin="0,18,0,0"
+                Margin="0,14,0,0"
                 Padding="16">
             <Grid>
                 <Grid.ColumnDefinitions>

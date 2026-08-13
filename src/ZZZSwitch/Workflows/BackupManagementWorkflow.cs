@@ -102,9 +102,8 @@ public sealed class BackupManagementWorkflow
         if (_dialogs.Show(
                 "更改备份位置",
                 $"当前位置：\n{usage.BackupRootPath}\n\n目标位置：\n{targetRoot}\n\n" +
-                $"将迁移 {usage.FileCount} 个文件，共 {DisplayFormatting.FormatBytes(usage.TotalBytes)}。",
+                $"将迁移 {usage.FileCount} 个文件，共 {DisplayFormatting.FormatBytes(usage.TotalBytes)}。复制并逐文件校验完成后才会启用新位置。",
                 MessageTone.Information,
-                "复制并逐文件校验完成后才会启用新位置",
                 showCancel: true,
                 primaryText: "开始迁移") != true)
         {

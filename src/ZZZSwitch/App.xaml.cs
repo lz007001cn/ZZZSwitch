@@ -25,8 +25,7 @@ public partial class App : System.Windows.Application
             ShowStartupFailure(
                 "ZZZSwitch 已经在运行",
                 "请先关闭现有窗口后再启动。",
-                MessageTone.Information,
-                "已阻止重复启动");
+                MessageTone.Information);
             Shutdown();
             return;
         }
@@ -40,8 +39,7 @@ public partial class App : System.Windows.Application
             ShowStartupFailure(
                 lockError is null ? "ZZZSwitch 已经在运行" : "ZZZSwitch 无法启动",
                 lockError ?? "检测到其他 Windows 会话中的 ZZZSwitch 实例，请先关闭后再启动。",
-                lockError is null ? MessageTone.Information : MessageTone.Error,
-                lockError is null ? "已阻止跨会话重复启动" : "无法取得应用锁");
+                lockError is null ? MessageTone.Information : MessageTone.Error);
             Shutdown();
             return;
         }
@@ -63,12 +61,11 @@ public partial class App : System.Windows.Application
     private static void ShowStartupFailure(
         string title,
         string message,
-        MessageTone tone,
-        string subtitle)
+        MessageTone tone)
     {
         try
         {
-            ThemedMessageWindow.Show(null, title, message, tone, subtitle);
+            ThemedMessageWindow.Show(null, title, message, tone);
         }
         catch
         {

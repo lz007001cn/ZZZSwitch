@@ -132,7 +132,6 @@
 
                     <controls:ServerSwitchCard x:Name="SwitchGlobalButton"
                                                ServerName="{DynamicResource L.Server.Global}"
-                                               Description="{DynamicResource L.Server.GlobalDescription}"
                                                IconSource="Assets/Server-Global.png"
                                                Command="{Binding SwitchGlobalCommand}"
                                                Margin="0,0,6,0" />
@@ -140,7 +139,6 @@
                     <controls:ServerSwitchCard Grid.Column="1"
                                                x:Name="SwitchCnButton"
                                                ServerName="{DynamicResource L.Server.Cn}"
-                                               Description="{DynamicResource L.Server.CnDescription}"
                                                IconSource="Assets/Server-CN.png"
                                                Command="{Binding SwitchCnCommand}"
                                                Margin="6,0,6,0" />
@@ -148,7 +146,6 @@
                     <controls:ServerSwitchCard Grid.Column="2"
                                                x:Name="SwitchBilibiliButton"
                                                ServerName="{DynamicResource L.Server.Bilibili}"
-                                               Description="{DynamicResource L.Server.BilibiliDescription}"
                                                IconSource="Assets/Server-Bilibili.png"
                                                Command="{Binding SwitchBilibiliCommand}"
                                                Margin="6,0,0,0" />
