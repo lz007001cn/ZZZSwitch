@@ -16,7 +16,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="选择游戏目录"
+        <TextBlock x:Name="HeadingText"
+                   Text="{DynamicResource L.GameDirectory.Title}"
                    Margin="0,0,0,14"
                    FontSize="22"
                    FontWeight="SemiBold" />
@@ -57,11 +58,13 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,16,0,0">
-            <Button Content="取消"
+            <Button x:Name="CancelButton"
+                    Content="{DynamicResource L.Common.Cancel}"
                     IsCancel="True"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0" />
-            <Button Content="使用此目录"
+            <Button x:Name="ConfirmButton"
+                    Content="{DynamicResource L.GameDirectory.UseDirectory}"
                     IsDefault="True"
                     Click="Confirm_Click"
                     Style="{StaticResource PrimaryButtonStyle}" />

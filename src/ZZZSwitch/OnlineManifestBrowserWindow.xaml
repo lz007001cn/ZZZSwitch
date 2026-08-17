@@ -23,7 +23,7 @@
 
         <StackPanel x:Name="HeaderPanel">
             <TextBlock x:Name="HeadingText"
-                       Text="Manifest 资源浏览器"
+                       Text="{DynamicResource L.ManifestBrowser.Title}"
                        FontSize="22"
                        FontWeight="SemiBold" />
         </StackPanel>
@@ -39,7 +39,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel x:Name="ScopePanel" Margin="0,0,12,0">
-                    <TextBlock Text="资源范围"
+                    <TextBlock Text="{DynamicResource L.ManifestBrowser.Scope}"
                                FontSize="11"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <ComboBox x:Name="ScopeComboBox"
@@ -47,7 +47,7 @@
                               SelectionChanged="Filter_Changed" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" x:Name="DirectionPanel" Margin="0,0,12,0">
-                    <TextBlock Text="目标方向"
+                    <TextBlock Text="{DynamicResource L.ManifestBrowser.Direction}"
                                FontSize="11"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <ComboBox x:Name="DirectionComboBox"
@@ -55,13 +55,13 @@
                               SelectionChanged="Filter_Changed" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="路径搜索"
+                    <TextBlock Text="{DynamicResource L.ManifestBrowser.Search}"
                                FontSize="11"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBox x:Name="SearchTextBox"
                              Margin="0,7,0,0"
                              TextChanged="Search_TextChanged"
-                             ToolTip="输入文件名或相对路径；不区分大小写" />
+                             ToolTip="{DynamicResource L.ManifestBrowser.SearchTip}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -102,24 +102,24 @@
                         <ColumnDefinition Width="90" />
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="PathHeaderText"
-                               Text="路径"
+                               Text="{DynamicResource L.ManifestBrowser.Path}"
                                FontSize="10"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock Grid.Column="1"
                                x:Name="CategoryHeaderText"
-                               Text="数据类型"
+                               Text="{DynamicResource L.ManifestBrowser.DataType}"
                                Margin="12,0,0,0"
                                FontSize="10"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock Grid.Column="2"
                                x:Name="ChangeHeaderText"
-                               Text="差异状态"
+                               Text="{DynamicResource L.ManifestBrowser.ChangeState}"
                                Margin="12,0,0,0"
                                FontSize="10"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock Grid.Column="3"
                                x:Name="SizeHeaderText"
-                               Text="大小"
+                               Text="{DynamicResource L.Resources.Size}"
                                Margin="12,0,0,0"
                                FontSize="10"
                                Foreground="{DynamicResource MutedTextBrush}" />
@@ -177,7 +177,7 @@
         </Grid>
 
         <Grid Grid.Row="4" x:Name="FooterGrid" Margin="0,14,0,0">
-            <Button Content="关闭"
+            <Button Content="{DynamicResource L.Common.Close}"
                     Width="92"
                     HorizontalAlignment="Right"
                     Click="Close_Click"

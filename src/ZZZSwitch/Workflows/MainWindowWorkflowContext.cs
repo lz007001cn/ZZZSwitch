@@ -14,4 +14,5 @@ public sealed record MainWindowWorkflowContext(
     Action ShowOperationInProgress,
     Action<OperationProgress> ShowOperationProgress,
     Func<string?, MediaBrush> ProfileBrush,
-    Action<string, bool> OpenDirectory);
+    Action<string, bool> OpenDirectory,
+    Func<string, string, string> Localize);

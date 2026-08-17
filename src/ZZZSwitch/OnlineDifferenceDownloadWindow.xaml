@@ -22,7 +22,7 @@
 
         <StackPanel>
             <TextBlock x:Name="HeadingText"
-                       Text="获取客户端差异包"
+                       Text="{DynamicResource L.Download.Title}"
                        FontSize="22"
                        FontWeight="SemiBold" />
             <TextBlock x:Name="DirectionText"
@@ -41,17 +41,17 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="差异包文件" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Text="{DynamicResource L.Download.Files}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="FileCountText" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel Grid.Column="1">
-                    <TextBlock Text="下载上限" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Text="{DynamicResource L.Download.Maximum}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="DownloadSizeText" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="完整性" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Text="{DynamicResource L.Download.Integrity}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="IntegrityText"
-                               Text="自动校验"
+                               Text="{DynamicResource L.Download.AutomaticVerification}"
                                Margin="0,6,0,0"
                                FontSize="18"
                                FontWeight="SemiBold" />
@@ -94,13 +94,13 @@
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
             <Button x:Name="CancelButton"
-                    Content="取消"
+                    Content="{DynamicResource L.Common.Cancel}"
                     Width="92"
                     Click="Cancel_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0" />
             <Button x:Name="StartButton"
-                    Content="开始下载"
+                    Content="{DynamicResource L.Download.Start}"
                     Width="112"
                     IsDefault="True"
                     Click="Start_Click"

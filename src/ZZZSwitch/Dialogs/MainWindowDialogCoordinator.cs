@@ -112,10 +112,13 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
 
     public string? SelectPackageArchive()
     {
+        var localization = ((App)System.Windows.Application.Current).Localization;
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "选择文件",
-            Filter = "ZZZSwitch 差异包 (*.zip)|*.zip",
+            Title = localization.Choose("选择文件", "Select a file"),
+            Filter = localization.Choose(
+                "ZZZSwitch 差异包 (*.zip)|*.zip",
+                "ZZZSwitch package (*.zip)|*.zip"),
             CheckFileExists = true,
             Multiselect = false
         };

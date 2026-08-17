@@ -123,11 +123,12 @@ public partial class MainWindow : Window
             () => RefreshInspectionAsync(),
             () => RefreshInspectionAsync(allowWhileBusy: true),
             SetBusy,
-            status => _viewModel.BusyStatus = status,
+            status => _viewModel.BusyStatus = _localization.TranslateKnown(status),
             ShowOperationInProgress,
             ShowOperationProgress,
             ProfileBrush,
-            OpenDirectory);
+            OpenDirectory,
+            _localization.Choose);
         _serverSwitchWorkflow = new ServerSwitchWorkflow(
             _planner,
             _engine,
@@ -205,7 +206,9 @@ public partial class MainWindow : Window
             if (recovery.Found)
             {
                 _dialogs.Show(
-                    recovery.Success ? "上次切换已恢复" : "上次切换需要处理",
+                    recovery.Success
+                        ? _localization.Choose("上次切换已恢复", "Previous switch recovered")
+                        : _localization.Choose("上次切换需要处理", "Previous switch needs attention"),
                     recovery.Message,
                     recovery.Success ? MessageTone.Success : MessageTone.Warning);
             }
@@ -213,7 +216,7 @@ public partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(startup.StateWarning))
             {
                 _dialogs.Show(
-                    "本地状态记录不可用",
+                    _localization.Choose("本地状态记录不可用", "Local state record unavailable"),
                     startup.StateWarning,
                     MessageTone.Warning);
             }
@@ -248,7 +251,8 @@ public partial class MainWindow : Window
         }
         else
         {
-            _viewModel.BusyStatus = "正在重新检查游戏目录与服务器状态…";
+            _viewModel.BusyStatus = _localization.TranslateKnown(
+                "正在重新检查游戏目录与服务器状态…");
             OperationProgress.IsIndeterminate = true;
             OperationProgress.Value = 0;
         }
@@ -262,7 +266,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _viewModel.HasStatusIssues = true;
-            _viewModel.OperationStatus = "检查失败";
+            _viewModel.OperationStatus = _localization.Choose("检查失败", "Inspection failed");
             _viewModel.Report = ex.Message;
         }
         finally
@@ -323,9 +327,10 @@ public partial class MainWindow : Window
             {
                 _lastHealthPromptKey = configurationPromptKey;
                 _dialogs.Show(
-                    "ZZZSwitch 配置异常",
-                    "检测到内置服务器配置或切换清单损坏。为避免创建不完整目录或执行错误切换，自动修复已停止。\n\n" +
-                    "请重新解压完整的软件本体覆盖当前文件；游戏目录中的 .zzzswitch 数据不会被修改。",
+                    _localization.Choose("ZZZSwitch 配置异常", "ZZZSwitch configuration error"),
+                    _localization.Choose(
+                        "检测到内置服务器配置或切换清单损坏。为避免创建不完整目录或执行错误切换，自动修复已停止。\n\n请重新解压完整的软件本体覆盖当前文件；游戏目录中的 .zzzswitch 数据不会被修改。",
+                        "Built-in server configuration or switch manifests are damaged. Automatic repair was stopped to avoid creating incomplete folders or running an invalid switch.\n\nExtract a complete copy of ZZZSwitch over the current files. The .zzzswitch data in the game directory will not be changed."),
                     MessageTone.Error);
             }
 
@@ -352,16 +357,20 @@ public partial class MainWindow : Window
 
         _lastHealthPromptKey = promptKey;
         var message = new StringBuilder();
-        message.AppendLine("缓存记录异常：");
+        message.AppendLine(_localization.Choose("缓存记录异常：", "Cache record issues:"));
         foreach (var cache in invalidCaches)
         {
-            message.AppendLine($"• {ShortProfileName(cache.Profile)}：{cache.Detail}");
+            message.AppendLine(_localization.Choose(
+                $"• {ShortProfileName(cache.Profile)}：{cache.Detail}",
+                $"• {ShortProfileName(cache.Profile)}: {cache.Detail}"));
         }
 
         message.AppendLine();
-        message.AppendLine("无需手动初始化按钮。下一次切换会先自动保存当前服务器缓存；已丢失的目标服缓存将在进入游戏后重新下载。 ");
+        message.AppendLine(_localization.Choose(
+            "无需手动初始化按钮。下一次切换会先自动保存当前服务器缓存；已丢失的目标服缓存将在进入游戏后重新下载。",
+            "No manual initialization is needed. The next switch saves the current server cache first; missing target-server cache data will be downloaded again after launching the game."));
         _dialogs.Show(
-            "检测到缓存异常",
+            _localization.Choose("检测到缓存异常", "Cache issue detected"),
             message.ToString().TrimEnd(),
             MessageTone.Warning);
         await Task.CompletedTask;
@@ -371,7 +380,7 @@ public partial class MainWindow : Window
     {
         _busy = busy;
         // BusyIndicator 是根网格上的浮层，不参与主 StackPanel 测量；显示进度不会推动页面内容。
-        _viewModel.BusyStatus = status;
+        _viewModel.BusyStatus = _localization.TranslateKnown(status);
         _viewModel.IsBusy = busy;
         OperationProgress.IsIndeterminate = busy;
         if (!busy)
@@ -386,9 +395,10 @@ public partial class MainWindow : Window
 
     private void ShowOperationProgress(OperationProgress progress)
     {
+        var step = _localization.TranslateKnown(progress.Step);
         _viewModel.BusyStatus = progress.IsRollingBack
-            ? $"\u56de\u6eda\u4e2d\uff1a{progress.Step}"
-            : progress.Step;
+            ? _localization.Choose($"回滚中：{progress.Step}", $"Rolling back: {step}")
+            : step;
         OperationProgress.IsIndeterminate = false;
         OperationProgress.Maximum = Math.Max(
             1,
@@ -397,12 +407,17 @@ public partial class MainWindow : Window
             progress.SuccessfulReplace +
             progress.SuccessfulDelete +
             progress.SuccessfulCacheRestore;
-        _viewModel.Report =
-            $"\u5f53\u524d\u6b65\u9aa4\uff1a{progress.Step}\n" +
-            $"\u66ff\u6362\uff1a{progress.SuccessfulReplace}/{progress.PlannedReplace}\uff0c\u5931\u8d25 {progress.FailedReplace}\n" +
-            $"\u5220\u9664\uff1a{progress.SuccessfulDelete}/{progress.PlannedDelete}\uff0c\u5931\u8d25 {progress.FailedDelete}\n" +
-            $"\u7f13\u5b58\u6062\u590d\uff1a{progress.SuccessfulCacheRestore}/{progress.PlannedCacheRestore}\uff0c\u5931\u8d25 {progress.FailedCacheRestore}\n" +
-            $"\u6b63\u5728\u56de\u6eda\uff1a{(progress.IsRollingBack ? "\u662f" : "\u5426")}";
+        _viewModel.Report = _localization.Choose(
+            $"当前步骤：{progress.Step}\n" +
+            $"替换：{progress.SuccessfulReplace}/{progress.PlannedReplace}，失败 {progress.FailedReplace}\n" +
+            $"删除：{progress.SuccessfulDelete}/{progress.PlannedDelete}，失败 {progress.FailedDelete}\n" +
+            $"缓存恢复：{progress.SuccessfulCacheRestore}/{progress.PlannedCacheRestore}，失败 {progress.FailedCacheRestore}\n" +
+            $"正在回滚：{(progress.IsRollingBack ? "是" : "否")}",
+            $"Current step: {step}\n" +
+            $"Replaced: {progress.SuccessfulReplace}/{progress.PlannedReplace}, failed {progress.FailedReplace}\n" +
+            $"Deleted: {progress.SuccessfulDelete}/{progress.PlannedDelete}, failed {progress.FailedDelete}\n" +
+            $"Cache restored: {progress.SuccessfulCacheRestore}/{progress.PlannedCacheRestore}, failed {progress.FailedCacheRestore}\n" +
+            $"Rolling back: {(progress.IsRollingBack ? "Yes" : "No")}");
     }
 
     private void SaveSelectedPath(string path)
@@ -412,8 +427,7 @@ public partial class MainWindow : Window
         _stateStore.Save(state);
     }
 
-    private static string ShortProfileName(string profileId) =>
-        DisplayFormatting.ShortProfileName(profileId);
+    private string ShortProfileName(string profileId) => _localization.ProfileName(profileId);
 
     private System.Windows.Media.Brush ProfileBrush(string? profileId)
     {
@@ -446,8 +460,10 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _dialogs.Show(
-                "自动检测失败",
-                $"自动检测未能完成。\n\n{ex.Message}\n\n请点击“选择”手动指定游戏目录。",
+                _localization.Choose("自动检测失败", "Automatic detection failed"),
+                _localization.Choose(
+                    $"自动检测未能完成。\n\n{ex.Message}\n\n请点击“选择”手动指定游戏目录。",
+                    $"Automatic detection did not complete.\n\n{ex.Message}\n\nUse Select to choose the game directory manually."),
                 MessageTone.Warning);
             return;
         }
@@ -459,8 +475,10 @@ public partial class MainWindow : Window
         if (candidates.Count == 0)
         {
             _dialogs.Show(
-                "未找到游戏",
-                "未找到有效的绝区零游戏目录。\n\n请点击“选择”，手动选择包含 ZenlessZoneZero.exe 的游戏根目录。",
+                _localization.Choose("未找到游戏", "Game not found"),
+                _localization.Choose(
+                    "未找到有效的绝区零游戏目录。\n\n请点击“选择”，手动选择包含 ZenlessZoneZero.exe 的游戏根目录。",
+                    "No valid Zenless Zone Zero game directory was found.\n\nUse Select to choose the game root containing ZenlessZoneZero.exe."),
                 MessageTone.Information);
             return;
         }
@@ -480,7 +498,7 @@ public partial class MainWindow : Window
     private async Task ChooseDirectoryAsync()
     {
         var selectedPath = _dialogs.SelectFolder(
-            "选择绝区零游戏根目录",
+            _localization.Choose("选择绝区零游戏根目录", "Select the Zenless Zone Zero game root"),
             _viewModel.GamePath,
             showNewFolderButton: false);
         if (selectedPath is not null)
@@ -493,13 +511,15 @@ public partial class MainWindow : Window
 
     private void ShowOperationInProgress() =>
         _dialogs.Show(
-            "操作正在进行",
-            _operations.LastFailure ?? "请等待当前操作完成后再试。",
+            _localization.Choose("操作正在进行", "Operation in progress"),
+            _operations.LastFailure ?? _localization.Choose(
+                "请等待当前操作完成后再试。",
+                "Wait for the current operation to finish and try again."),
             MessageTone.Information);
 
     private void ShowUnexpectedCommandError(Exception exception) =>
         _dialogs.Show(
-            "操作未能完成",
+            _localization.Choose("操作未能完成", "Operation failed"),
             exception.Message,
             MessageTone.Error);
 
@@ -566,8 +586,8 @@ public partial class MainWindow : Window
             if (mustExist)
             {
                 _dialogs.Show(
-                    "无法打开目录",
-                    $"目录不存在：{path}",
+                    _localization.Choose("无法打开目录", "Unable to open folder"),
+                    _localization.Choose($"目录不存在：{path}", $"Folder does not exist: {path}"),
                     MessageTone.Warning);
                 return;
             }

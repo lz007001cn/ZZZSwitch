@@ -15,11 +15,22 @@ public sealed class OnlineDifferencePlan
     public required ManifestCategory TargetCategory { get; init; }
     public required IReadOnlyList<ManifestEntry> DownloadFiles { get; init; }
     public required IReadOnlyList<string> DeleteFiles { get; init; }
+    public string? LocalGamePath { get; init; }
+    public OnlineLocalSourceCapturePlan? LocalSourceCapture { get; init; }
     public int ExcludedStreamingBlocksCount { get; init; }
     public long ExcludedStreamingBlocksBytes { get; init; }
     public int ExcludedObservationCount { get; init; }
     public int ExcludedDeletionReviewCount { get; init; }
     public long DownloadBytes => DownloadFiles.Aggregate(0L, (sum, item) => checked(sum + item.Size));
+}
+
+public sealed class OnlineLocalSourceCapturePlan
+{
+    public required string SourceProfile { get; init; }
+    public required string TargetProfile { get; init; }
+    public required string TargetManifestId { get; init; }
+    public required IReadOnlyList<ManifestEntry> Files { get; init; }
+    public long ContentBytes => Files.Aggregate(0L, (sum, item) => checked(sum + item.Size));
 }
 
 public sealed class OnlineDifferenceProgress
@@ -38,6 +49,8 @@ public sealed class OnlineDifferenceProgress
     public bool VerifyingExistingFile { get; init; }
     public int DownloadAttempt { get; init; } = 1;
     public int MaximumDownloadAttempts { get; init; } = 1;
+    public bool CheckingLocalFiles { get; init; }
+    public bool PreservingSourceFiles { get; init; }
 }
 
 public sealed class OnlineDifferenceMaterialization
@@ -47,6 +60,8 @@ public sealed class OnlineDifferenceMaterialization
     public required TransitionManifest Manifest { get; init; }
     public int DownloadedFiles { get; init; }
     public int ReusedFiles { get; init; }
+    public int PreservedSourceFiles { get; init; }
+    public bool SourcePackageReady { get; init; }
     public bool ReusedReadyPackage { get; init; }
 }
 

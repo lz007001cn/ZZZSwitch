@@ -24,8 +24,10 @@ public partial class App : System.Windows.Application
         {
             ReleaseNamedMutex();
             ShowStartupFailure(
-                "ZZZSwitch 已经在运行",
-                "请先关闭现有窗口后再启动。",
+                Localization.Choose("ZZZSwitch 已经在运行", "ZZZSwitch is already running"),
+                Localization.Choose(
+                    "请先关闭现有窗口后再启动。",
+                    "Close the existing window before starting ZZZSwitch again."),
                 MessageTone.Information);
             Shutdown();
             return;
@@ -38,8 +40,12 @@ public partial class App : System.Windows.Application
         {
             ReleaseNamedMutex();
             ShowStartupFailure(
-                lockError is null ? "ZZZSwitch 已经在运行" : "ZZZSwitch 无法启动",
-                lockError ?? "检测到其他 Windows 会话中的 ZZZSwitch 实例，请先关闭后再启动。",
+                lockError is null
+                    ? Localization.Choose("ZZZSwitch 已经在运行", "ZZZSwitch is already running")
+                    : Localization.Choose("ZZZSwitch 无法启动", "ZZZSwitch could not start"),
+                lockError ?? Localization.Choose(
+                    "检测到其他 Windows 会话中的 ZZZSwitch 实例，请先关闭后再启动。",
+                    "A ZZZSwitch instance was detected in another Windows session. Close it before starting again."),
                 lockError is null ? MessageTone.Information : MessageTone.Error);
             Shutdown();
             return;

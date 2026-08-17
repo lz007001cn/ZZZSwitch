@@ -16,12 +16,15 @@ public partial class BackupLocationWindow : Window
     public BackupLocationWindow(BackupLocationUsage usage)
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
+        var app = (App)System.Windows.Application.Current;
+        SourceInitialized += (_, _) => app.Theme.ApplyWindow(this);
         BackupPathTextBox.Text = usage.BackupRootPath;
         LocationModeText.Text = usage.IsCustomLocation
-            ? "自定义位置"
-            : "默认位置（应用数据目录）";
-        UsageText.Text = $"{usage.BackupCount} 个备份 · {usage.FileCount} 个文件 · {FormatBytes(usage.TotalBytes)}";
+            ? app.Localization.Choose("自定义位置", "Custom location")
+            : app.Localization.Choose("默认位置（应用数据目录）", "Default location (application data)");
+        UsageText.Text = app.Localization.Choose(
+            $"{usage.BackupCount} 个备份 · {usage.FileCount} 个文件 · {FormatBytes(usage.TotalBytes)}",
+            $"{usage.BackupCount} backups · {usage.FileCount} files · {FormatBytes(usage.TotalBytes)}");
         RestoreDefaultButton.IsEnabled = usage.IsCustomLocation;
     }
 

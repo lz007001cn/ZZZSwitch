@@ -20,7 +20,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="缓存管理"
+        <TextBlock x:Name="HeadingText"
+                   Text="{DynamicResource L.Cache.Title}"
                    FontSize="22"
                    FontWeight="SemiBold" />
 
@@ -28,7 +29,7 @@
                 Style="{StaticResource CardStyle}"
                 Margin="0,14,0,0">
             <StackPanel>
-                <TextBlock Text="当前缓存目录"
+                <TextBlock Text="{DynamicResource L.Cache.CurrentDirectory}"
                            FontSize="12"
                            Foreground="{DynamicResource MutedTextBrush}" />
                 <TextBox x:Name="CachePathTextBox"
@@ -52,7 +53,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,18,0">
-                    <TextBlock Text="当前游戏缓存"
+                    <TextBlock Text="{DynamicResource L.Cache.CurrentGame}"
                                FontSize="12"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="TotalCacheText"
@@ -66,7 +67,7 @@
                 </StackPanel>
                 <Border Grid.Column="1" Background="{DynamicResource BorderBrush}" />
                 <StackPanel Grid.Column="2" Margin="18,0,0,0">
-                    <TextBlock Text="旧版本缓存"
+                    <TextBlock Text="{DynamicResource L.Cache.OldVersions}"
                                FontSize="12"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="ObsoleteCacheText"
@@ -88,24 +89,26 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Button Content="更改位置"
+            <Button x:Name="ChangeLocationButton"
+                    Content="{DynamicResource L.Common.ChangeLocation}"
                     Click="ChangeLocation_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0" />
             <Button Grid.Column="1"
                     x:Name="RestoreDefaultButton"
-                    Content="恢复默认位置"
+                    Content="{DynamicResource L.Common.RestoreDefault}"
                     Click="RestoreDefault_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />
             <Button Grid.Column="2"
                     x:Name="DeleteObsoleteButton"
-                    Content="清理旧版本缓存"
+                    Content="{DynamicResource L.Cache.CleanOldVersions}"
                     Click="DeleteObsolete_Click"
                     HorizontalAlignment="Right"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="8,0" />
             <Button Grid.Column="3"
-                    Content="关闭"
+                    x:Name="CloseButton"
+                    Content="{DynamicResource L.Common.Close}"
                     Click="Close_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />
         </Grid>

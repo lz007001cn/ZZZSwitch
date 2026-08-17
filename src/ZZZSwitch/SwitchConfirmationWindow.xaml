@@ -20,7 +20,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="确认切换服务器"
+        <TextBlock x:Name="HeadingText"
+                   Text="{DynamicResource L.SwitchConfirm.Title}"
                    FontSize="21"
                    FontWeight="SemiBold" />
 
@@ -46,7 +47,8 @@
                         </Image.Clip>
                     </Image>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="当前服务器"
+                        <TextBlock x:Name="SourceLabelText"
+                                   Text="{DynamicResource L.SwitchConfirm.CurrentServer}"
                                    FontSize="11"
                                    Foreground="{DynamicResource MutedTextBrush}" />
                         <TextBlock x:Name="SourceProfileText"
@@ -76,7 +78,8 @@
                         </Image.Clip>
                     </Image>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="目标服务器"
+                        <TextBlock x:Name="TargetLabelText"
+                                   Text="{DynamicResource L.SwitchConfirm.TargetServer}"
                                    FontSize="11"
                                    Foreground="{DynamicResource MutedTextBrush}" />
                         <TextBlock x:Name="TargetProfileText"
@@ -103,13 +106,21 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="游戏版本" Style="{StaticResource DialogLabelStyle}" />
+                <TextBlock x:Name="GameVersionLabelText"
+                           Text="{DynamicResource L.SwitchConfirm.GameVersion}"
+                           Style="{StaticResource DialogLabelStyle}" />
                 <TextBlock x:Name="GameVersionText" Grid.Column="1" />
 
-                <TextBlock Grid.Row="1" Text="文件操作" Style="{StaticResource DialogLabelStyle}" />
+                <TextBlock x:Name="FileOperationLabelText"
+                           Grid.Row="1"
+                           Text="{DynamicResource L.SwitchConfirm.FileOperations}"
+                           Style="{StaticResource DialogLabelStyle}" />
                 <TextBlock x:Name="FileOperationText" Grid.Row="1" Grid.Column="1" />
 
-                <TextBlock Grid.Row="2" Text="回滚备份" Style="{StaticResource DialogLabelStyle}" />
+                <TextBlock x:Name="BackupLabelText"
+                           Grid.Row="2"
+                           Text="{DynamicResource L.SwitchConfirm.RollbackBackup}"
+                           Style="{StaticResource DialogLabelStyle}" />
                 <TextBlock x:Name="BackupPathText"
                            Grid.Row="2"
                            Grid.Column="1"
@@ -122,14 +133,16 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,18,0,0">
-            <Button Content="取消"
+            <Button x:Name="CancelButton"
+                    Content="{DynamicResource L.Common.Cancel}"
                     Width="92"
                     IsCancel="True"
                     Click="Cancel_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0" />
-            <Button Width="108"
-                    Content="确认切换"
+            <Button x:Name="ConfirmButton"
+                    Width="108"
+                    Content="{DynamicResource L.SwitchConfirm.Confirm}"
                     IsDefault="True"
                     Click="Confirm_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />

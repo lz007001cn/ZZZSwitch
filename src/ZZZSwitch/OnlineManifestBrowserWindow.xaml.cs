@@ -10,27 +10,30 @@ namespace ZZZSwitch;
 public partial class OnlineManifestBrowserWindow : Window
 {
     private readonly string _gameVersion;
+    private readonly LocalizationManager _localization;
 
     public OnlineManifestBrowserWindow(OnlineManifestBrowserData data)
     {
         ArgumentNullException.ThrowIfNull(data);
         _gameVersion = data.GameVersion;
         InitializeComponent();
-        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
+        var app = (App)System.Windows.Application.Current;
+        _localization = app.Localization;
+        SourceInitialized += (_, _) => app.Theme.ApplyWindow(this);
 
         DirectionComboBox.ItemsSource = new[]
         {
-            new DirectionOption("国际服 → 国服", data.GlobalToCn),
-            new DirectionOption("国服 → 国际服", data.CnToGlobal)
+            new DirectionOption(_localization.Choose("国际服 → 国服", "Global → CN Official"), data.GlobalToCn),
+            new DirectionOption(_localization.Choose("国服 → 国际服", "CN Official → Global"), data.CnToGlobal)
         };
         ScopeComboBox.ItemsSource = new[]
         {
-            new ScopeOption("全部资源", ManifestBrowseScope.AllResources),
-            new ScopeOption("剧情 / 视频资源", ManifestBrowseScope.StoryMedia),
-            new ScopeOption("音频资源", ManifestBrowseScope.Audio),
+            new ScopeOption(_localization.Choose("全部资源", "All resources"), ManifestBrowseScope.AllResources),
+            new ScopeOption(_localization.Choose("剧情 / 视频资源", "Story / video resources"), ManifestBrowseScope.StoryMedia),
+            new ScopeOption(_localization.Choose("音频资源", "Audio resources"), ManifestBrowseScope.Audio),
             new ScopeOption("Streaming Blocks", ManifestBrowseScope.StreamingBlocks),
-            new ScopeOption("状态元数据", ManifestBrowseScope.StateMetadata),
-            new ScopeOption("客户端差异", ManifestBrowseScope.ClientDifference)
+            new ScopeOption(_localization.Choose("状态元数据", "State metadata"), ManifestBrowseScope.StateMetadata),
+            new ScopeOption(_localization.Choose("客户端差异", "Client differences"), ManifestBrowseScope.ClientDifference)
         };
         DirectionComboBox.SelectedIndex = 0;
         ScopeComboBox.SelectedIndex = 0;
@@ -64,11 +67,14 @@ public partial class OnlineManifestBrowserWindow : Window
 
         var manifest = direction.Direction.TargetManifest;
         ManifestText.Text =
-            $"{_gameVersion} · 目标 {DisplayFormatting.ShortProfileName(direction.Direction.TargetProfile)} · " +
-            $"Manifest {ShortId(manifest.ManifestId)} · 共 {manifest.FileCount:N0} 项";
-        ResultText.Text =
-            $"当前 {filtered.Length:N0} 项 · " +
-            DisplayFormatting.FormatBytes(filtered.Aggregate(0L, (sum, file) => checked(sum + file.Size)));
+            _localization.Choose(
+                $"{_gameVersion} · 目标 {_localization.ProfileName(direction.Direction.TargetProfile)} · Manifest {ShortId(manifest.ManifestId)} · 共 {manifest.FileCount:N0} 项",
+                $"{_gameVersion} · Target {_localization.ProfileName(direction.Direction.TargetProfile)} · Manifest {ShortId(manifest.ManifestId)} · {manifest.FileCount:N0} entries");
+        var resultBytes = DisplayFormatting.FormatBytes(
+            filtered.Aggregate(0L, (sum, file) => checked(sum + file.Size)));
+        ResultText.Text = _localization.Choose(
+            $"当前 {filtered.Length:N0} 项 · {resultBytes}",
+            $"{filtered.Length:N0} shown · {resultBytes}");
     }
 
     private static bool Includes(ManifestBrowseScope scope, OnlineManifestBrowseFile file) => scope switch
@@ -81,16 +87,16 @@ public partial class OnlineManifestBrowserWindow : Window
         _ => true
     };
 
-    private static string Category(OnlineManifestBrowseFile file)
+    private string Category(OnlineManifestBrowseFile file)
     {
         if (file.IsStoryMedia)
         {
-            return "剧情 / 视频";
+            return _localization.Choose("剧情 / 视频", "Story / video");
         }
 
         if (file.IsAudio)
         {
-            return "音频";
+            return _localization.Choose("音频", "Audio");
         }
 
         if (file.IsStreamingBlocks)
@@ -100,21 +106,21 @@ public partial class OnlineManifestBrowserWindow : Window
 
         return file.FileClass switch
         {
-            ManifestFileClass.BaseClient => "基础客户端",
-            ManifestFileClass.BaseResource => "基础资源",
-            ManifestFileClass.RuntimeHotUpdate => "运行时热更新",
-            ManifestFileClass.StateMetadata => "状态元数据",
-            ManifestFileClass.NeedsObservation => "待观察",
-            _ => "其他资源"
+            ManifestFileClass.BaseClient => _localization.Choose("基础客户端", "Base client"),
+            ManifestFileClass.BaseResource => _localization.Choose("基础资源", "Base resources"),
+            ManifestFileClass.RuntimeHotUpdate => _localization.Choose("运行时热更新", "Runtime hot update"),
+            ManifestFileClass.StateMetadata => _localization.Choose("状态元数据", "State metadata"),
+            ManifestFileClass.NeedsObservation => _localization.Choose("待观察", "Needs review"),
+            _ => _localization.Choose("其他资源", "Other resources")
         };
     }
 
-    private static string Change(ManifestChangeType? change) => change switch
+    private string Change(ManifestChangeType? change) => change switch
     {
-        ManifestChangeType.Modified => "修改",
-        ManifestChangeType.Added => "新增",
-        ManifestChangeType.Removed => "缺少",
-        _ => "相同"
+        ManifestChangeType.Modified => _localization.Choose("修改", "Modified"),
+        ManifestChangeType.Added => _localization.Choose("新增", "Added"),
+        ManifestChangeType.Removed => _localization.Choose("缺少", "Missing"),
+        _ => _localization.Choose("相同", "Same")
     };
 
     private static string ShortId(string value) => value.Length <= 18 ? value : value[..18] + "…";

@@ -30,7 +30,10 @@ public partial class ThemedMessageWindow : Window
         MessageText.Text = message;
         ToneDot.Fill = accentBrush ?? ToneBrush(tone);
         CancelButton.Visibility = showCancel ? Visibility.Visible : Visibility.Collapsed;
-        PrimaryButton.Content = primaryText;
+        var localization = ((App)System.Windows.Application.Current).Localization;
+        PrimaryButton.Content = primaryText == "知道了"
+            ? localization.Text("L.Common.OK")
+            : primaryText;
     }
 
     public static bool? Show(

@@ -29,22 +29,26 @@ public partial class OnlineResourceManagementWindow : Window
         string? currentGameVersion)
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
+        var app = (App)System.Windows.Application.Current;
+        var localization = app.Localization;
+        SourceInitialized += (_, _) => app.Theme.ApplyWindow(this);
         RefreshManifestButton.IsEnabled = !string.IsNullOrWhiteSpace(currentGameVersion);
         BrowseManifestButton.IsEnabled = !string.IsNullOrWhiteSpace(currentGameVersion);
         PackageBytesText.Text = DisplayFormatting.FormatBytes(inventory.PackageBytes);
-        VersionCountText.Text = $"{inventory.Packages.Select(item => item.GameVersion).Distinct().Count():N0} 个";
-        ManifestCacheText.Text =
-            $"{DisplayFormatting.FormatBytes(inventory.ManifestCacheBytes)} · {inventory.ManifestCacheFileCount:N0} 个";
+        var versionCount = inventory.Packages.Select(item => item.GameVersion).Distinct().Count();
+        VersionCountText.Text = localization.Choose($"{versionCount:N0} 个", $"{versionCount:N0}");
+        ManifestCacheText.Text = localization.Choose(
+            $"{DisplayFormatting.FormatBytes(inventory.ManifestCacheBytes)} · {inventory.ManifestCacheFileCount:N0} 个",
+            $"{DisplayFormatting.FormatBytes(inventory.ManifestCacheBytes)} · {inventory.ManifestCacheFileCount:N0} files");
         PackageList.ItemsSource = inventory.Packages.Select(package => new ResourceRow(
             package,
             string.Equals(package.GameVersion, currentGameVersion, StringComparison.Ordinal)
-                ? package.GameVersion + "（当前）"
+                ? package.GameVersion + localization.Choose("（当前）", " (current)")
                 : package.GameVersion,
-            DisplayFormatting.ShortProfileName(package.TargetProfile),
-            StateName(package.State),
+            localization.ProfileName(package.TargetProfile),
+            StateName(package.State, localization),
             DisplayFormatting.FormatBytes(package.TotalBytes),
-            Detail(package))).ToArray();
+            Detail(package, localization))).ToArray();
         if (PackageList.Items.Count > 0)
         {
             var currentIndex = inventory.Packages
@@ -117,19 +121,21 @@ public partial class OnlineResourceManagementWindow : Window
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
-    private static string StateName(OnlineDifferencePackageState state) => state switch
+    private static string StateName(OnlineDifferencePackageState state, LocalizationManager localization) => state switch
     {
-        OnlineDifferencePackageState.Ready => "已下载",
-        OnlineDifferencePackageState.Incomplete => "未完成",
-        _ => "需修复"
+        OnlineDifferencePackageState.Ready => localization.Choose("已下载", "Ready"),
+        OnlineDifferencePackageState.Incomplete => localization.Choose("未完成", "Incomplete"),
+        _ => localization.Choose("需修复", "Needs repair")
     };
 
-    private static string Detail(OnlineDifferencePackageInfo package)
+    private static string Detail(OnlineDifferencePackageInfo package, LocalizationManager localization)
     {
-        var detail = $"{package.FileCount:N0} 个文件";
+        var detail = localization.Choose($"{package.FileCount:N0} 个文件", $"{package.FileCount:N0} files");
         if (package.CheckpointCount > 0)
         {
-            detail += $" · {package.CheckpointCount:N0} 个断点";
+            detail += localization.Choose(
+                $" · {package.CheckpointCount:N0} 个断点",
+                $" · {package.CheckpointCount:N0} checkpoints");
         }
 
         return string.IsNullOrWhiteSpace(package.Problem)

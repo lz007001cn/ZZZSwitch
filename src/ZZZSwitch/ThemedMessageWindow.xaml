@@ -64,7 +64,7 @@
                     HorizontalAlignment="Right"
                     Margin="0,18,0,0">
             <Button x:Name="CancelButton"
-                    Content="取消"
+                    Content="{DynamicResource L.Common.Cancel}"
                     Width="88"
                     Visibility="Collapsed"
                     IsCancel="True"

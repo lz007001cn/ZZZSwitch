@@ -692,6 +692,91 @@ internal static class Program
             "English 语言未更新主界面按钮。");
         Assert(Require<ServerSwitchCard>(main, "SwitchBilibiliButton").ServerName == "Bilibili",
             "English 语言未更新服务器卡片。");
+        Assert(localization.TranslateKnown("正在只读扫描游戏目录与服务器状态…") ==
+               "Scanning the game directory and server state…",
+            "English 语言未覆盖工作流忙碌状态。");
+        var setBusy = typeof(MainWindow).GetMethod(
+            "SetBusy",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("主窗口缺少 SetBusy 状态入口。");
+        setBusy.Invoke(main, [true, "正在只读扫描游戏目录与服务器状态…"]);
+        var mainViewModel = main.DataContext as MainWindowViewModel
+            ?? throw new InvalidOperationException("主窗口未绑定 MainWindowViewModel。");
+        Assert(mainViewModel.BusyStatus == "Scanning the game directory and server state…",
+            "英文模式的主窗口忙碌浮层仍显示中文。");
+        setBusy.Invoke(main, [false, "目录检测完成"]);
+
+        var confirmation = new SwitchConfirmationWindow(
+            ProfileIds.Global,
+            "国际服",
+            ProfileIds.CnOfficial,
+            "国服",
+            "3.1.0",
+            60,
+            0,
+            Path.Combine(tempRoot, "Backups", "global-to-cn"));
+        Assert(Require<TextBlock>(confirmation, "HeadingText").Text == "Confirm server switch" &&
+               Require<TextBlock>(confirmation, "SourceLabelText").Text == "Current server" &&
+               Require<TextBlock>(confirmation, "TargetLabelText").Text == "Target server" &&
+               Require<TextBlock>(confirmation, "SourceProfileText").Text == "Global" &&
+               Require<TextBlock>(confirmation, "TargetProfileText").Text == "CN Official" &&
+               Require<TextBlock>(confirmation, "FileOperationText").Text == "Replace 60 files · delete 0 files" &&
+               Require<Button>(confirmation, "CancelButton").Content?.ToString() == "Cancel" &&
+               Require<Button>(confirmation, "ConfirmButton").Content?.ToString() == "Confirm switch",
+            "英文语言未完整覆盖服务器切换确认窗口。");
+        confirmation.Close();
+
+        var englishMessage = new ThemedMessageWindow(
+            "Title", "Message", showCancel: true);
+        Assert(Require<Button>(englishMessage, "CancelButton").Content?.ToString() == "Cancel" &&
+               Require<Button>(englishMessage, "PrimaryButton").Content?.ToString() == "OK",
+            "英文语言未覆盖通用提示窗口按钮。");
+        englishMessage.Close();
+
+        var englishCache = new CacheManagementWindow(
+            new CacheUsageSummary(@"D:\ZZZSwitchCache", 2, 2048, 1, 1, 1024, true));
+        Assert(Require<TextBlock>(englishCache, "HeadingText").Text == "Cache management" &&
+               Require<TextBlock>(englishCache, "LocationModeText").Text == "Custom location" &&
+               Require<TextBlock>(englishCache, "TotalFilesText").Text == "2 files" &&
+               Require<Button>(englishCache, "CloseButton").Content?.ToString() == "Close",
+            "英文语言未覆盖缓存管理窗口。" );
+        englishCache.Close();
+
+        var englishBackupLocation = new BackupLocationWindow(
+            new BackupLocationUsage(@"D:\ZZZSwitchBackups", 3, 8, 4096, true));
+        Assert(Require<TextBlock>(englishBackupLocation, "HeadingText").Text == "Backup location" &&
+               Require<TextBlock>(englishBackupLocation, "LocationModeText").Text == "Custom location" &&
+               Require<TextBlock>(englishBackupLocation, "UsageText").Text.Contains("3 backups · 8 files", StringComparison.Ordinal) &&
+               Require<Button>(englishBackupLocation, "OpenButton").Content?.ToString() == "Open folder",
+            "英文语言未覆盖备份目录窗口。" );
+        englishBackupLocation.Close();
+
+        var englishDirectory = new GameDirectorySelectionWindow(
+            [new GameDirectoryCandidate(@"D:\ZenlessZoneZero Game", "上次使用")]);
+        var directoryCandidate = Require<ListBox>(englishDirectory, "PathsList").Items[0] as GameDirectoryCandidate;
+        Assert(Require<TextBlock>(englishDirectory, "HeadingText").Text == "Select game directory" &&
+               directoryCandidate?.Source == "Last used" &&
+               Require<Button>(englishDirectory, "ConfirmButton").Content?.ToString() == "Use this directory",
+            "英文语言未覆盖游戏目录选择窗口。" );
+        englishDirectory.Close();
+
+        var englishResources = new OnlineResourceManagementWindow(
+            new OnlineDifferenceInventory
+            {
+                Packages = [],
+                ManifestCacheFileCount = 2,
+                ManifestCacheBytes = 4096
+            },
+            "3.1.0");
+        Assert(Require<TextBlock>(englishResources, "HeadingText").Text == "Client difference packages" &&
+               Require<TextBlock>(englishResources, "ManifestCacheText").Text.Contains("2 files", StringComparison.Ordinal) &&
+               Require<Button>(englishResources, "RefreshManifestButton").Content?.ToString() == "Update manifest",
+            "英文语言未覆盖客户端差异包管理窗口。" );
+        englishResources.Close();
+
+        Assert(app.Resources["L.ManifestBrowser.Title"]?.ToString() == "Manifest resource browser" &&
+               app.Resources["L.Preview.Title"]?.ToString() == "Client package manifest preview",
+            "英文语言资源未覆盖 Manifest 浏览与差异预览窗口。" );
         var initialState = new MainWindowViewModel();
         initialState.ApplyInitialLanguage(AppLanguage.English);
         Assert(initialState.Profile == "Waiting for detection" &&
@@ -703,6 +788,9 @@ internal static class Program
         main.UpdateLayout();
         Assert(Require<Button>(main, "AutoDetectButton").Content?.ToString() == "自动检测",
             "中文语言未恢复主界面按钮。");
+        setBusy.Invoke(main, [false, "目录检测完成"]);
+        Assert(mainViewModel.BusyStatus == "目录检测完成",
+            "中文语言未恢复主窗口状态文本。");
     }
 
     private static void VerifyCommandRouting()
@@ -824,7 +912,8 @@ internal static class Program
             () => inProgressCount++,
             _ => { },
             _ => Brushes.Transparent,
-            (path, _) => openedPath = path);
+            (path, _) => openedPath = path,
+            (chinese, _) => chinese);
 
         var switchWorkflow = new ServerSwitchWorkflow(
             null!,
@@ -1129,6 +1218,7 @@ internal static class Program
             string sourceProfile,
             string targetProfile,
             string gameVersion,
+            string? localGamePath = null,
             CancellationToken cancellationToken = default)
         {
             AnalyzeCalls++;

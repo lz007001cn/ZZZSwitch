@@ -18,11 +18,11 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="备份目录" FontSize="22" FontWeight="SemiBold" />
+        <TextBlock x:Name="HeadingText" Text="{DynamicResource L.BackupLocation.Title}" FontSize="22" FontWeight="SemiBold" />
 
         <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0,14,0,0">
             <StackPanel>
-                <TextBlock Text="当前备份目录"
+                <TextBlock Text="{DynamicResource L.BackupLocation.CurrentDirectory}"
                            FontSize="12"
                            Foreground="{DynamicResource MutedTextBrush}" />
                 <TextBox x:Name="BackupPathTextBox"
@@ -48,22 +48,24 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Button Content="打开目录"
+            <Button x:Name="OpenButton" Content="{DynamicResource L.Common.OpenFolder}"
                     Click="OpenLocation_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0" />
             <Button Grid.Column="1"
-                    Content="更改位置"
+                    x:Name="ChangeLocationButton"
+                    Content="{DynamicResource L.Common.ChangeLocation}"
                     Click="ChangeLocation_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0" />
             <Button Grid.Column="2"
                     x:Name="RestoreDefaultButton"
-                    Content="恢复默认位置"
+                    Content="{DynamicResource L.Common.RestoreDefault}"
                     Click="RestoreDefault_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />
             <Button Grid.Column="4"
-                    Content="关闭"
+                    x:Name="CloseButton"
+                    Content="{DynamicResource L.Common.Close}"
                     Click="Close_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />
         </Grid>

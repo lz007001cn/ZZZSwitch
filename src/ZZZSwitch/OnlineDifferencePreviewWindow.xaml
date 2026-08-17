@@ -23,7 +23,7 @@
 
         <StackPanel>
             <TextBlock x:Name="HeadingText"
-                       Text="客户端差异包清单预览"
+                       Text="{DynamicResource L.Preview.Title}"
                        FontSize="22"
                        FontWeight="SemiBold" />
             <TextBlock x:Name="DirectionText"
@@ -43,19 +43,19 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="版本" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Text="{DynamicResource L.Resources.Version}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="VersionText" Margin="0,6,0,0" FontSize="17" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel Grid.Column="1">
-                    <TextBlock Text="状态" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Text="{DynamicResource L.Resources.State}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="StateText" Margin="0,6,0,0" FontSize="17" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="文件" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Text="{DynamicResource L.Preview.Files}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="FileCountText" Margin="0,6,0,0" FontSize="17" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel Grid.Column="3">
-                    <TextBlock Text="占用" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Text="{DynamicResource L.Preview.Usage}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="SizeText" Margin="0,6,0,0" FontSize="17" FontWeight="SemiBold" />
                 </StackPanel>
             </Grid>
@@ -111,7 +111,7 @@
         </ListBox>
 
         <Button Grid.Row="4"
-                Content="关闭"
+                Content="{DynamicResource L.Common.Close}"
                 Width="92"
                 Margin="0,14,0,0"
                 HorizontalAlignment="Right"

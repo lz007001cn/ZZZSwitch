@@ -23,7 +23,7 @@
 
         <StackPanel x:Name="HeaderPanel">
             <TextBlock x:Name="HeadingText"
-                       Text="客户端差异包管理"
+                       Text="{DynamicResource L.Resources.Title}"
                        FontSize="22"
                        FontWeight="SemiBold" />
         </StackPanel>
@@ -39,16 +39,16 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="差异包占用" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Text="{DynamicResource L.Resources.PackageUsage}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="PackageBytesText" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel Grid.Column="1">
-                    <TextBlock Text="保存版本" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Text="{DynamicResource L.Resources.SavedVersions}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="VersionCountText" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="清单缓存"
-                               ToolTip="Sophon Manifest 元数据缓存"
+                    <TextBlock Text="{DynamicResource L.Resources.ManifestCache}"
+                               ToolTip="{DynamicResource L.Resources.ManifestCacheTip}"
                                FontSize="11"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="ManifestCacheText" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
@@ -60,49 +60,49 @@
                     Orientation="Horizontal"
                     Margin="0,12,0,0">
             <Button x:Name="RefreshButton"
-                    Content="刷新"
+                    Content="{DynamicResource L.Common.Refresh}"
                     Width="80"
                     Click="Refresh_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0"
-                    ToolTip="重新扫描本地差异包与清单缓存" />
+                    ToolTip="{DynamicResource L.Resources.RefreshTip}" />
             <Button x:Name="RefreshManifestButton"
-                    Content="更新 Manifest"
+                    Content="{DynamicResource L.Resources.UpdateManifest}"
                     Width="128"
                     Click="RefreshManifest_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0"
-                    ToolTip="从 Sophon 重新下载当前游戏版本的国际服与国服清单；不会下载游戏文件" />
+                    ToolTip="{DynamicResource L.Resources.UpdateManifestTip}" />
             <Button x:Name="BrowseManifestButton"
-                    Content="Manifest 浏览"
+                    Content="{DynamicResource L.Resources.BrowseManifest}"
                     Width="116"
                     Click="BrowseManifest_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0"
-                    ToolTip="浏览已缓存的国际服/国服 Manifest，并按资源范围与路径筛选" />
+                    ToolTip="{DynamicResource L.Resources.BrowseManifestTip}" />
             <Button x:Name="PreviewButton"
-                    Content="差异包预览"
+                    Content="{DynamicResource L.Resources.Preview}"
                     Width="108"
                     IsEnabled="False"
                     Click="Preview_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0"
-                    ToolTip="查看选中成品差异包的文件、大小和完整性清单" />
+                    ToolTip="{DynamicResource L.Resources.PreviewTip}" />
             <Button x:Name="VerifyButton"
-                    Content="校验"
+                    Content="{DynamicResource L.Resources.Verify}"
                     Width="92"
                     IsEnabled="False"
                     Click="Verify_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0"
-                    ToolTip="按差异包清单重新校验所有文件" />
+                    ToolTip="{DynamicResource L.Resources.VerifyTip}" />
             <Button x:Name="UpdatePackageButton"
-                    Content="更新差异包"
+                    Content="{DynamicResource L.Resources.UpdatePackage}"
                     Width="116"
                     IsEnabled="False"
                     Click="UpdatePackage_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
-                    ToolTip="重新分析选中方向并下载新增或变化的文件；已有文件与断点会复用" />
+                    ToolTip="{DynamicResource L.Resources.UpdatePackageTip}" />
         </StackPanel>
 
         <ListBox Grid.Row="3"
@@ -160,23 +160,23 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="版本" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{DynamicResource L.Resources.Version}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding Version}" Margin="0,4,0,0" FontWeight="SemiBold" />
                             </StackPanel>
                             <StackPanel Grid.Column="1">
-                                <TextBlock Text="目标客户端" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{DynamicResource L.Resources.TargetClient}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding Target}" Margin="0,4,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="状态" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{DynamicResource L.Resources.State}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding State}" Margin="0,4,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="3">
-                                <TextBlock Text="大小" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{DynamicResource L.Resources.Size}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding Size}" Margin="0,4,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="4">
-                                <TextBlock Text="内容" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{DynamicResource L.Resources.Content}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding Detail}"
                                            Margin="0,4,0,0"
                                            TextTrimming="CharacterEllipsis"
@@ -196,7 +196,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Button x:Name="OpenButton"
-                    Content="打开差异包目录"
+                    Content="{DynamicResource L.Resources.OpenDirectory}"
                     Width="120"
                     IsEnabled="False"
                     Click="Open_Click"
@@ -204,13 +204,13 @@
                     Margin="0,0,8,0" />
             <Button Grid.Column="1"
                     x:Name="DeleteButton"
-                    Content="删除选中差异包"
+                    Content="{DynamicResource L.Resources.DeleteSelected}"
                     Width="120"
                     IsEnabled="False"
                     Click="Delete_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />
             <Button Grid.Column="3"
-                    Content="关闭"
+                    Content="{DynamicResource L.Common.Close}"
                     Width="92"
                     Click="Close_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />

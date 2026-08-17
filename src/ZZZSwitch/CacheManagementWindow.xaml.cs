@@ -16,15 +16,20 @@ public partial class CacheManagementWindow : Window
     public CacheManagementWindow(CacheUsageSummary usage)
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
+        var app = (App)System.Windows.Application.Current;
+        SourceInitialized += (_, _) => app.Theme.ApplyWindow(this);
         CachePathTextBox.Text = usage.CacheRootPath;
-        LocationModeText.Text = usage.IsCustomLocation ? "自定义位置" : "默认位置（游戏目录同级）";
+        LocationModeText.Text = usage.IsCustomLocation
+            ? app.Localization.Choose("自定义位置", "Custom location")
+            : app.Localization.Choose("默认位置（游戏目录同级）", "Default location (next to the game directory)");
         TotalCacheText.Text = FormatBytes(usage.TotalBytes);
-        TotalFilesText.Text = $"{usage.FileCount} 个文件";
+        TotalFilesText.Text = app.Localization.Choose($"{usage.FileCount} 个文件", $"{usage.FileCount} files");
         ObsoleteCacheText.Text = FormatBytes(usage.ObsoleteBytes);
         ObsoleteVersionsText.Text = usage.ObsoleteVersionCount == 0
-            ? "没有可清理的旧版本"
-            : $"{usage.ObsoleteVersionCount} 个版本 · {usage.ObsoleteFileCount} 个文件";
+            ? app.Localization.Choose("没有可清理的旧版本", "No old versions to clean")
+            : app.Localization.Choose(
+                $"{usage.ObsoleteVersionCount} 个版本 · {usage.ObsoleteFileCount} 个文件",
+                $"{usage.ObsoleteVersionCount} versions · {usage.ObsoleteFileCount} files");
         DeleteObsoleteButton.IsEnabled = usage.ObsoleteVersionCount > 0;
         RestoreDefaultButton.IsEnabled = usage.IsCustomLocation;
     }

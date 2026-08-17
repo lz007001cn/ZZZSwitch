@@ -57,29 +57,43 @@ public sealed class OnlineDifferencePackageCatalog
         out OnlineDifferenceMaterialization? materialization)
     {
         materialization = null;
-        var candidate = GetInventory().Packages
+        var candidates = GetInventory().Packages
             .Where(item => item.State == OnlineDifferencePackageState.Ready)
             .Where(item => string.Equals(item.GameVersion, gameVersion, StringComparison.Ordinal))
             .Where(item => string.Equals(item.SourceProfile, sourceProfile, StringComparison.OrdinalIgnoreCase))
             .Where(item => string.Equals(item.TargetProfile, targetProfile, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(item => item.LastUpdated)
-            .FirstOrDefault();
-        if (candidate is null || !TryReadTransition(candidate.WorkspacePath, out var manifest, out _))
+            .ToArray();
+        foreach (var candidate in candidates)
         {
-            return false;
+            if (!TryReadTransition(candidate.WorkspacePath, out var manifest, out _))
+            {
+                continue;
+            }
+
+            try
+            {
+                VerifyPackage(candidate);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            {
+                continue;
+            }
+
+            var content = Path.Combine(candidate.WorkspacePath, "content");
+            materialization = new OnlineDifferenceMaterialization
+            {
+                PackageRoot = content,
+                PackageDirectory = content,
+                Manifest = manifest!,
+                DownloadedFiles = 0,
+                ReusedFiles = manifest!.ReplaceFiles.Count,
+                ReusedReadyPackage = true
+            };
+            return true;
         }
 
-        var content = Path.Combine(candidate.WorkspacePath, "content");
-        materialization = new OnlineDifferenceMaterialization
-        {
-            PackageRoot = content,
-            PackageDirectory = content,
-            Manifest = manifest!,
-            DownloadedFiles = 0,
-            ReusedFiles = manifest!.ReplaceFiles.Count,
-            ReusedReadyPackage = true
-        };
-        return true;
+        return false;
     }
 
     public void DeletePackage(string workspacePath)

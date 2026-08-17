@@ -54,7 +54,7 @@ public sealed class BackupManagementWorkflow
         }
         catch (Exception ex)
         {
-            _dialogs.Show("无法打开备份历史", ex.Message, MessageTone.Error);
+            _dialogs.Show(T("无法打开备份历史", "Unable to open backup history"), ex.Message, MessageTone.Error);
         }
     }
 
@@ -73,7 +73,7 @@ public sealed class BackupManagementWorkflow
         }
         catch (Exception ex)
         {
-            _dialogs.Show("无法读取备份目录", ex.Message, MessageTone.Error);
+            _dialogs.Show(T("无法读取备份目录", "Unable to read backup location"), ex.Message, MessageTone.Error);
             return;
         }
 
@@ -84,7 +84,7 @@ public sealed class BackupManagementWorkflow
                 break;
             case BackupLocationAction.ChangeLocation:
                 var targetRoot = _dialogs.SelectFolder(
-                    "选择 ZZZSwitch 事务备份目录（目标目录必须为空）",
+                    T("选择 ZZZSwitch 事务备份目录（目标目录必须为空）", "Select the ZZZSwitch transaction backup folder (the target must be empty)"),
                     usage.BackupRootPath);
                 if (targetRoot is not null)
                 {
@@ -100,12 +100,13 @@ public sealed class BackupManagementWorkflow
     private async Task ChangeLocationAsync(BackupLocationUsage usage, string targetRoot)
     {
         if (_dialogs.Show(
-                "更改备份位置",
-                $"当前位置：\n{usage.BackupRootPath}\n\n目标位置：\n{targetRoot}\n\n" +
-                $"将迁移 {usage.FileCount} 个文件，共 {DisplayFormatting.FormatBytes(usage.TotalBytes)}。复制并逐文件校验完成后才会启用新位置。",
+                T("更改备份位置", "Change backup location"),
+                T(
+                    $"当前位置：\n{usage.BackupRootPath}\n\n目标位置：\n{targetRoot}\n\n将迁移 {usage.FileCount} 个文件，共 {DisplayFormatting.FormatBytes(usage.TotalBytes)}。复制并逐文件校验完成后才会启用新位置。",
+                    $"Current location:\n{usage.BackupRootPath}\n\nTarget location:\n{targetRoot}\n\n{usage.FileCount} files ({DisplayFormatting.FormatBytes(usage.TotalBytes)}) will be moved. The new location is enabled only after every copied file is verified."),
                 MessageTone.Information,
                 showCancel: true,
-                primaryText: "开始迁移") != true)
+                primaryText: T("开始迁移", "Start migration")) != true)
         {
             return;
         }
@@ -124,23 +125,33 @@ public sealed class BackupManagementWorkflow
                 targetRoot,
                 _context.GetGamePath().Trim()));
             var message = result.ContentMoved
-                ? $"已迁移 {result.MigratedFileCount} 个文件，共 {DisplayFormatting.FormatBytes(result.MigratedBytes)}。\n\n新位置：\n{result.TargetBackupRoot}"
-                : $"已将后续备份位置设置为：\n{result.TargetBackupRoot}";
+                ? T(
+                    $"已迁移 {result.MigratedFileCount} 个文件，共 {DisplayFormatting.FormatBytes(result.MigratedBytes)}。\n\n新位置：\n{result.TargetBackupRoot}",
+                    $"Moved {result.MigratedFileCount} files ({DisplayFormatting.FormatBytes(result.MigratedBytes)}).\n\nNew location:\n{result.TargetBackupRoot}")
+                : T(
+                    $"已将后续备份位置设置为：\n{result.TargetBackupRoot}",
+                    $"Future backups will be stored at:\n{result.TargetBackupRoot}");
             if (!result.SourceRemoved)
             {
-                message += $"\n\n新位置已经启用，但旧目录未能自动删除。确认新位置可用后可手动处理：\n{result.SourceBackupRoot}";
+                message += T(
+                    $"\n\n新位置已经启用，但旧目录未能自动删除。确认新位置可用后可手动处理：\n{result.SourceBackupRoot}",
+                    $"\n\nThe new location is active, but the old folder could not be removed. After confirming the new location works, remove it manually:\n{result.SourceBackupRoot}");
             }
 
             _dialogs.Show(
-                result.SourceRemoved ? "备份位置已更新" : "备份已迁移，旧目录仍保留",
+                result.SourceRemoved
+                    ? T("备份位置已更新", "Backup location updated")
+                    : T("备份已迁移，旧目录仍保留", "Backups migrated; old folder retained"),
                 message,
                 result.SourceRemoved ? MessageTone.Success : MessageTone.Warning);
         }
         catch (Exception ex)
         {
             _dialogs.Show(
-                "备份迁移失败",
-                $"仍继续使用原备份位置，未切换到目标目录。\n\n{ex.Message}",
+                T("备份迁移失败", "Backup migration failed"),
+                T(
+                    $"仍继续使用原备份位置，未切换到目标目录。\n\n{ex.Message}",
+                    $"The original backup location remains active. The target was not enabled.\n\n{ex.Message}"),
                 MessageTone.Error);
         }
         finally
@@ -148,4 +159,6 @@ public sealed class BackupManagementWorkflow
             _context.SetBusy(false, "备份迁移结束");
         }
     }
+
+    private string T(string chinese, string english) => _context.Localize(chinese, english);
 }

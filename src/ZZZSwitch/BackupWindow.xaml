@@ -15,7 +15,7 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <TextBlock Text="备份历史"
+        <TextBlock Text="{DynamicResource L.Backup.Title}"
                    Margin="0,0,0,14"
                    FontSize="24"
                    FontWeight="SemiBold" />
@@ -47,12 +47,12 @@
                     </Style>
                 </DataGrid.Resources>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="155" />
-                    <DataGridTextColumn Header="来源" Binding="{Binding Source}" Width="105" />
-                    <DataGridTextColumn Header="目标" Binding="{Binding Target}" Width="105" />
-                    <DataGridTextColumn Header="结果" Binding="{Binding Result}" Width="90" />
-                    <DataGridTextColumn Header="恢复时间" Binding="{Binding Restored}" Width="155" />
-                    <DataGridTextColumn Header="目录" Binding="{Binding Path}" Width="*" />
+                    <DataGridTextColumn Header="{DynamicResource L.Backup.Time}" Binding="{Binding Time}" Width="155" />
+                    <DataGridTextColumn Header="{DynamicResource L.Backup.Source}" Binding="{Binding Source}" Width="105" />
+                    <DataGridTextColumn Header="{DynamicResource L.Backup.Target}" Binding="{Binding Target}" Width="105" />
+                    <DataGridTextColumn Header="{DynamicResource L.Backup.Result}" Binding="{Binding Result}" Width="90" />
+                    <DataGridTextColumn Header="{DynamicResource L.Backup.Restored}" Binding="{Binding Restored}" Width="155" />
+                    <DataGridTextColumn Header="{DynamicResource L.Backup.Directory}" Binding="{Binding Path}" Width="*" />
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
@@ -60,30 +60,30 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,16,0,0">
-            <Button Content="刷新"
+            <Button Content="{DynamicResource L.Common.Refresh}"
                     Click="Refresh_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0" />
             <Button x:Name="RestoreLatestButton"
-                    Content="恢复上次状态"
+                    Content="{DynamicResource L.Backup.RestoreLatest}"
                     Click="RestoreLatest_Click"
                     Style="{StaticResource BaseButtonStyle}"
                     Background="#C88A3A"
                     BorderBrush="#C88A3A"
                     Margin="0,0,8,0" />
-            <Button Content="恢复选中备份"
+            <Button Content="{DynamicResource L.Backup.RestoreSelected}"
                     Click="Restore_Click"
                     Style="{StaticResource BaseButtonStyle}"
                     Background="#C88A3A"
                     BorderBrush="#C88A3A"
                     Margin="0,0,8,0" />
-            <Button Content="删除选中备份"
+            <Button Content="{DynamicResource L.Backup.DeleteSelected}"
                     Click="Delete_Click"
                     Style="{StaticResource BaseButtonStyle}"
                     Background="#C65359"
                     BorderBrush="#C65359"
                     Margin="0,0,8,0" />
-            <Button Content="关闭"
+            <Button Content="{DynamicResource L.Common.Close}"
                     Click="Close_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />
         </StackPanel>

@@ -34,6 +34,7 @@ internal static class Program
         ("必需删除文件缺失时停止", () => PlannerFailure("delete")),
         ("存在未完成文件事务时停止", () => PlannerFailure("transaction")),
         ("在线差异自动排除 Streaming Blocks 与待观察文件", OnlineDifferenceSelection),
+        ("在线切换按 Manifest 复用本地文件并保存反向差异包", OnlineDifferenceReusesLocalFilesAndCapturesReversePackage),
         ("已完成在线差异自动登记为版本差异包", OnlineDifferencePackageCatalogRecognizesReadyPackage),
         ("未完成在线分块在版本资源中保留", OnlineDifferencePackageCatalogKeepsIncompletePackage),
         ("Manifest 浏览器按方向与资源类型建立索引", ManifestBrowserBuildsExtensibleIndex),
@@ -450,6 +451,68 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    private static async Task OnlineDifferenceReusesLocalFilesAndCapturesReversePackage()
+    {
+        using var fixture = new TempFixture();
+        const string version = "3.1.0";
+        const string targetContent = "target-local";
+        const string sourceContent = "source-local";
+        File.WriteAllText(Path.Combine(fixture.Game, "target.bin"), targetContent);
+        File.WriteAllText(Path.Combine(fixture.Game, "source.bin"), sourceContent);
+
+        static ManifestEntry Entry(string path, string content)
+        {
+            var bytes = Encoding.UTF8.GetBytes(content);
+            return new ManifestEntry(
+                path,
+                bytes.LongLength,
+                Convert.ToHexString(MD5.HashData(bytes)));
+        }
+
+        var plan = new OnlineDifferencePlan
+        {
+            SourceProfile = ProfileIds.Global,
+            TargetProfile = ProfileIds.CnOfficial,
+            GameVersion = version,
+            SourceRegion = SophonRegion.OS,
+            TargetRegion = SophonRegion.CN,
+            TargetManifestId = "cn-manifest",
+            TargetCategory = new ManifestCategory(
+                "game", "game", "cn-manifest", "https://example.test/manifest", "",
+                "https://example.test/chunks", ""),
+            DownloadFiles = [Entry("target.bin", targetContent)],
+            DeleteFiles = [],
+            LocalGamePath = fixture.Game,
+            LocalSourceCapture = new OnlineLocalSourceCapturePlan
+            {
+                SourceProfile = ProfileIds.CnOfficial,
+                TargetProfile = ProfileIds.Global,
+                TargetManifestId = "os-manifest",
+                Files = [Entry("source.bin", sourceContent)]
+            }
+        };
+        var service = new OnlineDifferenceService(
+            fixture.Paths,
+            () => new RejectingSophonTransport());
+
+        var result = await service.MaterializeAsync(plan);
+
+        Equal(0, result.DownloadedFiles);
+        Equal(1, result.ReusedFiles);
+        Equal(1, result.PreservedSourceFiles);
+        True(result.SourcePackageReady, "来源服文件完整时应生成可直接使用的反向差异包。");
+        Equal(targetContent, File.ReadAllText(Path.Combine(result.PackageDirectory, "target.bin")));
+
+        var catalog = new OnlineDifferencePackageCatalog(fixture.Paths);
+        True(catalog.TryGetReadyMaterialization(
+                ProfileIds.CnOfficial,
+                ProfileIds.Global,
+                version,
+                out var reverse) && reverse is not null,
+            "反向切换应直接命中由当前客户端保存的来源服差异包。");
+        Equal(sourceContent, File.ReadAllText(Path.Combine(reverse!.PackageDirectory, "source.bin")));
+    }
+
     private static Task OnlinePlannerDoesNotReadExistingPackage()
     {
         using var fixture = new TempFixture();
@@ -586,6 +649,12 @@ internal static class Program
         }
 
         True(rejected, "差异包管理的手动校验必须识别同长度 SHA-256 损坏。");
+        True(!catalog.TryGetReadyMaterialization(
+                ProfileIds.Global,
+                ProfileIds.CnOfficial,
+                "3.1.0",
+                out _),
+            "同长度损坏的差异包不得进入本地快速切换路径。");
         return Task.CompletedTask;
     }
 
@@ -3020,6 +3089,15 @@ internal static class Program
     private sealed class FakeProcessMonitor(params string[] processes) : IProcessMonitor
     {
         public IReadOnlyList<string> FindRelatedProcesses() => processes;
+    }
+
+    private sealed class RejectingSophonTransport : ISophonTransport
+    {
+        public Task<string> GetStringAsync(Uri uri, CancellationToken cancellationToken = default) =>
+            Task.FromException<string>(new InvalidOperationException("测试不允许网络请求。"));
+
+        public Task<byte[]> GetBytesAsync(Uri uri, CancellationToken cancellationToken = default) =>
+            Task.FromException<byte[]>(new InvalidOperationException("测试不允许网络请求。"));
     }
 
     private sealed class FakeGameInstallLocator(

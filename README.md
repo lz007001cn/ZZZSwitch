@@ -13,6 +13,7 @@ Starting with **v1.3.0**, Global ↔ CN Official switching no longer depends on 
 - Automatically detects the Zenless Zone Zero installation or lets you select it manually.
 - Retrieves Global and CN Official Sophon manifests for the exact installed game version.
 - Builds versioned Global ↔ CN Official client-difference packages on demand.
+- Reuses local files that match the target manifest and preserves source-region differences before they are overwritten, allowing the reverse switch to avoid downloading the original client files again.
 - Resumes verified file and chunk downloads after cancellation or network failure.
 - Reuses a completed package for later switches in the same version and direction.
 - Preserves each server's hot-update cache automatically before switching.
@@ -25,7 +26,7 @@ Starting with **v1.3.0**, Global ↔ CN Official switching no longer depends on 
 
 - Windows x64.
 - An installed PC version of Zenless Zone Zero.
-- Internet access for the first Global ↔ CN Official package download for each game version and direction.
+- Internet access to retrieve both manifests and any target files not already available locally for the first Global ↔ CN Official switch of a game version.
 - A version-matched legacy local package for any switch involving Bilibili. Bilibili resources are not obtained through Sophon in v1.3.0.
 
 ## Usage
@@ -38,7 +39,7 @@ Starting with **v1.3.0**, Global ↔ CN Official switching no longer depends on 
 
 4. Select the target server:
 
-   - **Global ↔ CN Official:** if a ready package for the detected game version and direction already exists, ZZZSwitch verifies and reuses it. Otherwise it downloads the two Sophon manifests, calculates the client differences, and opens the download window.
+   - **Global ↔ CN Official:** ZZZSwitch checks both the target and reverse packages. If either is missing, it retrieves both Sophon manifests, preserves verified files from the installed source client, and downloads only target files that are not already available locally.
    - **Bilibili:** ZZZSwitch uses the matching legacy package under the game's `.zzzswitch\packages\<game-version>` directory. Bilibili is intentionally excluded from Manifest download and browsing.
 
 5. For a first-time Global/CN download, review the file count and maximum download size, then start the download. Verified complete files and chunks are retained, so retrying does not restart from zero.

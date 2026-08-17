@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using ZZZSwitch.Core.Models;
 using ZZZSwitch.ManifestTool;
@@ -22,6 +23,7 @@ public interface IOnlineDifferenceService
         string sourceProfile,
         string targetProfile,
         string gameVersion,
+        string? localGamePath = null,
         CancellationToken cancellationToken = default);
 
     Task<OnlineManifestRefreshResult> RefreshManifestsAsync(
@@ -69,6 +71,7 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
         string sourceProfile,
         string targetProfile,
         string gameVersion,
+        string? localGamePath = null,
         CancellationToken cancellationToken = default)
     {
         var sourceRegion = ToSupportedRegion(sourceProfile);
@@ -92,8 +95,35 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
             await Task.WhenAll(sourceTask, targetTask).ConfigureAwait(false);
             var source = await sourceTask.ConfigureAwait(false);
             var target = await targetTask.ConfigureAwait(false);
-            var diff = new ManifestDiffEngine().Compare(source.Snapshot, target.Snapshot);
-            return BuildPlan(sourceProfile, targetProfile, diff, target.Snapshot, target.Category);
+            var diffEngine = new ManifestDiffEngine();
+            var diff = diffEngine.Compare(source.Snapshot, target.Snapshot);
+            OnlineLocalSourceCapturePlan? localSourceCapture = null;
+            if (!string.IsNullOrWhiteSpace(localGamePath))
+            {
+                var reverseDiff = diffEngine.Compare(target.Snapshot, source.Snapshot);
+                var reversePlan = BuildPlan(
+                    targetProfile,
+                    sourceProfile,
+                    reverseDiff,
+                    source.Snapshot,
+                    source.Category);
+                localSourceCapture = new OnlineLocalSourceCapturePlan
+                {
+                    SourceProfile = targetProfile,
+                    TargetProfile = sourceProfile,
+                    TargetManifestId = source.Snapshot.ManifestId,
+                    Files = reversePlan.DownloadFiles
+                };
+            }
+
+            return BuildPlan(
+                sourceProfile,
+                targetProfile,
+                diff,
+                target.Snapshot,
+                target.Category,
+                localGamePath,
+                localSourceCapture);
         }
         finally
         {
@@ -180,6 +210,10 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
         var content = Path.Combine(workspace, "content");
         var chunkCache = Path.Combine(workspace, "chunks");
         Directory.CreateDirectory(content);
+        await SeedTargetFilesFromGameAsync(
+            plan, content, progress, cancellationToken).ConfigureAwait(false);
+        var sourceCapture = await CaptureLocalSourceAsync(
+            plan, progress, cancellationToken).ConfigureAwait(false);
         ValidateDownloadDiskSpace(plan, content);
 
         var transport = _transportFactory();
@@ -273,16 +307,315 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
             Manifest = manifest,
             DownloadedFiles = downloaded.Count(item => !item.ReusedExistingFile),
             ReusedFiles = downloaded.Count(item => item.ReusedExistingFile),
+            PreservedSourceFiles = sourceCapture.PreservedFiles,
+            SourcePackageReady = sourceCapture.Ready,
             ReusedReadyPackage = false
         };
     }
+
+    private async Task SeedTargetFilesFromGameAsync(
+        OnlineDifferencePlan plan,
+        string contentRoot,
+        IProgress<OnlineDifferenceProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(plan.LocalGamePath) ||
+            !Directory.Exists(plan.LocalGamePath))
+        {
+            return;
+        }
+
+        long completedBytes = 0;
+        for (var index = 0; index < plan.DownloadFiles.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var entry = plan.DownloadFiles[index];
+            var completedBeforeFile = completedBytes;
+            await TryPrepareManifestFileAsync(
+                plan.LocalGamePath,
+                contentRoot,
+                entry,
+                bytes => progress?.Report(new OnlineDifferenceProgress
+                {
+                    CurrentFile = entry.Path,
+                    CompletedBytes = checked(completedBeforeFile + bytes),
+                    TotalBytes = plan.DownloadBytes,
+                    CompletedFiles = index,
+                    TotalFiles = plan.DownloadFiles.Count,
+                    CurrentFileChunksCompleted = 0,
+                    CurrentFileChunksTotal = entry.Chunks.Count,
+                    VerifyingExistingFile = true,
+                    CheckingLocalFiles = true
+                }),
+                cancellationToken).ConfigureAwait(false);
+            completedBytes = checked(completedBytes + entry.Size);
+        }
+    }
+
+    private async Task<LocalSourceCaptureResult> CaptureLocalSourceAsync(
+        OnlineDifferencePlan plan,
+        IProgress<OnlineDifferenceProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var capture = plan.LocalSourceCapture;
+        if (capture is null || string.IsNullOrWhiteSpace(plan.LocalGamePath) ||
+            !Directory.Exists(plan.LocalGamePath))
+        {
+            return default;
+        }
+
+        var workspace = Path.Combine(
+            _paths.OnlineDifferenceFilesRoot,
+            SafeSegment(plan.GameVersion),
+            SafeSegment(capture.TargetProfile),
+            SafeSegment(capture.TargetManifestId));
+        var content = Path.Combine(workspace, "content");
+        Directory.CreateDirectory(content);
+
+        var preserved = new List<DownloadedManifestFile>(capture.Files.Count);
+        long completedBytes = 0;
+        for (var index = 0; index < capture.Files.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var entry = capture.Files[index];
+            var completedBeforeFile = completedBytes;
+            var file = await TryPrepareManifestFileAsync(
+                plan.LocalGamePath,
+                content,
+                entry,
+                bytes => progress?.Report(new OnlineDifferenceProgress
+                {
+                    CurrentFile = entry.Path,
+                    CompletedBytes = checked(completedBeforeFile + bytes),
+                    TotalBytes = capture.ContentBytes,
+                    CompletedFiles = index,
+                    TotalFiles = capture.Files.Count,
+                    CurrentFileChunksCompleted = 0,
+                    CurrentFileChunksTotal = 0,
+                    VerifyingExistingFile = true,
+                    CheckingLocalFiles = true,
+                    PreservingSourceFiles = true
+                }),
+                cancellationToken).ConfigureAwait(false);
+            if (file is not null)
+            {
+                preserved.Add(file);
+            }
+
+            completedBytes = checked(completedBytes + entry.Size);
+            progress?.Report(new OnlineDifferenceProgress
+            {
+                CurrentFile = entry.Path,
+                CompletedBytes = completedBytes,
+                TotalBytes = capture.ContentBytes,
+                CompletedFiles = index + 1,
+                TotalFiles = capture.Files.Count,
+                CurrentFileChunksCompleted = 0,
+                CurrentFileChunksTotal = 0,
+                ReusingExistingFile = file is not null,
+                CheckingLocalFiles = true,
+                PreservingSourceFiles = true
+            });
+        }
+
+        var ready = preserved.Count == capture.Files.Count;
+        if (ready)
+        {
+            var manifest = new TransitionManifest
+            {
+                SourceProfile = capture.SourceProfile,
+                TargetProfile = capture.TargetProfile,
+                GameVersion = plan.GameVersion,
+                ExpectedReplaceCount = preserved.Count,
+                ExpectedDeleteCount = 0,
+                ReplaceFiles = preserved.Select(file => new ReplaceFileEntry
+                {
+                    Source = file.Path,
+                    Target = file.Path,
+                    Length = file.Length,
+                    Sha256 = file.Sha256
+                }).ToList(),
+                Notes = "由当前客户端按 Sophon Manifest 校验并保存，可用于反向切换。"
+            };
+            await WriteManifestAsync(workspace, manifest, cancellationToken).ConfigureAwait(false);
+        }
+
+        return new LocalSourceCaptureResult(preserved.Count, ready);
+    }
+
+    private static async Task<DownloadedManifestFile?> TryPrepareManifestFileAsync(
+        string candidateRoot,
+        string outputRoot,
+        ManifestEntry entry,
+        Action<long>? reportProgress,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var destination = SophonFileDownloader.ResolveUnderRoot(outputRoot, entry.Path);
+            if (CrossesReparsePoint(outputRoot, destination))
+            {
+                return null;
+            }
+
+            if (File.Exists(destination) &&
+                (File.GetAttributes(destination) & FileAttributes.ReparsePoint) != 0)
+            {
+                return null;
+            }
+
+            var existing = await TryHashMatchingFileAsync(
+                destination, entry, reportProgress, cancellationToken).ConfigureAwait(false);
+            if (existing is not null)
+            {
+                return existing;
+            }
+
+            var source = PathSafety.ResolveOrThrow(candidateRoot, entry.Path);
+            if (!File.Exists(source) || new FileInfo(source).Length != entry.Size ||
+                (File.GetAttributes(source) & FileAttributes.ReparsePoint) != 0)
+            {
+                return null;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            var temporary = $"{destination}.local-{Guid.NewGuid():N}.tmp";
+            try
+            {
+                using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+                using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                long total = 0;
+                {
+                    await using var input = new FileStream(
+                        source, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+                    await using var output = new FileStream(
+                        temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+                    var buffer = new byte[81920];
+                    while (true)
+                    {
+                        var read = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+                        if (read == 0)
+                        {
+                            break;
+                        }
+
+                        md5.AppendData(buffer, 0, read);
+                        sha256.AppendData(buffer, 0, read);
+                        await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                        total = checked(total + read);
+                        reportProgress?.Invoke(total);
+                    }
+
+                    await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                var actualMd5 = Convert.ToHexString(md5.GetHashAndReset());
+                if (total != entry.Size ||
+                    !string.Equals(actualMd5, entry.Md5, StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+
+                var actualSha256 = Convert.ToHexString(sha256.GetHashAndReset());
+                File.Move(temporary, destination, overwrite: true);
+                return new DownloadedManifestFile(
+                    entry.Path, entry.Size, entry.Md5, actualSha256, true);
+            }
+            finally
+            {
+                if (File.Exists(temporary))
+                {
+                    File.Delete(temporary);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<DownloadedManifestFile?> TryHashMatchingFileAsync(
+        string path,
+        ManifestEntry entry,
+        Action<long>? reportProgress,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path) || new FileInfo(path).Length != entry.Size ||
+            (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+        {
+            return null;
+        }
+
+        using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+        using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        await using var stream = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+        var buffer = new byte[81920];
+        long total = 0;
+        while (true)
+        {
+            var read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                break;
+            }
+
+            md5.AppendData(buffer, 0, read);
+            sha256.AppendData(buffer, 0, read);
+            total = checked(total + read);
+            reportProgress?.Invoke(total);
+        }
+
+        var actualMd5 = Convert.ToHexString(md5.GetHashAndReset());
+        return string.Equals(actualMd5, entry.Md5, StringComparison.OrdinalIgnoreCase)
+            ? new DownloadedManifestFile(
+                entry.Path,
+                entry.Size,
+                entry.Md5,
+                Convert.ToHexString(sha256.GetHashAndReset()),
+                true)
+            : null;
+    }
+
+    private static bool CrossesReparsePoint(string root, string destination)
+    {
+        var fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+        var current = Path.GetDirectoryName(destination);
+        while (current is not null &&
+               current.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            if (Directory.Exists(current) &&
+                (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+            {
+                return true;
+            }
+
+            if (string.Equals(current, fullRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+
+            current = Path.GetDirectoryName(current);
+        }
+
+        return false;
+    }
+
+    private readonly record struct LocalSourceCaptureResult(int PreservedFiles, bool Ready);
 
     public static OnlineDifferencePlan BuildPlan(
         string sourceProfile,
         string targetProfile,
         ManifestDiff diff,
         ManifestSnapshot targetSnapshot,
-        ManifestCategory targetCategory)
+        ManifestCategory targetCategory,
+        string? localGamePath = null,
+        OnlineLocalSourceCapturePlan? localSourceCapture = null)
     {
         ArgumentNullException.ThrowIfNull(diff);
         ArgumentNullException.ThrowIfNull(targetSnapshot);
@@ -321,6 +654,10 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
             TargetCategory = targetCategory,
             DownloadFiles = downloads,
             DeleteFiles = deletes,
+            LocalGamePath = string.IsNullOrWhiteSpace(localGamePath)
+                ? null
+                : Path.GetFullPath(localGamePath),
+            LocalSourceCapture = localSourceCapture,
             ExcludedStreamingBlocksCount = blocks.Length,
             ExcludedStreamingBlocksBytes = blocks.Aggregate(
                 0L, (sum, item) => checked(sum + (item.TargetSize ?? 0L))),

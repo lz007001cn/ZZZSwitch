@@ -42,8 +42,8 @@ public sealed class PackageImportWorkflow
         if (string.IsNullOrWhiteSpace(gamePath) || string.IsNullOrWhiteSpace(gameVersion))
         {
             _dialogs.Show(
-                "无法导入差异包",
-                "请先选择有效的游戏目录，并确认游戏版本能够正确识别。",
+                T("无法导入差异包", "Unable to import package"),
+                T("请先选择有效的游戏目录，并确认游戏版本能够正确识别。", "Select a valid game directory and make sure its version can be detected."),
                 MessageTone.Warning);
             return;
         }
@@ -58,8 +58,10 @@ public sealed class PackageImportWorkflow
         if (processes.Count > 0)
         {
             _dialogs.Show(
-                "暂时无法导入差异包",
-                $"请先完全退出游戏和启动器：{string.Join("、", processes)}",
+                T("暂时无法导入差异包", "Package cannot be imported yet"),
+                T(
+                    $"请先完全退出游戏和启动器：{string.Join("、", processes)}",
+                    $"Close the game and launcher first: {string.Join(", ", processes)}"),
                 MessageTone.Warning);
             return;
         }
@@ -67,13 +69,17 @@ public sealed class PackageImportWorkflow
         var target = GameStorageLayout.GetPackageRoot(gamePath, gameVersion);
         var replacing = Directory.Exists(target);
         if (_dialogs.Show(
-                "导入三服差异包",
-                $"文件：\n{archive}\n\n游戏版本：{gameVersion}\n导入位置：\n{target}" +
-                (replacing ? "\n\n现有同版本差异包会在新内容完整解压并校验通过后替换。" : string.Empty) +
-                "\n\n国际服、国服和 B服内容会一起校验。",
+                T("导入三服差异包", "Import three-server package"),
+                T(
+                    $"文件：\n{archive}\n\n游戏版本：{gameVersion}\n导入位置：\n{target}" +
+                    (replacing ? "\n\n现有同版本差异包会在新内容完整解压并校验通过后替换。" : string.Empty) +
+                    "\n\n国际服、国服和 B服内容会一起校验。",
+                    $"File:\n{archive}\n\nGame version: {gameVersion}\nImport location:\n{target}" +
+                    (replacing ? "\n\nThe existing package for this version will be replaced only after the new content is fully extracted and verified." : string.Empty) +
+                    "\n\nGlobal, CN Official, and Bilibili content will be verified together."),
                 MessageTone.Information,
                 showCancel: true,
-                primaryText: "开始导入") != true)
+                primaryText: T("开始导入", "Start import")) != true)
         {
             return;
         }
@@ -89,27 +95,33 @@ public sealed class PackageImportWorkflow
         try
         {
             var result = await Task.Run(() => _packages.Import(archive, gamePath, gameVersion));
-            var message = $"已导入 {result.FileCount:N0} 个文件，共 {DisplayFormatting.FormatBytes(result.TotalBytes)}。\n\n位置：\n{result.PackageRoot}";
+            var message = T(
+                $"已导入 {result.FileCount:N0} 个文件，共 {DisplayFormatting.FormatBytes(result.TotalBytes)}。\n\n位置：\n{result.PackageRoot}",
+                $"Imported {result.FileCount:N0} files ({DisplayFormatting.FormatBytes(result.TotalBytes)}).\n\nLocation:\n{result.PackageRoot}");
             if (result.ReplacedExisting)
             {
-                message += "\n\n原有同版本差异包已安全替换。";
+                message += T("\n\n原有同版本差异包已安全替换。", "\n\nThe existing package for this version was replaced safely.");
             }
 
             if (result.RetainedPreviousPath is not null)
             {
-                message += $"\n\n旧目录未能自动清理，仍保留在：\n{result.RetainedPreviousPath}";
+                message += T(
+                    $"\n\n旧目录未能自动清理，仍保留在：\n{result.RetainedPreviousPath}",
+                    $"\n\nThe old folder could not be removed and remains at:\n{result.RetainedPreviousPath}");
             }
 
             _dialogs.Show(
-                "差异包导入完成",
+                T("差异包导入完成", "Package import complete"),
                 message,
                 result.RetainedPreviousPath is null ? MessageTone.Success : MessageTone.Warning);
         }
         catch (Exception ex)
         {
             _dialogs.Show(
-                "差异包导入失败",
-                $"现有差异包未被不完整内容覆盖。\n\n{ex.Message}",
+                T("差异包导入失败", "Package import failed"),
+                T(
+                    $"现有差异包未被不完整内容覆盖。\n\n{ex.Message}",
+                    $"The existing package was not overwritten by incomplete content.\n\n{ex.Message}"),
                 MessageTone.Error);
         }
         finally
@@ -118,4 +130,6 @@ public sealed class PackageImportWorkflow
             _context.SetBusy(false, "差异包导入结束");
         }
     }
+
+    private string T(string chinese, string english) => _context.Localize(chinese, english);
 }
