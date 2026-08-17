@@ -87,14 +87,20 @@ jobs:
           path: dist/*.zip
           if-no-files-found: error
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $archive = "dist/ZZZSwitch-win-x64-v$env:RELEASE_VERSION.zip"
-          gh release create $env:RELEASE_TAG `
-            "$archive" `
-            --verify-tag `
-            --generate-notes `
-            --title "ZZZSwitch $env:RELEASE_TAG"
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG "$archive" --clobber
+          }
+          else {
+            gh release create $env:RELEASE_TAG `
+              "$archive" `
+              --verify-tag `
+              --generate-notes `
+              --title "ZZZSwitch $env:RELEASE_TAG"
+          }
