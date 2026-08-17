@@ -79,6 +79,7 @@ public partial class SettingsWindow : Window
     private void ManageCache_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.ManageCache);
     private void ManageBackup_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.ManageBackup);
     private void OpenLogs_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.OpenLogs);
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
     private void Save_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.SaveAndClose);
 
     private void Complete(SettingsAction action)
@@ -100,7 +101,7 @@ public partial class SettingsWindow : Window
             WindowMaximized = OriginalSettings.WindowMaximized
         };
         SelectedAction = action;
-        DialogResult = true;
+        Close();
     }
 
     private static void Select<T>(System.Windows.Controls.ComboBox comboBox, T value)

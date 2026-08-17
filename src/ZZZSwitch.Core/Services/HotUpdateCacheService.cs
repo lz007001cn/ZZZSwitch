@@ -186,12 +186,12 @@ public sealed partial class HotUpdateCacheService
             return null;
         }
 
-        if (source is null || !ManifestIdentityMatches(source, sourceProfile, gameVersion, gamePath))
+        if (source is not null && !ManifestIdentityMatches(source, sourceProfile, gameVersion, gamePath))
         {
             issues.Add(new(
                 IssueSeverity.Error,
-                "hot-cache.source.missing",
-                $"尚未初始化{DisplayName(sourceProfile)}缓存。请先在当前服下载完成后点击“初始化当前服缓存”。"));
+                "hot-cache.source.identity",
+                "当前服务器缓存记录属于其他游戏目录或版本。"));
             return null;
         }
 
@@ -224,6 +224,41 @@ public sealed partial class HotUpdateCacheService
                 $"Blocks 中仍有 {temporaryFiles.Count} 个 .tmp 文件，资源下载尚未完成。",
                 temporaryFiles[0]));
             return null;
+        }
+
+        if (source is null)
+        {
+            Inventory inventory;
+            try
+            {
+                inventory = CaptureInventory(activeBlocks);
+            }
+            catch (Exception ex) when (IsExpectedMetadataException(ex))
+            {
+                issues.Add(new(
+                    IssueSeverity.Error,
+                    "hot-cache.source.unreadable",
+                    $"无法读取当前服务器 Blocks：{ex.Message}",
+                    activeBlocks));
+                return null;
+            }
+
+            source = new HotUpdateCacheManifest
+            {
+                CacheId = Guid.NewGuid().ToString("N"),
+                CreatedAt = DateTimeOffset.Now,
+                Profile = sourceProfile,
+                GameVersion = gameVersion,
+                GamePath = Path.GetFullPath(gamePath),
+                StoredBlocksPath = GetStoredBlocksPath(gamePath, gameVersion, sourceProfile),
+                FileCount = inventory.FileCount,
+                TotalBytes = inventory.TotalBytes,
+                InventorySha256 = inventory.InventorySha256
+            };
+            issues.Add(new(
+                IssueSeverity.Information,
+                "hot-cache.source.auto-capture",
+                $"切换前将自动保存当前{DisplayName(sourceProfile)} Blocks，无需手动初始化。"));
         }
 
         HotUpdateCacheManifest? target;

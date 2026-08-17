@@ -1,5 +1,6 @@
 using System.Windows;
 using ZZZSwitch.Core.Services;
+using ZZZSwitch.Dialogs;
 
 namespace ZZZSwitch.Workflows;
 
@@ -58,7 +59,8 @@ public sealed class SettingsWorkflow
         {
             var viewData = await LoadViewDataAsync();
             var window = new SettingsWindow(viewData) { Owner = _owner };
-            if (window.ShowDialog() != true)
+            await ModelessWindowPresenter.ShowAsync(window);
+            if (window.SelectedAction == SettingsAction.None)
             {
                 return;
             }

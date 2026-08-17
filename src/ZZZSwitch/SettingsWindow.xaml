@@ -1,7 +1,8 @@
 <Window x:Class="ZZZSwitch.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{DynamicResource L.Settings.Title}"
+        Style="{StaticResource OverlayWindowStyle}"
+        Title=""
         Width="680"
         Height="600"
         MinWidth="620"
@@ -9,7 +10,6 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{DynamicResource WindowBrush}"
         Foreground="{DynamicResource TextBrush}">
     <Window.Resources>
         <Style x:Key="SettingsCardStyle" TargetType="Border" BasedOn="{StaticResource CardStyle}">
@@ -194,12 +194,20 @@
                 BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="16,10">
-            <Button x:Name="SaveButton"
-                    Content="{DynamicResource L.Common.Save}"
-                    Click="Save_Click"
-                    Style="{StaticResource SettingsButtonStyle}"
-                    MinWidth="72"
-                    HorizontalAlignment="Right" />
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button x:Name="CloseButton"
+                        Content="{DynamicResource L.Common.Close}"
+                        Click="Close_Click"
+                        Style="{StaticResource SettingsButtonStyle}"
+                        MinWidth="72"
+                        Margin="0,0,10,0" />
+                <Button x:Name="SaveButton"
+                        Content="{DynamicResource L.Common.Save}"
+                        Click="Save_Click"
+                        Style="{StaticResource SettingsButtonStyle}"
+                        MinWidth="72" />
+            </StackPanel>
         </Border>
     </Grid>
 </Window>

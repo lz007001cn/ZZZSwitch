@@ -14,8 +14,6 @@ public sealed record SwitchConfirmationRequest(
     string GameVersion,
     int ReplaceCount,
     int DeleteCount,
-    string SnapshotSummary,
-    string BlocksSummary,
     string BackupPath);
 
 public interface IMainWindowDialogs
@@ -31,9 +29,18 @@ public interface IMainWindowDialogs
     GameDirectoryCandidate? SelectGameDirectory(IReadOnlyList<GameDirectoryCandidate> candidates);
     string? SelectFolder(string description, string? currentPath = null, bool showNewFolderButton = true);
     string? SelectPackageArchive();
-    CacheManagementAction SelectCacheManagementAction(CacheUsageSummary usage);
-    BackupLocationAction SelectBackupLocationAction(BackupLocationUsage usage);
+    Task<CacheManagementAction> SelectCacheManagementActionAsync(CacheUsageSummary usage);
+    Task<OnlineResourceManagementSelection> SelectOnlineResourceManagementAsync(
+        OnlineDifferenceInventory inventory,
+        string? currentGameVersion);
+    Task ShowOnlineDifferencePreviewAsync(OnlineDifferencePackagePreview preview);
+    Task ShowManifestBrowserAsync(OnlineManifestBrowserData data);
+    Task<BackupLocationAction> SelectBackupLocationActionAsync(BackupLocationUsage usage);
     bool ConfirmSwitch(SwitchConfirmationRequest request);
+    OnlineDifferenceMaterialization? DownloadOnlineDifference(
+        OnlineDifferencePlan plan,
+        IOnlineDifferenceService service,
+        bool continueToSwitch = true);
     void ShowBackupHistory(
         BackupService backups,
         RestoreService restore,
@@ -115,16 +122,18 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
         return dialog.ShowDialog(_owner) == true ? dialog.FileName : null;
     }
 
-    public CacheManagementAction SelectCacheManagementAction(CacheUsageSummary usage)
+    public async Task<CacheManagementAction> SelectCacheManagementActionAsync(CacheUsageSummary usage)
     {
         var dialog = new CacheManagementWindow(usage) { Owner = _owner };
-        return dialog.ShowDialog() == true ? dialog.SelectedAction : CacheManagementAction.None;
+        await ModelessWindowPresenter.ShowAsync(dialog);
+        return dialog.SelectedAction;
     }
 
-    public BackupLocationAction SelectBackupLocationAction(BackupLocationUsage usage)
+    public async Task<BackupLocationAction> SelectBackupLocationActionAsync(BackupLocationUsage usage)
     {
         var dialog = new BackupLocationWindow(usage) { Owner = _owner };
-        return dialog.ShowDialog() == true ? dialog.SelectedAction : BackupLocationAction.None;
+        await ModelessWindowPresenter.ShowAsync(dialog);
+        return dialog.SelectedAction;
     }
 
     public bool ConfirmSwitch(SwitchConfirmationRequest request)
@@ -137,13 +146,37 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
             request.GameVersion,
             request.ReplaceCount,
             request.DeleteCount,
-            request.SnapshotSummary,
-            request.BlocksSummary,
             request.BackupPath)
         {
             Owner = _owner
         };
         return dialog.ShowDialog() == true;
+    }
+
+    public async Task<OnlineResourceManagementSelection> SelectOnlineResourceManagementAsync(
+        OnlineDifferenceInventory inventory,
+        string? currentGameVersion)
+    {
+        var dialog = new OnlineResourceManagementWindow(inventory, currentGameVersion) { Owner = _owner };
+        await ModelessWindowPresenter.ShowAsync(dialog);
+        return dialog.Selection;
+    }
+
+    public Task ShowOnlineDifferencePreviewAsync(OnlineDifferencePackagePreview preview) =>
+        ModelessWindowPresenter.ShowAsync(
+            new OnlineDifferencePreviewWindow(preview) { Owner = _owner });
+
+    public Task ShowManifestBrowserAsync(OnlineManifestBrowserData data) =>
+        ModelessWindowPresenter.ShowAsync(
+            new OnlineManifestBrowserWindow(data) { Owner = _owner });
+
+    public OnlineDifferenceMaterialization? DownloadOnlineDifference(
+        OnlineDifferencePlan plan,
+        IOnlineDifferenceService service,
+        bool continueToSwitch = true)
+    {
+        var dialog = new OnlineDifferenceDownloadWindow(plan, service, continueToSwitch) { Owner = _owner };
+        return dialog.ShowDialog() == true ? dialog.Result : null;
     }
 
     public void ShowBackupHistory(
@@ -155,5 +188,5 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
         new BackupWindow(backups, restore, safetyPolicy, operations, gamePath)
         {
             Owner = _owner
-        }.ShowDialog();
+        }.Show();
 }

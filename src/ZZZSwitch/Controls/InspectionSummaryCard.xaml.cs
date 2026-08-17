@@ -11,8 +11,8 @@ public partial class InspectionSummaryCard : System.Windows.Controls.UserControl
         typeof(InspectionSummaryCard),
         new PropertyMetadata(null));
 
-    public static readonly DependencyProperty InitializeCacheCommandProperty = DependencyProperty.Register(
-        nameof(InitializeCacheCommand),
+    public static readonly DependencyProperty OnlineResourcesCommandProperty = DependencyProperty.Register(
+        nameof(OnlineResourcesCommand),
         typeof(ICommand),
         typeof(InspectionSummaryCard),
         new PropertyMetadata(null));
@@ -25,9 +25,9 @@ public partial class InspectionSummaryCard : System.Windows.Controls.UserControl
         set => SetValue(CacheManagementCommandProperty, value);
     }
 
-    public ICommand? InitializeCacheCommand
+    public ICommand? OnlineResourcesCommand
     {
-        get => (ICommand?)GetValue(InitializeCacheCommandProperty);
-        set => SetValue(InitializeCacheCommandProperty, value);
+        get => (ICommand?)GetValue(OnlineResourcesCommandProperty);
+        set => SetValue(OnlineResourcesCommandProperty, value);
     }
 }

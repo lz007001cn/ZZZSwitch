@@ -77,7 +77,7 @@ public sealed class BackupManagementWorkflow
             return;
         }
 
-        switch (_dialogs.SelectBackupLocationAction(usage))
+        switch (await _dialogs.SelectBackupLocationActionAsync(usage))
         {
             case BackupLocationAction.OpenLocation:
                 _context.OpenDirectory(usage.BackupRootPath, false);

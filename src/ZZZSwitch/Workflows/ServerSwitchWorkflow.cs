@@ -11,6 +11,7 @@ public sealed class ServerSwitchWorkflow
     private readonly SwitchPlanner _planner;
     private readonly SwitchEngine _engine;
     private readonly OperationCoordinator _operations;
+    private readonly IOnlineDifferenceService _onlineDifferences;
     private readonly IMainWindowDialogs _dialogs;
     private readonly MainWindowWorkflowContext _context;
 
@@ -18,12 +19,14 @@ public sealed class ServerSwitchWorkflow
         SwitchPlanner planner,
         SwitchEngine engine,
         OperationCoordinator operations,
+        IOnlineDifferenceService onlineDifferences,
         IMainWindowDialogs dialogs,
         MainWindowWorkflowContext context)
     {
         _planner = planner;
         _engine = engine;
         _operations = operations;
+        _onlineDifferences = onlineDifferences;
         _dialogs = dialogs;
         _context = context;
     }
@@ -38,7 +41,8 @@ public sealed class ServerSwitchWorkflow
 
         using var operation = lease!;
         await _context.RefreshInspection();
-        var sourceProfile = _context.GetInspectionReport()?.Detection.Profile.ToProfileId();
+        var inspection = _context.GetInspectionReport();
+        var sourceProfile = inspection?.Detection.Profile.ToProfileId();
         if (sourceProfile is null)
         {
             _dialogs.Show(
@@ -58,7 +62,81 @@ public sealed class ServerSwitchWorkflow
             return;
         }
 
-        var plan = _planner.CreatePlan(_context.GetGamePath().Trim(), sourceProfile, targetProfile);
+        var gameVersion = inspection?.Game.GameVersion;
+        if (string.IsNullOrWhiteSpace(gameVersion))
+        {
+            _dialogs.Show(
+                "无法获取客户端差异包",
+                "没有读取到有效游戏版本，无法选择对应的切换文件。",
+                MessageTone.Warning);
+            return;
+        }
+
+        var usesLegacyBilibiliPackage = UsesLegacyBilibiliPackage(sourceProfile, targetProfile);
+        OnlineDifferenceMaterialization? materialization = null;
+        SwitchPlan plan;
+        var selectedGamePath = _context.GetGamePath().Trim();
+        if (usesLegacyBilibiliPackage)
+        {
+            _context.SetBusy(true, "正在校验本地 B 服差异包…");
+            try
+            {
+                plan = await Task.Run(() =>
+                    _planner.CreatePlan(selectedGamePath, sourceProfile, targetProfile));
+            }
+            finally
+            {
+                _context.SetBusy(false, "B 服差异包校验结束");
+            }
+        }
+        else
+        {
+            if (!_onlineDifferences.TryGetReadyMaterialization(
+                    sourceProfile, targetProfile, gameVersion, out materialization))
+            {
+                OnlineDifferencePlan onlinePlan;
+                _context.SetBusy(true, "正在读取 Sophon 清单并计算差异…");
+                try
+                {
+                    onlinePlan = await _onlineDifferences.AnalyzeAsync(
+                        sourceProfile,
+                        targetProfile,
+                        gameVersion);
+                }
+                catch (Exception ex)
+                {
+                    _dialogs.Show(
+                        "无法获取客户端差异包",
+                        $"{ex.Message}\n\n国服与国际服不会回退到游戏目录中的旧差异包。",
+                        MessageTone.Error);
+                    return;
+                }
+                finally
+                {
+                    _context.SetBusy(false, "客户端差异分析结束");
+                }
+
+                materialization = _dialogs.DownloadOnlineDifference(onlinePlan, _onlineDifferences);
+                if (materialization is null)
+                {
+                    return;
+                }
+            }
+
+            _context.SetBusy(true, materialization!.ReusedReadyPackage
+                ? "正在校验本地版本差异包…"
+                : "正在执行切换前完整性检查…");
+            try
+            {
+                plan = await Task.Run(() =>
+                    _planner.CreateOnlinePlan(selectedGamePath, materialization));
+            }
+            finally
+            {
+                _context.SetBusy(false, "差异包校验结束");
+            }
+        }
+
         var errors = plan.Issues.Where(x => x.Severity == IssueSeverity.Error).ToArray();
         if (errors.Length > 0)
         {
@@ -77,10 +155,6 @@ public sealed class ServerSwitchWorkflow
                 plan.Manifest.GameVersion,
                 plan.Manifest.ExpectedReplaceCount,
                 plan.Manifest.ExpectedDeleteCount,
-                plan.TargetSnapshot is null
-                    ? "无可用快照，仅使用本地差异包"
-                    : $"可用，将恢复 {plan.TargetSnapshot.Files.Count} 个 version/revision 文件",
-                HotUpdatePreview(plan.HotUpdateTransition, sourceProfile, targetProfile),
                 plan.BackupPath)))
         {
             return;
@@ -107,26 +181,9 @@ public sealed class ServerSwitchWorkflow
         }
     }
 
-    private static string HotUpdatePreview(
-        HotUpdateTransitionPlan? plan,
-        string sourceProfile,
-        string targetProfile)
-    {
-        if (plan is null && string.Equals(
-                ProfileIds.ToResourceProfile(sourceProfile),
-                ProfileIds.ToResourceProfile(targetProfile),
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return "国服与B服共用同一套热更新缓存，本次无需交换 Blocks";
-        }
-
-        return plan?.Mode switch
-        {
-            HotUpdateTransitionMode.Swap => "双服缓存均可用，本次自动快速交换",
-            HotUpdateTransitionMode.InitializeTarget => "目标服未初始化，本次保存来源服并进入一次性下载模式",
-            _ => "未启用"
-        };
-    }
+    private static bool UsesLegacyBilibiliPackage(string sourceProfile, string targetProfile) =>
+        string.Equals(sourceProfile, ProfileIds.Bilibili, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(targetProfile, ProfileIds.Bilibili, StringComparison.OrdinalIgnoreCase);
 
     private static string BilibiliLaunchHint(string targetProfile, string gamePath)
     {

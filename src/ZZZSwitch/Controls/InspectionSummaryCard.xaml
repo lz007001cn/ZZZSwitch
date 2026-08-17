@@ -75,19 +75,19 @@
                                Margin="0,7,16,0" />
                 </StackPanel>
                 <Button Grid.Column="1"
+                        x:Name="OnlineResourcesButton"
+                        Content="{DynamicResource L.Summary.VersionResources}"
+                        Command="{Binding OnlineResourcesCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        IsEnabled="{Binding CanManageOnlineResources}"
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center" />
+                <Button Grid.Column="2"
                         x:Name="CacheManagementButton"
                         Content="{DynamicResource L.Summary.CacheManagement}"
                         Command="{Binding CacheManagementCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         Style="{StaticResource SecondaryButtonStyle}"
                         IsEnabled="{Binding CanManageCache}"
-                        Margin="0,0,8,0"
-                        VerticalAlignment="Center" />
-                <Button Grid.Column="2"
-                        x:Name="InitializeCacheButton"
-                        Content="{DynamicResource L.Summary.InitializeCache}"
-                        Command="{Binding InitializeCacheCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        IsEnabled="{Binding CanInitializeCache}"
                         VerticalAlignment="Center" />
             </Grid>
         </Grid>

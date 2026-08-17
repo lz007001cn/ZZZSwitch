@@ -43,8 +43,10 @@ public partial class CacheManagementWindow : Window
     private void Complete(CacheManagementAction action)
     {
         SelectedAction = action;
-        DialogResult = true;
+        Close();
     }
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
     private static string FormatBytes(long bytes)
     {

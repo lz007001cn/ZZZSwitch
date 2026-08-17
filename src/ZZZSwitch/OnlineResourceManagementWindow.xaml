@@ -1,0 +1,219 @@
+<Window x:Class="ZZZSwitch.OnlineResourceManagementWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource OverlayWindowStyle}"
+        Title=""
+        Width="920"
+        Height="650"
+        MinWidth="820"
+        MinHeight="520"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Icon="Assets/ZZZSwitch-Icon.png"
+        Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI, Microsoft YaHei UI">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel x:Name="HeaderPanel">
+            <TextBlock x:Name="HeadingText"
+                       Text="客户端差异包管理"
+                       FontSize="22"
+                       FontWeight="SemiBold" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                x:Name="SummaryCard"
+                Style="{StaticResource CardStyle}"
+                Margin="0,14,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="差异包占用" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock x:Name="PackageBytesText" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="保存版本" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock x:Name="VersionCountText" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="清单缓存"
+                               ToolTip="Sophon Manifest 元数据缓存"
+                               FontSize="11"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock x:Name="ManifestCacheText" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    Margin="0,12,0,0">
+            <Button x:Name="RefreshButton"
+                    Content="刷新"
+                    Width="80"
+                    Click="Refresh_Click"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Margin="0,0,8,0"
+                    ToolTip="重新扫描本地差异包与清单缓存" />
+            <Button x:Name="RefreshManifestButton"
+                    Content="更新 Manifest"
+                    Width="128"
+                    Click="RefreshManifest_Click"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Margin="0,0,8,0"
+                    ToolTip="从 Sophon 重新下载当前游戏版本的国际服与国服清单；不会下载游戏文件" />
+            <Button x:Name="BrowseManifestButton"
+                    Content="Manifest 浏览"
+                    Width="116"
+                    Click="BrowseManifest_Click"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Margin="0,0,8,0"
+                    ToolTip="浏览已缓存的国际服/国服 Manifest，并按资源范围与路径筛选" />
+            <Button x:Name="PreviewButton"
+                    Content="差异包预览"
+                    Width="108"
+                    IsEnabled="False"
+                    Click="Preview_Click"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Margin="0,0,8,0"
+                    ToolTip="查看选中成品差异包的文件、大小和完整性清单" />
+            <Button x:Name="VerifyButton"
+                    Content="校验"
+                    Width="92"
+                    IsEnabled="False"
+                    Click="Verify_Click"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Margin="0,0,8,0"
+                    ToolTip="按差异包清单重新计算所有文件的 SHA-256" />
+            <Button x:Name="UpdatePackageButton"
+                    Content="更新差异包"
+                    Width="116"
+                    IsEnabled="False"
+                    Click="UpdatePackage_Click"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    ToolTip="重新分析选中方向并下载新增或变化的文件；已有文件与断点会复用" />
+        </StackPanel>
+
+        <ListBox Grid.Row="3"
+                 x:Name="PackageList"
+                 Margin="0,12,0,0"
+                 Padding="1,0,2,0"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 SelectionChanged="PackageList_SelectionChanged"
+                 MouseDoubleClick="PackageList_MouseDoubleClick"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0,0,0,8" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border x:Name="SelectionBorder"
+                                        Background="Transparent"
+                                        BorderBrush="Transparent"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="1">
+                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="SelectionBorder"
+                                                Property="BorderBrush"
+                                                Value="{DynamicResource StrongBorderBrush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Border Style="{StaticResource CardStyle}" Padding="14,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="版本" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{Binding Version}" Margin="0,4,0,0" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="目标客户端" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{Binding Target}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="状态" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{Binding State}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Text="大小" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{Binding Size}" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="内容" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="{Binding Detail}"
+                                           Margin="0,4,0,0"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Detail}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="OpenButton"
+                    Content="打开差异包目录"
+                    Width="120"
+                    IsEnabled="False"
+                    Click="Open_Click"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Margin="0,0,8,0" />
+            <Button Grid.Column="1"
+                    x:Name="DeleteButton"
+                    Content="删除选中差异包"
+                    Width="120"
+                    IsEnabled="False"
+                    Click="Delete_Click"
+                    Style="{StaticResource SecondaryButtonStyle}" />
+            <Button Grid.Column="3"
+                    Content="关闭"
+                    Width="92"
+                    Click="Close_Click"
+                    Style="{StaticResource SecondaryButtonStyle}" />
+        </Grid>
+    </Grid>
+</Window>

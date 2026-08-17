@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 using ZZZSwitch.Core.Models;
 using ZZZSwitch.Core.Services;
@@ -15,14 +16,21 @@ public sealed record InspectionPresentation(
     string Report,
     bool HasStatusIssues,
     bool CanManageCache,
-    bool CanInitializeCache,
+    bool CanManageOnlineResources,
     bool ExpandDetails);
 
 public sealed class InspectionPresentationBuilder
 {
     private readonly ProfileSnapshotService _snapshots;
+    private readonly OnlineDifferencePackageCatalog? _onlinePackages;
 
-    public InspectionPresentationBuilder(ProfileSnapshotService snapshots) => _snapshots = snapshots;
+    public InspectionPresentationBuilder(
+        ProfileSnapshotService snapshots,
+        OnlineDifferencePackageCatalog? onlinePackages = null)
+    {
+        _snapshots = snapshots;
+        _onlinePackages = onlinePackages;
+    }
 
     public InspectionPresentation Build(
         InspectionReport report,
@@ -36,6 +44,7 @@ public sealed class InspectionPresentationBuilder
         var errors = displayedIssues.Count(x => x.Severity == IssueSeverity.Error);
         var warnings = displayedIssues.Count(x => x.Severity == IssueSeverity.Warning);
         var canSwitch = report.CanSwitch && errors == 0;
+        var onlineInventory = TryGetOnlineInventory();
 
         var text = new StringBuilder();
         if (readOnlyBanner)
@@ -60,32 +69,27 @@ public sealed class InspectionPresentationBuilder
         if (report.Storage is not null)
         {
             text.AppendLine();
-            text.AppendLine(Text(language, "ZZZSwitch 存储目录：", "ZZZSwitch storage:"));
-            text.AppendLine($"  {Text(language, "根目录", "Root")}：{DirectoryStatus(report.Storage.RootExists, language)}");
-            text.AppendLine($"      {report.Storage.RootPath}");
-            text.AppendLine($"  {Text(language, "差异包根目录", "Package root")}：{DirectoryStatus(report.Storage.PackagesRootExists, language)}");
-            text.AppendLine($"      {report.Storage.PackagesRootPath}");
-            text.AppendLine($"  {Text(language, "当前版本目录", "Current-version directory")}：{DirectoryStatus(report.Storage.PackageVersionExists, language)}");
-            text.AppendLine($"      {report.Storage.PackageVersionPath}");
-            text.AppendLine($"  {Text(language, "缓存仓库", "Cache repository")}：{DirectoryStatus(report.Storage.CacheRootExists, language, missingIsNormal: true)}");
+            text.AppendLine(Text(language, "热更新缓存仓库：", "Hot-update cache repository:"));
+            text.AppendLine($"  {DirectoryStatus(report.Storage.CacheRootExists, language, missingIsNormal: true)}");
             text.AppendLine($"      {report.Storage.CacheRootPath}");
         }
 
         text.AppendLine();
-        text.AppendLine(Text(language, "差异包：", "Packages:"));
-        foreach (var package in report.Packages)
+        text.AppendLine(Text(language, "客户端差异包：", "Client difference packages:"));
+        AppendOnlineInventory(text, onlineInventory, report.Game.GameVersion, language);
+
+        text.AppendLine();
+        text.AppendLine(Text(language, "version/revision 缓存快照：", "version/revision snapshots:"));
+        if (report.Game.GameVersion is not null)
         {
-            text.AppendLine($"  [{Availability(package.IsAvailable, language)}] {ProfileName(package.ProfileId, language)}：{PackageDetail(package, language)}");
-            text.AppendLine($"      {package.Path}");
-            if (report.Game.GameVersion is not null &&
-                ProfileIds.All.Contains(package.ProfileId, StringComparer.Ordinal))
+            foreach (var profile in ProfileIds.HotUpdateProfiles)
             {
                 var snapshot = _snapshots.FindLatestValid(
-                    ProfileIds.ToResourceProfile(package.ProfileId),
+                    profile,
                     report.Game.GameVersion,
                     report.Game.GamePath);
                 text.AppendLine(
-                    $"      {Text(language, "version/revision 缓存快照", "version/revision snapshot")}：" +
+                    $"  {ProfileName(profile, language)}：" +
                     (snapshot is null
                         ? Text(language, "无", "None")
                         : Text(language,
@@ -151,13 +155,12 @@ public sealed class InspectionPresentationBuilder
                 ? DetectedProfileName(report.Detection.Profile, language)
                 : ProfileName(activeProfile, language),
             report.Game.GameVersion ?? Text(language, "未知", "Unknown"),
-            string.Join("    ", report.Packages.Select(x =>
-                $"{ProfileName(x.ProfileId, language)}  {Availability(x.IsAvailable, language)} · {FileCount(x.FileCount, language)}")),
+            BuildOnlinePackageSummary(onlineInventory, report.Game.GameVersion, language),
             cacheStatuses.Count == 0
                 ? Text(language, "游戏版本未知，无法检查缓存", "Unknown game version; caches cannot be inspected")
                 : string.Join("    ", cacheStatuses.Select(x =>
                     $"{ProfileName(x.Profile, language)}: {CacheStatusSummary(x, language)}")),
-            canSwitch ? Text(language, "需要注意", "Attention required") : Text(language, "无法切换", "Cannot switch"),
+            canSwitch ? Text(language, "可以切换", "Ready to switch") : Text(language, "无法切换", "Cannot switch"),
             errors > 0
                 ? Text(language, $"{errors} 个错误 · {warnings} 个警告", $"{errors} errors · {warnings} warnings")
                 : warnings > 0
@@ -169,6 +172,135 @@ public sealed class InspectionPresentationBuilder
             activeProfile is not null && report.Game.GameVersion is not null,
             readOnlyBanner || errors > 0);
     }
+
+    private OnlineDifferenceInventory? TryGetOnlineInventory()
+    {
+        try
+        {
+            return _onlinePackages?.GetInventory();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            return null;
+        }
+    }
+
+    private static string BuildOnlinePackageSummary(
+        OnlineDifferenceInventory? inventory,
+        string? gameVersion,
+        AppLanguage language)
+    {
+        if (inventory is null || string.IsNullOrWhiteSpace(gameVersion))
+        {
+            return Text(language, "选择服务器后可下载", "Available after server selection");
+        }
+
+        var current = CurrentPackages(inventory, gameVersion);
+        var global = TargetSummary(current, ProfileIds.Global, language);
+        var cn = TargetSummary(current, ProfileIds.CnOfficial, language);
+        var oldVersions = inventory.Packages
+            .Where(item => !string.Equals(item.GameVersion, gameVersion, StringComparison.Ordinal))
+            .GroupBy(item => item.GameVersion)
+            .Select(group => new
+            {
+                Version = group.Key,
+                Bytes = group.Aggregate(0L, (sum, item) => checked(sum + item.TotalBytes))
+            })
+            .OrderByDescending(item => item.Version, StringComparer.Ordinal)
+            .ToArray();
+        var oldSummary = oldVersions.Length == 0
+            ? string.Empty
+            : language == AppLanguage.English
+                ? " · older: " + string.Join(", ", oldVersions.Select(item =>
+                    $"{item.Version} {DisplayFormatting.FormatBytes(item.Bytes)}"))
+                : " · 旧版本：" + string.Join("；", oldVersions.Select(item =>
+                    $"{item.Version} {DisplayFormatting.FormatBytes(item.Bytes)}"));
+        return language == AppLanguage.English
+            ? $"{gameVersion}: Global {global} · CN {cn}{oldSummary}"
+            : $"{gameVersion}：国际服 {global} · 国服 {cn}{oldSummary}";
+    }
+
+    private static void AppendOnlineInventory(
+        StringBuilder text,
+        OnlineDifferenceInventory? inventory,
+        string? gameVersion,
+        AppLanguage language)
+    {
+        if (inventory is null)
+        {
+            text.AppendLine(Text(language,
+                "  无法读取客户端差异包目录。",
+                "  The client difference-package catalog is unavailable."));
+            return;
+        }
+
+        if (inventory.Packages.Count == 0)
+        {
+            text.AppendLine(Text(language,
+                "  尚未下载；首次选择目标服务器时从 Sophon 获取。",
+                "  Not downloaded; the first target selection retrieves it from Sophon."));
+        }
+        else
+        {
+            foreach (var group in inventory.Packages.GroupBy(item => item.GameVersion))
+            {
+                var marker = string.Equals(group.Key, gameVersion, StringComparison.Ordinal)
+                    ? Text(language, "（当前）", " (current)")
+                    : string.Empty;
+                text.AppendLine($"  {group.Key}{marker}：");
+                foreach (var package in group
+                             .GroupBy(item => item.TargetProfile, StringComparer.OrdinalIgnoreCase)
+                             .Select(items => items.OrderByDescending(item => item.LastUpdated).First()))
+                {
+                    text.AppendLine(
+                        $"    {ProfileName(package.TargetProfile, language)}：" +
+                        $"{PackageStateName(package.State, language)}，{package.FileCount} " +
+                        Text(language, "个文件", "files") +
+                        $"，{DisplayFormatting.FormatBytes(package.TotalBytes)}");
+                }
+            }
+        }
+
+        text.AppendLine(Text(language,
+            $"  Sophon Manifest 元数据：{inventory.ManifestCacheFileCount} 个文件，{DisplayFormatting.FormatBytes(inventory.ManifestCacheBytes)}",
+            $"  Sophon manifest metadata: {inventory.ManifestCacheFileCount} files, {DisplayFormatting.FormatBytes(inventory.ManifestCacheBytes)}"));
+    }
+
+    private static IReadOnlyList<OnlineDifferencePackageInfo> CurrentPackages(
+        OnlineDifferenceInventory inventory,
+        string gameVersion) => inventory.Packages
+        .Where(item => string.Equals(item.GameVersion, gameVersion, StringComparison.Ordinal))
+        .GroupBy(item => item.TargetProfile, StringComparer.OrdinalIgnoreCase)
+        .Select(items => items
+            .OrderBy(item => item.State == OnlineDifferencePackageState.Ready ? 0 : 1)
+            .ThenByDescending(item => item.LastUpdated)
+            .First())
+        .ToArray();
+
+    private static string TargetSummary(
+        IReadOnlyList<OnlineDifferencePackageInfo> packages,
+        string targetProfile,
+        AppLanguage language)
+    {
+        var package = packages.FirstOrDefault(item =>
+            string.Equals(item.TargetProfile, targetProfile, StringComparison.OrdinalIgnoreCase));
+        return package?.State switch
+        {
+            OnlineDifferencePackageState.Ready => DisplayFormatting.FormatBytes(package.TotalBytes),
+            OnlineDifferencePackageState.Incomplete => Text(language, "未完成", "incomplete"),
+            OnlineDifferencePackageState.Invalid => Text(language, "需修复", "needs repair"),
+            _ => Text(language, "未下载", "not downloaded")
+        };
+    }
+
+    private static string PackageStateName(
+        OnlineDifferencePackageState state,
+        AppLanguage language) => state switch
+    {
+        OnlineDifferencePackageState.Ready => Text(language, "已下载", "ready"),
+        OnlineDifferencePackageState.Incomplete => Text(language, "未完成", "incomplete"),
+        _ => Text(language, "需修复", "needs repair")
+    };
 
     private static string SeverityName(IssueSeverity severity, AppLanguage language) => severity switch
     {

@@ -1,14 +1,14 @@
 <Window x:Class="ZZZSwitch.BackupLocationWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ZZZSwitch · 备份目录"
+        Style="{StaticResource OverlayWindowStyle}"
+        Title=""
         Width="680"
         SizeToContent="Height"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{DynamicResource WindowBrush}"
         Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI">
     <Grid Margin="24">
@@ -64,7 +64,7 @@
                     Style="{StaticResource SecondaryButtonStyle}" />
             <Button Grid.Column="4"
                     Content="关闭"
-                    IsCancel="True"
+                    Click="Close_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />
         </Grid>
     </Grid>

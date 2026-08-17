@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private readonly GameDirectoryDiscoveryService _gameDirectoryDiscovery;
     private readonly SwitchPlanner _planner;
     private readonly SwitchEngine _engine;
+    private readonly IOnlineDifferenceService _onlineDifferences;
     private readonly BackupService _backups;
     private readonly BackupLocationService _backupLocations;
     private readonly RestoreService _restore;
@@ -33,6 +34,7 @@ public partial class MainWindow : Window
     private readonly StartupWorkflow _startupWorkflow;
     private readonly ServerSwitchWorkflow _serverSwitchWorkflow;
     private readonly CacheManagementWorkflow _cacheManagementWorkflow;
+    private readonly OnlineResourceManagementWorkflow _onlineResourceManagementWorkflow;
     private readonly BackupManagementWorkflow _backupManagementWorkflow;
     private readonly PackageImportWorkflow _packageImportWorkflow;
     private readonly SettingsWorkflow _settingsWorkflow;
@@ -82,12 +84,23 @@ public partial class MainWindow : Window
         _cacheLocations = new CacheLocationService(_paths);
         _storageLayout = new StorageLayoutService(_cacheLocations);
         _snapshots = new ProfileSnapshotService(_paths, files);
-        _inspectionPresentation = new InspectionPresentationBuilder(_snapshots);
+        var onlinePackageCatalog = new OnlineDifferencePackageCatalog(_paths);
+        _onlineDifferences = new OnlineDifferenceService(_paths, catalog: onlinePackageCatalog);
+        _inspectionPresentation = new InspectionPresentationBuilder(_snapshots, onlinePackageCatalog);
         _hotUpdateCaches = new HotUpdateCacheService(_paths, _processMonitor, _cacheLocations);
         _fileTransactions = new FileTransactionJournalStore(_paths);
         _backupLocations = new BackupLocationService(_paths);
         _backups = new BackupService(files, _paths);
-        _inspection = new InspectionService(_configuration, gameDirectory, new ProfileDetector(), _stateStore, _processMonitor, _fileTransactions, files, _storageLayout);
+        _inspection = new InspectionService(
+            _configuration,
+            gameDirectory,
+            new ProfileDetector(),
+            _stateStore,
+            _processMonitor,
+            _fileTransactions,
+            files,
+            _storageLayout,
+            inspectLocalPackages: false);
         _planner = new SwitchPlanner(_configuration, gameDirectory, _processMonitor, files, _paths, _snapshots, _hotUpdateCaches, _fileTransactions);
         _engine = new SwitchEngine(files, _paths, _backups, _stateStore, new OperationLogger(_paths), _snapshots, _hotUpdateCaches, _fileTransactions);
         var pendingRecovery = new PendingTransactionRecoveryService(
@@ -119,15 +132,20 @@ public partial class MainWindow : Window
             _planner,
             _engine,
             _operations,
+            _onlineDifferences,
             _dialogs,
             workflowContext);
         _cacheManagementWorkflow = new CacheManagementWorkflow(
             _cacheLocations,
-            _hotUpdateCaches,
-            _stateStore,
             _fileTransactions,
             _paths,
             _processMonitor,
+            _operations,
+            _dialogs,
+            workflowContext);
+        _onlineResourceManagementWorkflow = new OnlineResourceManagementWorkflow(
+            onlinePackageCatalog,
+            _onlineDifferences,
             _operations,
             _dialogs,
             workflowContext);
@@ -173,7 +191,7 @@ public partial class MainWindow : Window
             ChooseDirectoryAsync,
             _serverSwitchWorkflow.RunAsync,
             _cacheManagementWorkflow.ManageAsync,
-            _cacheManagementWorkflow.InitializeAsync,
+            _onlineResourceManagementWorkflow.ManageAsync,
             _backupManagementWorkflow.ShowHistory,
             _backupManagementWorkflow.ManageDirectoryAsync,
             OpenLogs,
@@ -226,11 +244,11 @@ public partial class MainWindow : Window
         InspectionReport? report = null;
         if (managesBusyState)
         {
-            SetBusy(true, "正在只读扫描游戏目录与差异包…");
+            SetBusy(true, "正在只读扫描游戏目录与服务器状态…");
         }
         else
         {
-            _viewModel.BusyStatus = "正在重新检查游戏目录与差异包…";
+            _viewModel.BusyStatus = "正在重新检查游戏目录与服务器状态…";
             OperationProgress.IsIndeterminate = true;
             OperationProgress.Value = 0;
         }
@@ -314,13 +332,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var unavailablePackages = report.Packages.Where(x => !x.IsAvailable).ToArray();
         var invalidCaches = _lastCacheStatuses
             .Where(x => x.IsInitialized && !x.IsAvailable)
             .ToArray();
-        if (!storage.NeedsDirectoryRepair &&
-            unavailablePackages.Length == 0 &&
-            invalidCaches.Length == 0)
+        if (invalidCaches.Length == 0)
         {
             return;
         }
@@ -329,8 +344,6 @@ public partial class MainWindow : Window
             "|",
             report.Game.GamePath,
             report.Game.GameVersion,
-            storage.NeedsDirectoryRepair,
-            string.Join(",", unavailablePackages.Select(x => x.ProfileId)),
             string.Join(",", invalidCaches.Select(x => x.Profile)));
         if (string.Equals(_lastHealthPromptKey, promptKey, StringComparison.OrdinalIgnoreCase))
         {
@@ -338,117 +351,20 @@ public partial class MainWindow : Window
         }
 
         _lastHealthPromptKey = promptKey;
-        if (!storage.NeedsDirectoryRepair)
+        var message = new StringBuilder();
+        message.AppendLine("缓存记录异常：");
+        foreach (var cache in invalidCaches)
         {
-            var message = new StringBuilder();
-            if (unavailablePackages.Length > 0)
-            {
-                message.AppendLine("差异包未检测到或内容不完整：");
-                foreach (var package in unavailablePackages)
-                {
-                    message.AppendLine($"• {ShortProfileName(package.ProfileId)}：{package.Detail}");
-                }
-
-                message.AppendLine();
-                message.AppendLine($"请手动将 ZZZSwitch-Packages-{report.Game.GameVersion}.zip 解压到：");
-                message.AppendLine(storage.PackageVersionPath);
-            }
-
-            if (invalidCaches.Length > 0)
-            {
-                if (message.Length > 0)
-                {
-                    message.AppendLine();
-                }
-
-                message.AppendLine("缓存记录异常：");
-                foreach (var cache in invalidCaches)
-                {
-                    message.AppendLine($"• {ShortProfileName(cache.Profile)}：{cache.Detail}");
-                }
-
-                message.AppendLine("已丢失的缓存内容无法自动恢复，需要重新完成对应服务器的资源下载和缓存初始化。");
-            }
-
-            _dialogs.Show(
-                "检测到存储异常",
-                message.ToString().TrimEnd(),
-                MessageTone.Warning);
-            return;
+            message.AppendLine($"• {ShortProfileName(cache.Profile)}：{cache.Detail}");
         }
 
-        var repairProfiles = _configuration.LoadProfiles().Where(x => x.Enabled).ToArray();
-        var repairPackagePaths = string.Join(
-            Environment.NewLine,
-            repairProfiles.Select(profile => Path.Combine(
-                storage.PackageVersionPath,
-                profile.PackageDirectoryName)));
-        var repairMessage =
-            "检测到 ZZZSwitch 标准目录缺失或结构不完整。\n\n" +
-            "可能影响：\n" +
-            "• 已启用服务器的差异包当前不可用\n" +
-            "• 已保存的非活动服务器缓存可能已经丢失\n\n" +
-            "“修复目录”只会重新创建以下标准路径：\n" +
-            repairPackagePaths + "\n" +
-            $"{storage.CacheRootPath}\n\n" +
-            "不会下载或生成差异包，不会伪造缓存内容，也不会修改游戏当前的 Persistent\\Blocks。";
-        if (_dialogs.Show(
-                "ZZZSwitch 存储目录异常",
-                repairMessage,
-                MessageTone.Warning,
-                showCancel: true,
-                primaryText: "修复目录") != true)
-        {
-            return;
-        }
-
-        if (!_operations.TryBegin(out var lease))
-        {
-            ShowOperationInProgress();
-            return;
-        }
-
-        using var operation = lease!;
-
-        StorageRepairResult? repair = null;
-        Exception? failure = null;
-        SetBusy(true, "正在修复 ZZZSwitch 标准目录…");
-        try
-        {
-            var version = report.Game.GameVersion
-                          ?? throw new InvalidOperationException("无法确定游戏版本。");
-            var profiles = _configuration.LoadProfiles();
-            repair = await Task.Run(() => _storageLayout.Repair(
-                report.Game.GamePath,
-                version,
-                profiles));
-        }
-        catch (Exception ex)
-        {
-            failure = ex;
-        }
-        finally
-        {
-            SetBusy(false, failure is null ? "目录修复完成" : "目录修复失败");
-        }
-
-        if (failure is not null)
-        {
-            _dialogs.Show(
-                "目录修复失败",
-                failure.Message,
-                MessageTone.Error);
-            return;
-        }
-
+        message.AppendLine();
+        message.AppendLine("无需手动初始化按钮。下一次切换会先自动保存当前服务器缓存；已丢失的目标服缓存将在进入游戏后重新下载。 ");
         _dialogs.Show(
-            "目录结构已修复",
-            $"已创建 {repair!.CreatedDirectories.Count} 个缺失目录。\n\n" +
-            $"下一步请手动将 ZZZSwitch-Packages-{report.Game.GameVersion}.zip 解压到游戏目录的上一级，" +
-            $"并确认差异文件位于：\n{repair.After.PackageVersionPath}\n\n" +
-            "如果双服缓存已经丢失，需要重新初始化当前服，并在首次切换后重新下载和初始化另一服缓存。",
-            MessageTone.Success);
-        await RefreshInspectionAsync();
+            "检测到缓存异常",
+            message.ToString().TrimEnd(),
+            MessageTone.Warning);
+        await Task.CompletedTask;
     }
 
     private void SetBusy(bool busy, string status)

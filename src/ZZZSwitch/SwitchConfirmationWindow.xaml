@@ -1,7 +1,8 @@
 <Window x:Class="ZZZSwitch.SwitchConfirmationWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="确认切换"
+        Style="{StaticResource OverlayWindowStyle}"
+        Title=""
         Width="620"
         SizeToContent="Height"
         MaxHeight="760"
@@ -9,12 +10,10 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Icon="Assets/ZZZSwitch-Icon.png"
-        Background="{DynamicResource WindowBrush}"
         Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI">
-    <Grid Margin="24">
+    <Grid x:Name="RootGrid" Margin="24">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -93,14 +92,12 @@
                 Style="{StaticResource CardStyle}"
                 Margin="0,10,0,0"
                 Padding="16">
-            <Grid>
+            <Grid x:Name="DetailGrid">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="110" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -112,54 +109,16 @@
                 <TextBlock Grid.Row="1" Text="文件操作" Style="{StaticResource DialogLabelStyle}" />
                 <TextBlock x:Name="FileOperationText" Grid.Row="1" Grid.Column="1" />
 
-                <TextBlock Grid.Row="2" Text="资源快照" Style="{StaticResource DialogLabelStyle}" />
-                <TextBlock x:Name="SnapshotText"
-                           Grid.Row="2"
-                           Grid.Column="1"
-                           TextWrapping="Wrap" />
-
-                <TextBlock Grid.Row="3" Text="Blocks 缓存" Style="{StaticResource DialogLabelStyle}" />
-                <TextBlock x:Name="BlocksText"
-                           Grid.Row="3"
-                           Grid.Column="1"
-                           TextWrapping="Wrap" />
-
-                <TextBlock Grid.Row="4" Text="回滚备份" Style="{StaticResource DialogLabelStyle}" />
+                <TextBlock Grid.Row="2" Text="回滚备份" Style="{StaticResource DialogLabelStyle}" />
                 <TextBlock x:Name="BackupPathText"
-                           Grid.Row="4"
+                           Grid.Row="2"
                            Grid.Column="1"
                            Foreground="{DynamicResource MutedTextBrush}"
                            TextWrapping="Wrap" />
             </Grid>
         </Border>
 
-        <Border Grid.Row="3"
-                Margin="0,10,0,0"
-                Padding="14,12"
-                CornerRadius="8"
-                Background="{DynamicResource WarningSurfaceBrush}"
-                BorderBrush="{DynamicResource WarningSurfaceBorderBrush}"
-                BorderThickness="1">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Ellipse Width="7"
-                         Height="7"
-                         Margin="1,5,11,0"
-                         Fill="{DynamicResource WarningBrush}"
-                         VerticalAlignment="Top" />
-                <TextBlock Grid.Column="1"
-                           Text="开始前请确认游戏和 HoYoPlay 已完全退出。若文件操作意外中断，程序会尝试从本次备份自动回滚。"
-                           FontSize="12"
-                           LineHeight="19"
-                           Foreground="{DynamicResource WarningSurfaceTextBrush}"
-                           TextWrapping="Wrap" />
-            </Grid>
-        </Border>
-
-        <StackPanel Grid.Row="4"
+        <StackPanel Grid.Row="3"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,18,0,0">

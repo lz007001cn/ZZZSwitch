@@ -1,0 +1,128 @@
+<Window x:Class="ZZZSwitch.OnlineDifferencePreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource OverlayWindowStyle}"
+        Title=""
+        Width="860"
+        Height="640"
+        MinWidth="740"
+        MinHeight="520"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Icon="Assets/ZZZSwitch-Icon.png"
+        Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI, Microsoft YaHei UI">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock x:Name="HeadingText"
+                       Text="客户端差异包清单预览"
+                       FontSize="22"
+                       FontWeight="SemiBold" />
+            <TextBlock x:Name="DirectionText"
+                       Margin="0,6,0,0"
+                       Foreground="{DynamicResource MutedTextBrush}" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                x:Name="SummaryCard"
+                Style="{StaticResource CardStyle}"
+                Margin="0,14,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="版本" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock x:Name="VersionText" Margin="0,6,0,0" FontSize="17" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="状态" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock x:Name="StateText" Margin="0,6,0,0" FontSize="17" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="文件" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock x:Name="FileCountText" Margin="0,6,0,0" FontSize="17" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Grid.Column="3">
+                    <TextBlock Text="占用" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock x:Name="SizeText" Margin="0,6,0,0" FontSize="17" FontWeight="SemiBold" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="2"
+                   x:Name="NotesText"
+                   Margin="0,12,0,0"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource MutedTextBrush}" />
+
+        <ListBox Grid.Row="3"
+                 x:Name="FileList"
+                 Margin="0,12,0,0"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0,0,0,6" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="IsHitTestVisible" Value="False" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Border Style="{StaticResource CardStyle}" Padding="12,9">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="95" />
+                                <ColumnDefinition Width="90" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Path}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Path}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Size}"
+                                       Margin="12,0,0,0"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding State}"
+                                       Margin="12,0,0,0" />
+                            <TextBlock Grid.Column="3"
+                                       Text="{Binding Integrity}"
+                                       Margin="12,0,0,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Integrity}"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Button Grid.Row="4"
+                Content="关闭"
+                Width="92"
+                Margin="0,14,0,0"
+                HorizontalAlignment="Right"
+                Click="Close_Click"
+                Style="{StaticResource SecondaryButtonStyle}" />
+    </Grid>
+</Window>

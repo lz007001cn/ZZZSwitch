@@ -1,0 +1,201 @@
+<Window x:Class="ZZZSwitch.OnlineManifestBrowserWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource OverlayWindowStyle}"
+        Title=""
+        Width="1040"
+        Height="720"
+        MinWidth="860"
+        MinHeight="580"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Icon="Assets/ZZZSwitch-Icon.png"
+        Foreground="{DynamicResource TextBrush}"
+        FontFamily="Segoe UI, Microsoft YaHei UI">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel x:Name="HeaderPanel">
+            <TextBlock x:Name="HeadingText"
+                       Text="Manifest 资源浏览器"
+                       FontSize="22"
+                       FontWeight="SemiBold" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                x:Name="FilterCard"
+                Style="{StaticResource CardStyle}"
+                Margin="0,14,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="190" />
+                    <ColumnDefinition Width="190" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel x:Name="ScopePanel" Margin="0,0,12,0">
+                    <TextBlock Text="资源范围"
+                               FontSize="11"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                    <ComboBox x:Name="ScopeComboBox"
+                              Margin="0,7,0,0"
+                              SelectionChanged="Filter_Changed" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" x:Name="DirectionPanel" Margin="0,0,12,0">
+                    <TextBlock Text="目标方向"
+                               FontSize="11"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                    <ComboBox x:Name="DirectionComboBox"
+                              Margin="0,7,0,0"
+                              SelectionChanged="Filter_Changed" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="路径搜索"
+                               FontSize="11"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBox x:Name="SearchTextBox"
+                             Margin="0,7,0,0"
+                             TextChanged="Search_TextChanged"
+                             ToolTip="输入文件名或相对路径；不区分大小写" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="ManifestText"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource MutedTextBrush}" />
+            <TextBlock Grid.Column="1"
+                       x:Name="ResultText"
+                       Margin="16,0,0,0"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold" />
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,10,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border x:Name="ResourceHeader"
+                    Margin="0,0,10,6"
+                    Padding="11,7"
+                    Background="{DynamicResource RaisedSurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="220" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="PathHeaderText"
+                               Text="路径"
+                               FontSize="10"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Grid.Column="1"
+                               x:Name="CategoryHeaderText"
+                               Text="数据类型"
+                               Margin="12,0,0,0"
+                               FontSize="10"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Grid.Column="2"
+                               x:Name="ChangeHeaderText"
+                               Text="差异状态"
+                               Margin="12,0,0,0"
+                               FontSize="10"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Grid.Column="3"
+                               x:Name="SizeHeaderText"
+                               Text="大小"
+                               Margin="12,0,0,0"
+                               FontSize="10"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                    <TextBlock Grid.Column="4"
+                               x:Name="Md5HeaderText"
+                               Text="MD5"
+                               Margin="12,0,0,0"
+                               FontSize="10"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                </Grid>
+            </Border>
+
+            <ListBox Grid.Row="1"
+                     x:Name="ResourceList"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling"
+                     VirtualizingPanel.ScrollUnit="Pixel">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0,0,0,5" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="IsHitTestVisible" Value="False" />
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource CardStyle}" Padding="11,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="220" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Path}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Path}" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Category}"
+                                           Margin="12,0,0,0"
+                                           Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding Change}"
+                                           Margin="12,0,0,0" />
+                                <TextBlock Grid.Column="3"
+                                           Text="{Binding Size}"
+                                           Margin="12,0,0,0"
+                                           Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Grid.Column="4"
+                                           Text="{Binding Md5}"
+                                           Margin="12,0,0,0"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Md5}"
+                                           Foreground="{DynamicResource MutedTextBrush}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+
+        <Grid Grid.Row="4" x:Name="FooterGrid" Margin="0,14,0,0">
+            <Button Content="关闭"
+                    Width="92"
+                    HorizontalAlignment="Right"
+                    Click="Close_Click"
+                    Style="{StaticResource SecondaryButtonStyle}" />
+        </Grid>
+    </Grid>
+</Window>

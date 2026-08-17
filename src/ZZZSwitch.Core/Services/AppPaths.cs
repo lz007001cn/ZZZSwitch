@@ -22,6 +22,8 @@ public sealed class AppPaths
     public string TempRoot => Path.Combine(DataRoot, "Temp");
     public string ProfileSnapshotsRoot => Path.Combine(DataRoot, "ProfileSnapshots");
     public string HotUpdateManifestsRoot => Path.Combine(DataRoot, "HotUpdateCaches");
+    public string ManifestCacheRoot => Path.Combine(DataRoot, "ManifestCache");
+    public string OnlineDifferenceFilesRoot => Path.Combine(DataRoot, "OnlineDifferenceFiles");
     public string HotUpdateJournalFile => Path.Combine(DataRoot, "hot-update-transaction.json");
     public string FileTransactionJournalFile => Path.Combine(DataRoot, "file-transaction.json");
     public string ApplicationLockFile => Path.Combine(DataRoot, "application.lock");
@@ -42,6 +44,8 @@ public sealed class AppPaths
         Directory.CreateDirectory(TempRoot);
         Directory.CreateDirectory(ProfileSnapshotsRoot);
         Directory.CreateDirectory(HotUpdateManifestsRoot);
+        Directory.CreateDirectory(ManifestCacheRoot);
+        Directory.CreateDirectory(OnlineDifferenceFilesRoot);
     }
 
     private string LoadConfiguredBackupsRoot()

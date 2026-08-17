@@ -62,8 +62,69 @@
             <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
         </Style>
 
+        <Style x:Key="OverlayWindowStyle"
+               TargetType="{x:Type Window}"
+               BasedOn="{StaticResource {x:Type Window}}">
+            <EventSetter Event="PreviewMouseLeftButtonDown"
+                         Handler="OverlayWindow_PreviewMouseLeftButtonDown" />
+            <Setter Property="WindowStyle" Value="None" />
+            <Setter Property="AllowsTransparency" Value="True" />
+            <Setter Property="ResizeMode" Value="NoResize" />
+            <Setter Property="ShowInTaskbar" Value="False" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="UseLayoutRounding" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Window}">
+                        <Grid Margin="14">
+                            <Border x:Name="OverlayShell"
+                                    Background="{DynamicResource WindowBrush}"
+                                    BorderBrush="{DynamicResource StrongBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="24"
+                                                      ShadowDepth="4"
+                                                      Opacity="0.42"
+                                                      Color="#000000" />
+                                </Border.Effect>
+                                <AdornerDecorator>
+                                    <ContentPresenter />
+                                </AdornerDecorator>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="{DynamicResource RaisedSurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource StrongBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="CardStyle" TargetType="Border">
@@ -248,12 +309,18 @@
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="6" />
-                            <TextBlock Margin="10,0,32,0"
-                                       VerticalAlignment="Center"
-                                       IsHitTestVisible="False"
-                                       Text="{Binding SelectedItem.DisplayName, RelativeSource={RelativeSource TemplatedParent}}"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{TemplateBinding Foreground}" />
+                            <ContentPresenter x:Name="SelectionContent"
+                                              Margin="10,0,32,0"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"
+                                              TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                              TextElement.FontSize="{TemplateBinding FontSize}"
+                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
                             <ToggleButton Focusable="False"
                                           ClickMode="Press"
                                           Background="Transparent"

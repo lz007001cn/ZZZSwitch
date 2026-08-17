@@ -11,7 +11,7 @@
     <ApplicationIcon>Assets\ZZZSwitch.ico</ApplicationIcon>
     <AssemblyName>ZZZSwitch</AssemblyName>
     <RootNamespace>ZZZSwitch</RootNamespace>
-    <Version>1.2.7</Version>
+    <Version>1.3.0</Version>
     <AssemblyVersion>$(Version).0</AssemblyVersion>
     <FileVersion>$(Version).0</FileVersion>
     <InformationalVersion>$(Version)</InformationalVersion>

@@ -59,6 +59,10 @@ jobs:
         shell: pwsh
         run: dotnet run --project tests/ZZZSwitch.Core.Tests/ZZZSwitch.Core.Tests.csproj -c Release --no-build
 
+      - name: Run Manifest tests
+        shell: pwsh
+        run: dotnet run --project tests/ZZZSwitch.ManifestTool.Tests/ZZZSwitch.ManifestTool.Tests.csproj -c Release --no-build
+
       - name: Run WPF UI smoke tests
         shell: pwsh
         run: dotnet run --project tests/ZZZSwitch.Ui.Smoke/ZZZSwitch.Ui.Smoke.csproj -c Release --no-build

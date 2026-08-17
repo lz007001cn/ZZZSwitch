@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using ZZZSwitch.Core.Services;
 
 namespace ZZZSwitch;
@@ -56,6 +57,32 @@ public partial class App : System.Windows.Application
         _applicationInstanceLock = null;
         ReleaseNamedMutex();
         base.OnExit(e);
+    }
+
+    private void OverlayWindow_PreviewMouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        if (sender is not Window window ||
+            e.ChangedButton != MouseButton.Left ||
+            e.LeftButton != MouseButtonState.Pressed ||
+            e.ClickCount != 1 ||
+            !OverlayWindowDragBehavior.CanStartDragFrom(
+                e.OriginalSource as DependencyObject,
+                window))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        try
+        {
+            window.DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            // The mouse button may have been released between the event and DragMove.
+        }
     }
 
     private static void ShowStartupFailure(

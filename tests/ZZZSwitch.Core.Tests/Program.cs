@@ -4,6 +4,9 @@ using System.Text;
 using System.Text.Json;
 using ZZZSwitch.Core.Models;
 using ZZZSwitch.Core.Services;
+using ZZZSwitch.ManifestTool;
+using ZZZSwitch.ManifestTool.Diff;
+using ZZZSwitch.ManifestTool.Sophon;
 
 namespace ZZZSwitch.Core.Tests;
 
@@ -30,6 +33,11 @@ internal static class Program
         ("文件被占用时停止", () => PlannerFailure("lock")),
         ("必需删除文件缺失时停止", () => PlannerFailure("delete")),
         ("存在未完成文件事务时停止", () => PlannerFailure("transaction")),
+        ("在线差异自动排除 Streaming Blocks 与待观察文件", OnlineDifferenceSelection),
+        ("已完成在线差异自动登记为版本差异包", OnlineDifferencePackageCatalogRecognizesReadyPackage),
+        ("未完成在线分块在版本资源中保留", OnlineDifferencePackageCatalogKeepsIncompletePackage),
+        ("Manifest 浏览器按方向与资源类型建立索引", ManifestBrowserBuildsExtensibleIndex),
+        ("在线切换计划不读取现有差异包", OnlinePlannerDoesNotReadExistingPackage),
         ("缓存快照只收集一级 version/revision 文件", SnapshotFiltersFiles),
         ("损坏的缓存快照被拒绝", CorruptedSnapshotRejected),
         ("切换时恢复目标服缓存快照", SwitchRestoresTargetSnapshot),
@@ -69,7 +77,8 @@ internal static class Program
         ("旧游戏版本缓存可独立清理", ObsoleteCacheVersionsCanBeCleaned),
         ("只读旧缓存与残留清单均可清理", ReadOnlyCacheAndOrphanManifestCanBeCleaned),
         ("切走当前服时自动保存新增热更新缓存", SwitchCapturesNewHotUpdateFiles),
-        ("游戏升级后旧版本缓存不会用于新版本", UpgradeDoesNotReuseOldVersionCache),
+        ("未手动初始化时切换自动保存当前服缓存", SwitchAutoCapturesUninitializedCurrentCache),
+        ("游戏升级后自动建立新版本来源缓存", UpgradeAutoCreatesNewVersionCache),
         ("软件内导入并原子替换三服差异包", PackageArchiveImportsAtomically),
         ("差异包导入可恢复替换中断残留", PackageArchiveRecoversInterruptedReplacement),
         ("差异包导入拒绝跨目录路径", PackageArchiveRejectsTraversal),
@@ -80,7 +89,7 @@ internal static class Program
         ("检测 .zzzswitch 根目录缺失", StorageRootMissingDetected),
         ("修复仅重建标准目录结构", StorageLayoutRepair),
         ("单个服务器差异包缺失不误报为目录结构损坏", MissingProfilePackageIsNotStructuralDamage),
-        ("差异包缺失按服务器聚合报告", MissingPackagesAreAggregated),
+        ("在线模式不因本地差异包缺失阻止检查", MissingPackagesAreAggregated),
         ("备份文件同长度损坏时拒绝恢复", BackupHashRejectsSameLengthCorruption),
         ("启动时恢复未完成的普通文件事务", PendingFileTransactionRecovery),
         ("启动时共同恢复 Blocks 与普通文件事务", PendingCombinedTransactionRecovery),
@@ -384,6 +393,277 @@ internal static class Program
         True(snapshot.Files.All(x => !x.RelativePath.Contains("not_cache", StringComparison.Ordinal)), "无关文件不应进入快照。");
         True(snapshot.Files.All(x => !x.RelativePath.Contains("Blocks", StringComparison.Ordinal)), "子目录文件不应进入快照。");
         return Task.CompletedTask;
+    }
+
+    private static Task OnlineDifferenceSelection()
+    {
+        const string hashA = "00112233445566778899AABBCCDDEEFF";
+        const string hashB = "FFEEDDCCBBAA99887766554433221100";
+        ManifestEntry Entry(string path, long size, string hash) => new(path, size, hash);
+        var source = new ManifestSnapshot(
+            SophonRegionConfig.Game,
+            SophonRegion.OS,
+            "3.1.0",
+            "game",
+            "os-manifest",
+            DateTimeOffset.UnixEpoch,
+            [
+                Entry("GameAssembly.dll", 10, hashA),
+                Entry("obsolete.exe", 7, hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\APMConfig.json", 2, hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\data_version", 3, hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\Blocks\a.blk", 100, hashA),
+                Entry(@"ZenlessZoneZero_Data\Persistent\Blocks\runtime.blk", 5, hashA),
+                Entry("mystery.bin", 4, hashA)
+            ]);
+        var target = new ManifestSnapshot(
+            SophonRegionConfig.Game,
+            SophonRegion.CN,
+            "3.1.0",
+            "game",
+            "cn-manifest",
+            DateTimeOffset.UnixEpoch,
+            [
+                Entry("GameAssembly.dll", 11, hashB),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\APMConfig.json", 2, hashB),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\data_version", 3, hashB),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\Blocks\a.blk", 120, hashB),
+                Entry(@"ZenlessZoneZero_Data\Persistent\Blocks\runtime.blk", 6, hashB),
+                Entry("mystery.bin", 4, hashB)
+            ]);
+        var diff = new ManifestDiffEngine().Compare(source, target);
+        var category = new ManifestCategory(
+            "game", "game", "cn-manifest", "https://example.test/manifest", "",
+            "https://example.test/chunks", "");
+        var plan = OnlineDifferenceService.BuildPlan(
+            ProfileIds.Global, ProfileIds.CnOfficial, diff, target, category);
+
+        Equal(3, plan.DownloadFiles.Count);
+        True(plan.DownloadFiles.Any(item => item.Path == "GameAssembly.dll"), "基础客户端文件应进入下载范围。");
+        True(plan.DownloadFiles.All(item => !item.Path.Contains(@"\Blocks\", StringComparison.Ordinal)),
+            "Streaming/Persistent Blocks 都不应进入基础差异下载范围。");
+        Equal(0, plan.DeleteFiles.Count);
+        Equal(1, plan.ExcludedDeletionReviewCount);
+        Equal(1, plan.ExcludedStreamingBlocksCount);
+        Equal(120L, plan.ExcludedStreamingBlocksBytes);
+        True(plan.ExcludedObservationCount >= 1, "未知文件应保留为待观察项。 ");
+        return Task.CompletedTask;
+    }
+
+    private static Task OnlinePlannerDoesNotReadExistingPackage()
+    {
+        using var fixture = new TempFixture();
+        fixture.CreateGameMarkers("3.0.0");
+        var onlineRoot = Path.Combine(fixture.Data, "OnlineDifferenceFiles", "test", "content");
+        Directory.CreateDirectory(onlineRoot);
+        File.WriteAllText(Path.Combine(onlineRoot, "target.bin"), "new");
+        File.WriteAllText(Path.Combine(fixture.Game, "target.bin"), "old");
+        var manifest = new TransitionManifest
+        {
+            SourceProfile = ProfileIds.Global,
+            TargetProfile = ProfileIds.CnOfficial,
+            GameVersion = "3.0.0",
+            ExpectedReplaceCount = 1,
+            ExpectedDeleteCount = 0,
+            ReplaceFiles =
+            [
+                new ReplaceFileEntry
+                {
+                    Source = "target.bin",
+                    Target = "target.bin",
+                    Length = 3,
+                    Sha256 = Sha256Text("new")
+                }
+            ]
+        };
+        var materialization = new OnlineDifferenceMaterialization
+        {
+            PackageRoot = onlineRoot,
+            PackageDirectory = onlineRoot,
+            Manifest = manifest,
+            DownloadedFiles = 1
+        };
+        var files = new PhysicalFileOperations();
+        var activeBlocks = Path.Combine(fixture.Game, HotUpdateCacheService.BlocksRelativePath);
+        Directory.CreateDirectory(activeBlocks);
+        File.WriteAllText(Path.Combine(activeBlocks, "current.blk"), "current-cache");
+        var hotUpdateCaches = new HotUpdateCacheService(fixture.Paths, new FakeProcessMonitor());
+        var planner = new SwitchPlanner(
+            new ConfigurationRepository(fixture.Paths),
+            new GameDirectoryService(),
+            new FakeProcessMonitor(),
+            files,
+            fixture.Paths,
+            new ProfileSnapshotService(fixture.Paths, files),
+            hotUpdateCaches);
+
+        var plan = planner.CreateOnlinePlan(fixture.Game, materialization);
+
+        True(plan.CanExecute, string.Join(" | ", plan.Issues.Select(item => item.Message)));
+        Equal(Path.GetFullPath(onlineRoot), Path.GetFullPath(plan.PackageDirectory));
+        True(!Directory.Exists(GameStorageLayout.GetPackageRoot(fixture.Game, "3.0.0")),
+            "在线计划不应创建或读取 .zzzswitch 差异包目录。");
+        Equal("Sophon 在线差异缓存（已校验 MD5 与 SHA-256）", plan.FileSourceDescription);
+        True(plan.HotUpdateTransition is not null &&
+             plan.Issues.Any(issue => issue.Code == "hot-cache.source.auto-capture"),
+            "在线计划应在无手动初始化清单时自动准备保存当前服 Blocks。");
+        return Task.CompletedTask;
+    }
+
+    private static Task OnlineDifferencePackageCatalogRecognizesReadyPackage()
+    {
+        using var fixture = new TempFixture();
+        var workspace = Path.Combine(
+            fixture.Paths.OnlineDifferenceFilesRoot,
+            "3.1.0",
+            ProfileIds.CnOfficial,
+            "manifest-test");
+        var content = Path.Combine(workspace, "content");
+        Directory.CreateDirectory(content);
+        File.WriteAllText(Path.Combine(content, "payload.bin"), "ready");
+        var manifest = new TransitionManifest
+        {
+            SourceProfile = ProfileIds.Global,
+            TargetProfile = ProfileIds.CnOfficial,
+            GameVersion = "3.1.0",
+            ExpectedReplaceCount = 1,
+            ExpectedDeleteCount = 0,
+            ReplaceFiles =
+            [
+                new ReplaceFileEntry
+                {
+                    Source = "payload.bin",
+                    Target = "payload.bin",
+                    Length = 5,
+                    Sha256 = Sha256Text("ready")
+                }
+            ]
+        };
+        File.WriteAllText(
+            Path.Combine(workspace, "transition-manifest.json"),
+            JsonSerializer.Serialize(manifest, JsonSupport.Options));
+
+        var catalog = new OnlineDifferencePackageCatalog(fixture.Paths);
+        var inventory = catalog.GetInventory();
+        var package = inventory.Packages.Single();
+        Equal(OnlineDifferencePackageState.Ready, package.State);
+        Equal(5L, package.ContentBytes);
+        True(catalog.TryGetReadyMaterialization(
+                ProfileIds.Global,
+                ProfileIds.CnOfficial,
+                "3.1.0",
+                out var materialization) && materialization is not null,
+            "同版本已完成资源应直接生成本地切换材料。");
+        True(materialization!.ReusedReadyPackage && materialization.ReusedFiles == 1,
+            "本地快速路径应标记为复用完整版本差异包。");
+        var preview = catalog.GetPreview(package);
+        Equal(1, preview.Files.Count);
+        Equal("payload.bin", preview.Files[0].Path);
+        Equal("已就绪", preview.Files[0].State);
+        catalog.VerifyPackage(package);
+        var staleWorkspace = Path.Combine(
+            fixture.Paths.OnlineDifferenceFilesRoot,
+            "3.1.0",
+            ProfileIds.CnOfficial,
+            "manifest-stale");
+        Directory.CreateDirectory(Path.Combine(staleWorkspace, "chunks"));
+        File.WriteAllText(Path.Combine(staleWorkspace, "chunks", "stale.part"), "stale");
+        Equal(1, catalog.DeleteSupersededPackages(
+            ProfileIds.Global,
+            ProfileIds.CnOfficial,
+            "3.1.0",
+            workspace));
+        True(!Directory.Exists(staleWorkspace), "更新成功后应清理同版本同方向的旧工作区。");
+        File.WriteAllText(Path.Combine(content, "payload.bin"), "wrong");
+        var rejected = false;
+        try
+        {
+            catalog.VerifyPackage(package);
+        }
+        catch (InvalidDataException)
+        {
+            rejected = true;
+        }
+
+        True(rejected, "差异包管理的手动校验必须识别同长度 SHA-256 损坏。");
+        return Task.CompletedTask;
+    }
+
+    private static Task OnlineDifferencePackageCatalogKeepsIncompletePackage()
+    {
+        using var fixture = new TempFixture();
+        var workspace = Path.Combine(
+            fixture.Paths.OnlineDifferenceFilesRoot,
+            "3.2.0",
+            ProfileIds.Global,
+            "manifest-incomplete");
+        var chunks = Path.Combine(workspace, "chunks", "aa");
+        Directory.CreateDirectory(chunks);
+        File.WriteAllText(Path.Combine(chunks, "checkpoint.plain"), "chunk");
+
+        var catalog = new OnlineDifferencePackageCatalog(fixture.Paths);
+        var package = catalog.GetInventory().Packages.Single();
+        Equal(OnlineDifferencePackageState.Incomplete, package.State);
+        Equal(1, package.CheckpointCount);
+        True(!catalog.TryGetReadyMaterialization(
+                ProfileIds.CnOfficial,
+                ProfileIds.Global,
+                "3.2.0",
+                out _),
+            "未完成分块不能进入本地快速切换路径。");
+        catalog.DeletePackage(package.WorkspacePath);
+        True(!Directory.Exists(workspace), "版本资源管理应只删除明确选择的工作区。");
+        return Task.CompletedTask;
+    }
+
+    private static async Task ManifestBrowserBuildsExtensibleIndex()
+    {
+        using var fixture = new TempFixture();
+        const string hashA = "00112233445566778899AABBCCDDEEFF";
+        const string hashB = "FFEEDDCCBBAA99887766554433221100";
+        static ManifestEntry Entry(string path, string hash) => new(path, 10, hash);
+
+        var global = new ManifestSnapshot(
+            SophonRegionConfig.Game,
+            SophonRegion.OS,
+            "3.1.0",
+            "10037",
+            "manifest-os",
+            DateTimeOffset.UtcNow,
+            [
+                Entry("GameAssembly.dll", hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\Video\HD\MainStory\plot.usm", hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\Audio\Windows\Full\Patch.pck", hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\Blocks\data.blk", hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\data_version", hashA)
+            ]);
+        var cn = new ManifestSnapshot(
+            SophonRegionConfig.Game,
+            SophonRegion.CN,
+            "3.1.0",
+            "10047",
+            "manifest-cn",
+            DateTimeOffset.UtcNow,
+            [
+                Entry("GameAssembly.dll", hashB),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\Video\HD\MainStory\plot.usm", hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\Audio\Windows\Full\Patch.pck", hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\Blocks\data.blk", hashA),
+                Entry(@"ZenlessZoneZero_Data\StreamingAssets\data_version", hashB)
+            ]);
+        var cache = new ManifestCache(fixture.Paths.ManifestCacheRoot, JsonSupport.Options);
+        await cache.SaveAsync(global);
+        await cache.SaveAsync(cn);
+
+        var browser = await new OnlineDifferenceService(fixture.Paths).GetManifestBrowserAsync("3.1.0");
+        Equal(5, browser.GlobalToCn.Files.Count);
+        Equal(2, browser.GlobalToCn.Files.Count(file => file.IsClientDifference));
+        Equal(1, browser.GlobalToCn.Files.Count(file => file.IsStoryMedia));
+        Equal(1, browser.GlobalToCn.Files.Count(file => file.IsAudio));
+        Equal(1, browser.GlobalToCn.Files.Count(file => file.IsStreamingBlocks));
+        Equal(1, browser.GlobalToCn.Files.Count(file => file.IsStateMetadata));
+        Equal("manifest-cn", browser.GlobalToCn.TargetManifest.ManifestId);
+        Equal("manifest-os", browser.CnToGlobal.TargetManifest.ManifestId);
     }
 
     private static Task CorruptedSnapshotRejected()
@@ -1374,7 +1654,37 @@ internal static class Program
         return Task.CompletedTask;
     }
 
-    private static Task UpgradeDoesNotReuseOldVersionCache()
+    private static Task SwitchAutoCapturesUninitializedCurrentCache()
+    {
+        using var fixture = new TempFixture();
+        var service = new HotUpdateCacheService(fixture.Paths, new FakeProcessMonitor());
+        var active = Path.Combine(fixture.Game, HotUpdateCacheService.BlocksRelativePath);
+        Directory.CreateDirectory(active);
+        File.WriteAllText(Path.Combine(active, "current.blk"), "current-server-cache");
+        var issues = new List<ValidationIssue>();
+
+        var plan = service.CreateTransitionPlan(
+            ProfileIds.Global,
+            ProfileIds.CnOfficial,
+            "3.1.0",
+            fixture.Game,
+            issues) ?? throw new InvalidOperationException("未生成自动缓存切换计划。");
+        var transaction = service.BeginTransition(plan);
+        var saved = service.GetStatus(
+            ProfileIds.Global,
+            "3.1.0",
+            fixture.Game,
+            ProfileIds.CnOfficial);
+
+        True(issues.Any(issue => issue.Code == "hot-cache.source.auto-capture"),
+            "未初始化来源服时应明确进入自动保存模式。");
+        True(saved.IsAvailable && saved.FileCount == 1,
+            saved.Detail ?? "切换前应自动保存当前服 Blocks。");
+        True(service.Rollback(transaction), "测试结束时应恢复自动保存的当前服 Blocks。");
+        return Task.CompletedTask;
+    }
+
+    private static Task UpgradeAutoCreatesNewVersionCache()
     {
         using var fixture = new TempFixture();
         var service = new HotUpdateCacheService(fixture.Paths, new FakeProcessMonitor());
@@ -1391,9 +1701,10 @@ internal static class Program
             fixture.Game,
             issues);
 
-        True(plan is null, "新版本尚未初始化时必须停止切换。");
-        True(issues.Any(issue => issue.Code == "hot-cache.source.missing"),
-            "升级后的停止原因应明确为新版本来源缓存未初始化。");
+        True(plan is not null, "新版本无需手动初始化，应自动建立来源缓存计划。");
+        True(issues.Any(issue => issue.Code == "hot-cache.source.auto-capture"),
+            "升级后应明确自动保存当前服到新版本缓存槽。");
+        Equal("3.2.0", plan!.SourceManifest.GameVersion);
         True(service.GetStatus(ProfileIds.Global, "3.1.0", fixture.Game, ProfileIds.Global).IsAvailable,
             "停止新版本切换时不应破坏旧版本缓存。");
         return Task.CompletedTask;
@@ -1713,20 +2024,24 @@ internal static class Program
             new GameDirectoryService(),
             new ProfileDetector(),
             new StateStore(fixture.Paths),
-            new FakeProcessMonitor());
+            new FakeProcessMonitor(),
+            inspectLocalPackages: false);
         var report = service.Inspect(fixture.Game);
 
         Equal(
             1,
             report.Issues.Count(x => x.Code == "storage.root.missing"));
         Equal(
-            2,
+            0,
             report.Issues.Count(x => x.Code == "package.unavailable"));
+        Equal(0, report.Packages.Count);
+        True(report.Issues.Single(x => x.Code == "storage.root.missing").Severity == IssueSeverity.Information,
+            "在线模式下本地存储根目录缺失只能作为提示，不能阻止切换。");
         Equal(
             0,
             report.Issues.Count(x => x.Code == "manifest.source.missing"));
         Equal(
-            2,
+            0,
             report.Issues.Count(x => x.Code == "manifest.integrity.missing"));
         var intentionallyMissingDirections =
             ProfileIds.All.Length * (ProfileIds.All.Length - 1) - transitions.Length;

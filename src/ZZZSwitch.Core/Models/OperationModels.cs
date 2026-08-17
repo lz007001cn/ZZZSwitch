@@ -115,6 +115,7 @@ public sealed class SwitchPlan
     public required string BackupPath { get; init; }
     public ProfileSnapshotManifest? TargetSnapshot { get; init; }
     public HotUpdateTransitionPlan? HotUpdateTransition { get; init; }
+    public string FileSourceDescription { get; init; } = "本地差异包";
     public List<ValidationIssue> Issues { get; init; } = [];
     public bool CanExecute => Issues.All(x => x.Severity != IssueSeverity.Error);
 }

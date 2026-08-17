@@ -26,7 +26,6 @@ public partial class ThemedMessageWindow : Window
         InitializeComponent();
         SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
 
-        Title = title;
         TitleText.Text = title;
         MessageText.Text = message;
         ToneDot.Fill = accentBrush ?? ToneBrush(tone);

@@ -9,4 +9,7 @@
     <FileVersion>1.2.2.0</FileVersion>
     <InformationalVersion>1.2.2</InformationalVersion>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\tools\ZZZSwitch.ManifestTool\ZZZSwitch.ManifestTool.csproj" />
+  </ItemGroup>
 </Project>

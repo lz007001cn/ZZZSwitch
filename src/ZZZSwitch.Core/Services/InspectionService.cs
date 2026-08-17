@@ -12,6 +12,7 @@ public sealed class InspectionService
     private readonly FileTransactionJournalStore? _fileTransactions;
     private readonly FileIntegrityService _integrity;
     private readonly StorageLayoutService _storageLayout;
+    private readonly bool _inspectLocalPackages;
 
     public InspectionService(
         ConfigurationRepository configuration,
@@ -21,7 +22,8 @@ public sealed class InspectionService
         IProcessMonitor processMonitor,
         FileTransactionJournalStore? fileTransactions = null,
         IFileOperations? files = null,
-        StorageLayoutService? storageLayout = null)
+        StorageLayoutService? storageLayout = null,
+        bool inspectLocalPackages = true)
     {
         _configuration = configuration;
         _gameDirectory = gameDirectory;
@@ -31,6 +33,7 @@ public sealed class InspectionService
         _fileTransactions = fileTransactions;
         _integrity = new FileIntegrityService(files ?? new PhysicalFileOperations());
         _storageLayout = storageLayout ?? new StorageLayoutService();
+        _inspectLocalPackages = inspectLocalPackages;
     }
 
     public InspectionReport Inspect(string gamePath)
@@ -38,10 +41,15 @@ public sealed class InspectionService
         var game = _gameDirectory.Validate(gamePath);
         var issues = new List<ValidationIssue>(game.Issues);
         var profileLoad = _configuration.LoadProfilesWithStatus();
-        var transitionLoad = _configuration.LoadTransitionsWithStatus();
+        var transitionLoad = _inspectLocalPackages
+            ? _configuration.LoadTransitionsWithStatus()
+            : new ConfigurationLoadResult<TransitionManifest>();
         // 单个配置损坏不应让整个检查页退出；有效配置继续检查，错误作为阻止项聚合显示。
         AddConfigurationErrors("profile", profileLoad.Errors, issues);
-        AddConfigurationErrors("transition", transitionLoad.Errors, issues);
+        if (_inspectLocalPackages)
+        {
+            AddConfigurationErrors("transition", transitionLoad.Errors, issues);
+        }
         var stateLoad = _stateStore.LoadWithStatus();
         if (!string.IsNullOrWhiteSpace(stateLoad.Warning))
         {
@@ -82,21 +90,29 @@ public sealed class InspectionService
             : null;
         if (storage is not null)
         {
-            AddStorageIssues(storage, issues);
+            AddStorageIssues(storage, issues, _inspectLocalPackages);
         }
 
-        var packages = profiles
-            .Select(profile => InspectPackage(packageRoot, packageVersion, profile, profiles, transitions))
-            .ToList();
-        foreach (var package in packages.Where(x => !x.IsAvailable))
+        var packages = _inspectLocalPackages
+            ? profiles.Select(profile => InspectPackage(
+                packageRoot, packageVersion, profile, profiles, transitions)).ToList()
+            : [];
+        if (_inspectLocalPackages)
         {
-            issues.Add(new(IssueSeverity.Error, "package.unavailable", package.Detail ?? $"{package.DisplayName}差异包不可用。", package.Path));
-        }
+            foreach (var package in packages.Where(x => !x.IsAvailable))
+            {
+                issues.Add(new(
+                    IssueSeverity.Error,
+                    "package.unavailable",
+                    package.Detail ?? $"{package.DisplayName}差异包不可用。",
+                    package.Path));
+            }
 
-        ValidateManifestSet(transitions, issues);
-        foreach (var transition in transitions.Where(x => x.Enabled))
-        {
-            ValidateManifest(transition, profiles, packageRoot, gamePath, issues);
+            ValidateManifestSet(transitions, issues);
+            foreach (var transition in transitions.Where(x => x.Enabled))
+            {
+                ValidateManifest(transition, profiles, packageRoot, gamePath, issues);
+            }
         }
 
         var detection = game.IsValid
@@ -137,24 +153,22 @@ public sealed class InspectionService
 
     private static void AddStorageIssues(
         StorageLayoutStatus storage,
-        List<ValidationIssue> issues)
+        List<ValidationIssue> issues,
+        bool requirePackages)
     {
         if (!storage.RootExists)
         {
             issues.Add(new(
-                IssueSeverity.Error,
+                requirePackages ? IssueSeverity.Error : IssueSeverity.Information,
                 "storage.root.missing",
-                "ZZZSwitch 存储根目录未检测到；差异包和已保存的双服缓存可能已被删除。",
+                requirePackages
+                    ? "ZZZSwitch 存储根目录未检测到；差异包和已保存的双服缓存可能已被删除。"
+                    : "ZZZSwitch 本地缓存目录尚未建立；在线切换不需要预置差异包，首次切换时会自动创建。",
                 storage.RootPath));
-            issues.Add(new(
-                IssueSeverity.Warning,
-                "storage.cache.unavailable",
-                "双服缓存仓库未检测到。目录可以重建，但已丢失的缓存内容无法自动恢复。",
-                storage.CacheRootPath));
             return;
         }
 
-        if (!storage.PackagesRootExists)
+        if (requirePackages && !storage.PackagesRootExists)
         {
             issues.Add(new(
                 IssueSeverity.Error,
@@ -162,7 +176,7 @@ public sealed class InspectionService
                 "差异包存储目录未检测到。",
                 storage.PackagesRootPath));
         }
-        else if (!storage.PackageVersionExists)
+        else if (requirePackages && !storage.PackageVersionExists)
         {
             issues.Add(new(
                 IssueSeverity.Error,

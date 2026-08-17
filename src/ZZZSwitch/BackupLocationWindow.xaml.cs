@@ -39,8 +39,10 @@ public partial class BackupLocationWindow : Window
     private void Complete(BackupLocationAction action)
     {
         SelectedAction = action;
-        DialogResult = true;
+        Close();
     }
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
     private static string FormatBytes(long bytes)
     {

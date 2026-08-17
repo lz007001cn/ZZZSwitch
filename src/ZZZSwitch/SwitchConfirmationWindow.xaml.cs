@@ -13,8 +13,6 @@ public partial class SwitchConfirmationWindow : Window
         string gameVersion,
         int replaceCount,
         int deleteCount,
-        string snapshotSummary,
-        string blocksSummary,
         string backupPath)
     {
         InitializeComponent();
@@ -26,8 +24,6 @@ public partial class SwitchConfirmationWindow : Window
         TargetProfileImage.Source = LoadProfileImage(targetProfile);
         GameVersionText.Text = gameVersion;
         FileOperationText.Text = $"替换 {replaceCount} 个文件 · 删除 {deleteCount} 个文件";
-        SnapshotText.Text = snapshotSummary;
-        BlocksText.Text = blocksSummary;
         BackupPathText.Text = backupPath;
     }
 
@@ -39,7 +35,9 @@ public partial class SwitchConfirmationWindow : Window
             Core.Models.ProfileIds.Bilibili => "Server-Bilibili.png",
             _ => "Server-CN.png"
         };
-        return new BitmapImage(new Uri($"pack://application:,,,/Assets/{fileName}"));
+        return new BitmapImage(new Uri(
+            $"pack://application:,,,/ZZZSwitch;component/Assets/{fileName}",
+            UriKind.Absolute));
     }
 
     private void Confirm_Click(object sender, RoutedEventArgs e)

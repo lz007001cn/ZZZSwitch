@@ -120,6 +120,58 @@ public sealed class SwitchPlanner
         };
     }
 
+    public SwitchPlan CreateOnlinePlan(
+        string gamePath,
+        OnlineDifferenceMaterialization materialization)
+    {
+        ArgumentNullException.ThrowIfNull(materialization);
+        var manifest = materialization.Manifest;
+        var operationId = $"{DateTimeOffset.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}";
+        var backupName =
+            $"{DateTimeOffset.Now:yyyy-MM-dd_HHmmss}_{manifest.SourceProfile}_to_{manifest.TargetProfile}_{operationId[^8..]}";
+        var targetSnapshot = manifest.Enabled
+            ? _snapshots.FindLatestValid(
+                ProfileIds.ToResourceProfile(manifest.TargetProfile),
+                manifest.GameVersion,
+                gamePath)
+            : null;
+        var issues = Validate(
+            gamePath,
+            manifest,
+            materialization.PackageRoot,
+            materialization.PackageDirectory,
+            targetSnapshot);
+        var sourceResourceProfile = ProfileIds.ToResourceProfile(manifest.SourceProfile);
+        var targetResourceProfile = ProfileIds.ToResourceProfile(manifest.TargetProfile);
+        var hotUpdateTransition = manifest.Enabled &&
+                                  _hotUpdateCaches is not null &&
+                                  !string.Equals(
+                                      sourceResourceProfile,
+                                      targetResourceProfile,
+                                      StringComparison.OrdinalIgnoreCase)
+            ? _hotUpdateCaches.CreateTransitionPlan(
+                sourceResourceProfile,
+                targetResourceProfile,
+                manifest.GameVersion,
+                gamePath,
+                issues)
+            : null;
+
+        return new SwitchPlan
+        {
+            OperationId = operationId,
+            GamePath = Path.GetFullPath(gamePath),
+            PackageRoot = materialization.PackageRoot,
+            PackageDirectory = materialization.PackageDirectory,
+            Manifest = manifest,
+            BackupPath = Path.Combine(_paths.BackupsRoot, backupName),
+            TargetSnapshot = targetSnapshot,
+            HotUpdateTransition = hotUpdateTransition,
+            FileSourceDescription = "Sophon 在线差异缓存（已校验 MD5 与 SHA-256）",
+            Issues = issues
+        };
+    }
+
     private static void AddConfigurationErrors(
         string kind,
         IReadOnlyList<ConfigurationLoadError> errors,
@@ -176,7 +228,7 @@ public sealed class SwitchPlanner
 
         if (!Directory.Exists(packageDirectory))
         {
-            issues.Add(new(IssueSeverity.Error, "package.directory.missing", "目标服差异包目录不存在。", packageDirectory));
+            issues.Add(new(IssueSeverity.Error, "package.directory.missing", "切换文件源目录不存在。", packageDirectory));
         }
 
         if (manifest.Enabled)
@@ -189,7 +241,7 @@ public sealed class SwitchPlanner
 
             if (targetSnapshot is null)
             {
-                issues.Add(new(IssueSeverity.Warning, "snapshot.target.missing", "目标服尚无有效缓存快照；本次仍可使用差异包切换，但首次切回前无法恢复该服缓存元数据。"));
+                issues.Add(new(IssueSeverity.Warning, "snapshot.target.missing", "目标服尚无有效缓存快照；本次仍可使用已校验的切换文件源，但首次切回前无法恢复该服缓存元数据。"));
             }
         }
 
@@ -210,7 +262,7 @@ public sealed class SwitchPlanner
 
             if (!_files.FileExists(source))
             {
-                issues.Add(new(IssueSeverity.Error, "package.source.missing", "差异包源文件不存在。", source));
+                issues.Add(new(IssueSeverity.Error, "package.source.missing", "切换源文件不存在。", source));
             }
             else
             {
@@ -253,7 +305,7 @@ public sealed class SwitchPlanner
             issues.Add(new(
                 IssueSeverity.Error,
                 "package.integrity.failed",
-                $"差异包有 {packageIntegrityFailures.Count} 个文件未通过完整性校验。首个问题：{first.Reason}",
+                $"切换文件源有 {packageIntegrityFailures.Count} 个文件未通过完整性校验。首个问题：{first.Reason}",
                 first.Path));
         }
 

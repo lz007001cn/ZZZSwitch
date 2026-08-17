@@ -26,7 +26,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isBusy;
     private bool _hasStatusIssues;
     private bool _inspectionCanManageCache;
-    private bool _inspectionCanInitializeCache;
+    private bool _inspectionCanManageOnlineResources;
     private MediaBrush? _profileAccent;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -37,7 +37,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ICommand SwitchCnCommand { get; private set; } = DisabledCommand;
     public ICommand SwitchBilibiliCommand { get; private set; } = DisabledCommand;
     public ICommand CacheManagementCommand { get; private set; } = DisabledCommand;
-    public ICommand InitializeCacheCommand { get; private set; } = DisabledCommand;
+    public ICommand OnlineResourcesCommand { get; private set; } = DisabledCommand;
     public ICommand BackupsCommand { get; private set; } = DisabledCommand;
     public ICommand BackupDirectoryCommand { get; private set; } = DisabledCommand;
     public ICommand LogsCommand { get; private set; } = DisabledCommand;
@@ -122,7 +122,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             OnPropertyChanged(nameof(IsInteractionEnabled));
             OnPropertyChanged(nameof(CanManageCache));
-            OnPropertyChanged(nameof(CanInitializeCache));
+            OnPropertyChanged(nameof(CanManageOnlineResources));
             RefreshCommandStates();
         }
     }
@@ -137,9 +137,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public bool CanManageCache => !IsBusy && _inspectionCanManageCache;
 
-    public bool CanInitializeCache => !IsBusy && _inspectionCanInitializeCache;
+    public bool CanManageOnlineResources => !IsBusy && _inspectionCanManageOnlineResources;
 
-    public void SetInspectionCapabilities(bool canManageCache, bool canInitializeCache)
+    public void SetInspectionCapabilities(bool canManageCache, bool canManageOnlineResources)
     {
         if (_inspectionCanManageCache != canManageCache)
         {
@@ -147,10 +147,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(CanManageCache));
         }
 
-        if (_inspectionCanInitializeCache != canInitializeCache)
+        if (_inspectionCanManageOnlineResources != canManageOnlineResources)
         {
-            _inspectionCanInitializeCache = canInitializeCache;
-            OnPropertyChanged(nameof(CanInitializeCache));
+            _inspectionCanManageOnlineResources = canManageOnlineResources;
+            OnPropertyChanged(nameof(CanManageOnlineResources));
         }
 
         RefreshCommandStates();
@@ -166,7 +166,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         IssueSummary = presentation.IssueSummary;
         Report = presentation.Report;
         HasStatusIssues = presentation.HasStatusIssues;
-        SetInspectionCapabilities(presentation.CanManageCache, presentation.CanInitializeCache);
+        SetInspectionCapabilities(presentation.CanManageCache, presentation.CanManageOnlineResources);
     }
 
     public void ApplyInitialLanguage(AppLanguage language)
@@ -174,7 +174,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         if (language == AppLanguage.English)
         {
             Profile = "Waiting for detection";
-            Packages = "Waiting for scan";
+            Packages = "Available after server selection";
             CacheSummary = "Waiting for inspection";
             OperationStatus = "Inspecting";
             BusyStatus = "Working…";
@@ -182,7 +182,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
 
         Profile = "等待检测";
-        Packages = "等待扫描";
+        Packages = "选择服务器后可下载";
         CacheSummary = "等待检查";
         OperationStatus = "检查中";
         BusyStatus = "正在处理…";
@@ -209,9 +209,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             handlers.CacheManagement,
             () => CanManageCache,
             handlers.HandleUnexpectedError);
-        InitializeCacheCommand = Async(
-            handlers.InitializeCache,
-            () => CanInitializeCache,
+        OnlineResourcesCommand = Async(
+            handlers.ManageOnlineResources,
+            () => CanManageOnlineResources,
             handlers.HandleUnexpectedError);
         BackupsCommand = Sync(
             handlers.ShowBackups,
@@ -275,7 +275,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         nameof(SwitchCnCommand),
         nameof(SwitchBilibiliCommand),
         nameof(CacheManagementCommand),
-        nameof(InitializeCacheCommand),
+        nameof(OnlineResourcesCommand),
         nameof(BackupsCommand),
         nameof(BackupDirectoryCommand),
         nameof(LogsCommand),
@@ -304,7 +304,7 @@ public sealed record MainWindowCommandHandlers(
     Func<Task> ChooseDirectory,
     Func<string, Task> Switch,
     Func<Task> CacheManagement,
-    Func<Task> InitializeCache,
+    Func<Task> ManageOnlineResources,
     Action ShowBackups,
     Func<Task> ManageBackupDirectory,
     Action OpenLogs,
