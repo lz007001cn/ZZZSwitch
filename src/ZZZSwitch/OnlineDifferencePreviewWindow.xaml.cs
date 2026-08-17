@@ -24,8 +24,7 @@ public partial class OnlineDifferencePreviewWindow : Window
         FileList.ItemsSource = preview.Files.Select(file => new PreviewRow(
             file.Path,
             file.Length.HasValue ? DisplayFormatting.FormatBytes(file.Length.Value) : "—",
-            file.State,
-            file.Integrity)).ToArray();
+            file.State)).ToArray();
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
@@ -49,5 +48,5 @@ public partial class OnlineDifferencePreviewWindow : Window
 
     private static string ShortId(string value) => value.Length <= 16 ? value : value[..16] + "…";
 
-    private sealed record PreviewRow(string Path, string Size, string State, string Integrity);
+    private sealed record PreviewRow(string Path, string Size, string State);
 }

@@ -179,8 +179,10 @@ internal static class Program
                 },
                 new FailingOnlineDifferenceService());
             Assert(Require<ProgressBar>(onlineDownload, "DownloadProgressBar").Maximum == 100 &&
-                   Require<TextBlock>(onlineDownload, "ScopeText").Text.Contains(".zzzswitch\\packages", StringComparison.Ordinal),
-                "在线差异下载窗口缺少进度或旧差异包禁用说明。");
+                   onlineDownload.FindName("ScopeText") is null &&
+                   Require<TextBlock>(onlineDownload, "IntegrityText").Text == "自动校验" &&
+                   Require<Grid>(onlineDownload, "DownloadRootGrid").RowDefinitions.Count == 4,
+                "在线差异下载窗口仍显示测试范围或技术校验名称。");
             Assert(onlineDownload.Title == string.Empty &&
                    OverlayShell(onlineDownload).Background is SolidColorBrush downloadBackground &&
                    downloadBackground.Color == Color.FromRgb(27, 27, 27) &&
@@ -365,8 +367,8 @@ internal static class Program
                    Require<TextBlock>(onlineManifestBrowser, "CategoryHeaderText").Text == "数据类型" &&
                    Require<TextBlock>(onlineManifestBrowser, "ChangeHeaderText").Text == "差异状态" &&
                    Require<TextBlock>(onlineManifestBrowser, "SizeHeaderText").Text == "大小" &&
-                   Require<TextBlock>(onlineManifestBrowser, "Md5HeaderText").Text == "MD5",
-                "Manifest 资源清单缺少路径、数据类型、差异状态、大小或 MD5 表头。");
+                   onlineManifestBrowser.FindName("Md5HeaderText") is null,
+                "Manifest 资源清单表头不完整或仍显示技术校验字段。");
             scopeCombo.SelectedIndex = 1;
             onlineManifestBrowser.UpdateLayout();
             Assert(Require<ListBox>(onlineManifestBrowser, "ResourceList").Items.Count == 1,
@@ -1034,6 +1036,7 @@ internal static class Program
         management.UpdateLayout();
         AssertWindowPalette(download, "HeadingText", "SummaryCard", Color.FromRgb(246, 246, 246),
             Color.FromRgb(28, 28, 28), Color.FromRgb(255, 255, 255), "浅色下载窗口");
+        AssertButtonPalette(download, Color.FromRgb(241, 241, 241), Color.FromRgb(28, 28, 28), "浅色下载按钮");
         AssertWindowPalette(management, "HeadingText", "SummaryCard", Color.FromRgb(246, 246, 246),
             Color.FromRgb(28, 28, 28), Color.FromRgb(255, 255, 255), "浅色管理窗口");
         AssertWindowPalette(preview, "HeadingText", "SummaryCard", Color.FromRgb(246, 246, 246),
@@ -1046,6 +1049,7 @@ internal static class Program
         management.UpdateLayout();
         AssertWindowPalette(download, "HeadingText", "SummaryCard", Color.FromRgb(27, 27, 27),
             Color.FromRgb(242, 242, 242), Color.FromRgb(34, 34, 34), "深色下载窗口");
+        AssertButtonPalette(download, Color.FromRgb(39, 39, 39), Color.FromRgb(242, 242, 242), "深色下载按钮");
         AssertWindowPalette(management, "HeadingText", "SummaryCard", Color.FromRgb(27, 27, 27),
             Color.FromRgb(242, 242, 242), Color.FromRgb(34, 34, 34), "深色管理窗口");
         AssertWindowPalette(preview, "HeadingText", "SummaryCard", Color.FromRgb(27, 27, 27),
@@ -1069,6 +1073,18 @@ internal static class Program
                Require<Border>(window, cardName).Background is SolidColorBrush cardBrush &&
                cardBrush.Color == expectedCard,
             $"{scenario}的窗口、标题或卡片颜色未同步切换。");
+    }
+
+    private static void AssertButtonPalette(
+        OnlineDifferenceDownloadWindow window,
+        Color expectedBackground,
+        Color expectedForeground,
+        string scenario)
+    {
+        var button = Require<Button>(window, "StartButton");
+        Assert(button.Background is SolidColorBrush background && background.Color == expectedBackground &&
+               button.Foreground is SolidColorBrush foreground && foreground.Color == expectedForeground,
+            $"{scenario}没有同步当前主题。");
     }
 
     private static void AssertOverlayWindow(Window window, string scenario)

@@ -83,7 +83,7 @@ public sealed class ProfileDetector
                 var actual = Convert.ToHexString(SHA256.HashData(stream));
                 if (!string.Equals(actual, signature.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
-                    mismatches.Add($"SHA-256 不符 {signature.Path}");
+                    mismatches.Add($"文件完整性不符 {signature.Path}");
                     continue;
                 }
             }

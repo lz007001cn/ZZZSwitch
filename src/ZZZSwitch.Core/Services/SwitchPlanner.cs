@@ -167,7 +167,7 @@ public sealed class SwitchPlanner
             BackupPath = Path.Combine(_paths.BackupsRoot, backupName),
             TargetSnapshot = targetSnapshot,
             HotUpdateTransition = hotUpdateTransition,
-            FileSourceDescription = "Sophon 在线差异缓存（已校验 MD5 与 SHA-256）",
+            FileSourceDescription = "Sophon 在线差异缓存（已通过完整性校验）",
             Issues = issues
         };
     }

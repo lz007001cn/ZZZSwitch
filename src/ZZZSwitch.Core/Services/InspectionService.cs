@@ -336,7 +336,7 @@ public sealed class InspectionService
             issues.Add(new(
                 IssueSeverity.Error,
                 "manifest.integrity.missing",
-                $"{manifest.SourceProfile} → {manifest.TargetProfile} 有 {missingIntegrity} 个文件缺少 length/sha256 完整性数据。"));
+                $"{manifest.SourceProfile} → {manifest.TargetProfile} 有 {missingIntegrity} 个文件缺少完整性数据。"));
         }
 
         var invalidIntegrity = manifest.ReplaceFiles.Count(x =>

@@ -33,14 +33,9 @@ public partial class OnlineDifferenceDownloadWindow : Window
             $"{DisplayFormatting.ShortProfileName(plan.SourceProfile)} → {DisplayFormatting.ShortProfileName(plan.TargetProfile)} · {plan.GameVersion}";
         FileCountText.Text = $"{plan.DownloadFiles.Count:N0} 个";
         DownloadSizeText.Text = FormatBytes(plan.DownloadBytes);
-        ScopeText.Text =
-            $"只下载自动分类为基础客户端、状态元数据及非 Blocks 基础资源的差异。" +
-            $"未纳入 StreamingAssets\\Blocks：{plan.ExcludedStreamingBlocksCount:N0} 个，{FormatBytes(plan.ExcludedStreamingBlocksBytes)}；" +
-            $"待观察项：{plan.ExcludedObservationCount:N0} 个；待人工复核删除：{plan.ExcludedDeletionReviewCount:N0} 个。" +
-            "不会读取或回退到 .zzzswitch\\packages。";
         StatusText.Text = "等待开始";
         CurrentFileText.Text = "开始后将下载到 ZZZSwitch 应用数据缓存，再交给事务切换。";
-        DetailText.Text = "已存在且 MD5 一致的文件会复用。";
+        DetailText.Text = "已完成的文件会在校验通过后复用。";
         PercentText.Text = "0%";
     }
 

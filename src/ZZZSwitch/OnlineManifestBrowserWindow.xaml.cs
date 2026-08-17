@@ -60,8 +60,7 @@ public partial class OnlineManifestBrowserWindow : Window
             file.Path,
             Category(file),
             Change(file.ChangeType),
-            DisplayFormatting.FormatBytes(file.Size),
-            file.Md5)).ToArray();
+            DisplayFormatting.FormatBytes(file.Size))).ToArray();
 
         var manifest = direction.Direction.TargetManifest;
         ManifestText.Text =
@@ -140,5 +139,5 @@ public partial class OnlineManifestBrowserWindow : Window
         public override string ToString() => Name;
     }
 
-    private sealed record ResourceRow(string Path, string Category, string Change, string Size, string Md5);
+    private sealed record ResourceRow(string Path, string Category, string Change, string Size);
 }

@@ -503,7 +503,7 @@ internal static class Program
         Equal(Path.GetFullPath(onlineRoot), Path.GetFullPath(plan.PackageDirectory));
         True(!Directory.Exists(GameStorageLayout.GetPackageRoot(fixture.Game, "3.0.0")),
             "在线计划不应创建或读取 .zzzswitch 差异包目录。");
-        Equal("Sophon 在线差异缓存（已校验 MD5 与 SHA-256）", plan.FileSourceDescription);
+        Equal("Sophon 在线差异缓存（已通过完整性校验）", plan.FileSourceDescription);
         True(plan.HotUpdateTransition is not null &&
              plan.Issues.Any(issue => issue.Code == "hot-cache.source.auto-capture"),
             "在线计划应在无手动初始化清单时自动准备保存当前服 Blocks。");
@@ -2065,7 +2065,7 @@ internal static class Program
         File.WriteAllText(target, "new");
 
         True(!backups.Rollback(plan.BackupPath, record, out var detail), "同长度损坏的备份不应被恢复。");
-        True(detail.Contains("SHA-256", StringComparison.Ordinal), "恢复失败原因应包含哈希校验信息。");
+        True(detail.Contains("完整性", StringComparison.Ordinal), "恢复失败原因应包含完整性校验信息。");
         Equal("new", File.ReadAllText(target));
         return Task.CompletedTask;
     }
@@ -2456,7 +2456,7 @@ internal static class Program
         True(report.Packages.Single(x => x.ProfileId == ProfileIds.Global).IsAvailable, "完整的国际服差异包应可用。");
         var cn = report.Packages.Single(x => x.ProfileId == ProfileIds.CnOfficial);
         True(!cn.IsAvailable, "同长度篡改的国服差异包应不可用。");
-        True(cn.Detail?.Contains("SHA-256", StringComparison.Ordinal) == true, "检查详情应说明哈希不匹配。");
+        True(cn.Detail?.Contains("完整性", StringComparison.Ordinal) == true, "检查详情应说明完整性不匹配。");
         return Task.CompletedTask;
     }
 

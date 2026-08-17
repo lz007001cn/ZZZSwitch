@@ -35,14 +35,14 @@ public sealed class FileIntegrityService
         {
             return new(
                 FileIntegrityStatus.MetadataMissing,
-                "清单缺少 length 或 sha256。");
+                "清单缺少文件长度或完整性数据。");
         }
 
         if (expectedLength.Value < 0 || !IsValidSha256(expectedSha256))
         {
             return new(
                 FileIntegrityStatus.MetadataInvalid,
-                "清单中的 length 或 sha256 格式无效。");
+                "清单中的文件长度或完整性数据格式无效。");
         }
 
         if (!_files.FileExists(path))
@@ -63,7 +63,7 @@ public sealed class FileIntegrityService
             var actualSha256 = ComputeSha256(path);
             if (!string.Equals(actualSha256, expectedSha256, StringComparison.OrdinalIgnoreCase))
             {
-                return new(FileIntegrityStatus.HashMismatch, "SHA-256 不匹配。");
+                return new(FileIntegrityStatus.HashMismatch, "文件完整性不匹配。");
             }
 
             return new(FileIntegrityStatus.Valid, "完整性校验通过。");

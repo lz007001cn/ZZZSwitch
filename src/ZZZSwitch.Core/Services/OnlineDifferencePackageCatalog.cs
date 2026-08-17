@@ -115,7 +115,7 @@ public sealed class OnlineDifferencePackageCatalog
                 .Select(file => new OnlineDifferencePreviewFile(
                     Path.GetRelativePath(content, file.FullName).Replace('/', '\\'),
                     file.Length,
-                    "未生成 SHA-256 清单",
+                    "清单未完成",
                     "未完成"))
                 .ToArray();
             return new OnlineDifferencePackagePreview
@@ -138,7 +138,7 @@ public sealed class OnlineDifferencePackageCatalog
             return new OnlineDifferencePreviewFile(
                 entry.Target,
                 entry.Length,
-                string.IsNullOrWhiteSpace(entry.Sha256) ? "无 SHA-256" : entry.Sha256,
+                string.IsNullOrWhiteSpace(entry.Sha256) ? "完整性数据缺失" : "已记录",
                 state);
         }).ToArray();
         return new OnlineDifferencePackagePreview
@@ -164,7 +164,7 @@ public sealed class OnlineDifferencePackageCatalog
         {
             if (!entry.Length.HasValue || string.IsNullOrWhiteSpace(entry.Sha256))
             {
-                throw new InvalidDataException($"差异包清单缺少长度或 SHA-256：{entry.Source}");
+                throw new InvalidDataException($"差异包清单缺少长度或完整性数据：{entry.Source}");
             }
 
             var path = SophonFileDownloader.ResolveUnderRoot(content, entry.Source);
@@ -177,7 +177,7 @@ public sealed class OnlineDifferencePackageCatalog
             var actual = Convert.ToHexString(SHA256.HashData(stream));
             if (!string.Equals(actual, entry.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException($"差异包文件 SHA-256 不匹配：{entry.Source}");
+                throw new InvalidDataException($"差异包文件完整性不匹配：{entry.Source}");
             }
         }
     }

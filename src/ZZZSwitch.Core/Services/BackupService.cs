@@ -70,7 +70,7 @@ public sealed class BackupService
             var destinationHash = ComputeSha256(destination);
             if (!string.Equals(sourceHash, destinationHash, StringComparison.OrdinalIgnoreCase))
             {
-                throw new IOException($"备份 SHA-256 校验失败：{relative}");
+                throw new IOException($"备份完整性校验失败：{relative}");
             }
 
             record.BackedUpFiles.Add(relative);
@@ -100,7 +100,7 @@ public sealed class BackupService
                 if (hasExpectedHash &&
                     !string.Equals(ComputeSha256(source), expectedHash, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new InvalidDataException("备份文件 SHA-256 校验失败，拒绝恢复。");
+                    throw new InvalidDataException("备份文件完整性校验失败，拒绝恢复。");
                 }
 
                 var parent = Path.GetDirectoryName(destination);
@@ -118,7 +118,7 @@ public sealed class BackupService
                 if (hasExpectedHash &&
                     !string.Equals(ComputeSha256(destination), expectedHash, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new IOException("恢复后 SHA-256 校验失败。");
+                    throw new IOException("恢复后完整性校验失败。");
                 }
             }
             catch (Exception ex)

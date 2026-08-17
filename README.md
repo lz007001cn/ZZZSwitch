@@ -30,7 +30,7 @@ Starting with **v1.3.0**, Global ↔ CN Official switching no longer depends on 
 
 ## Usage
 
-1. Download `ZZZSwitch-win-x64-v1.3.0.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
+1. Download `ZZZSwitch-win-x64-v1.3.1.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
 
 2. Let ZZZSwitch detect the game directory, or choose the installation manually.
 

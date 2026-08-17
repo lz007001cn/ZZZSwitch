@@ -93,7 +93,6 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="95" />
                                 <ColumnDefinition Width="90" />
-                                <ColumnDefinition Width="220" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="{Binding Path}"
                                        TextTrimming="CharacterEllipsis"
@@ -105,12 +104,6 @@
                             <TextBlock Grid.Column="2"
                                        Text="{Binding State}"
                                        Margin="12,0,0,0" />
-                            <TextBlock Grid.Column="3"
-                                       Text="{Binding Integrity}"
-                                       Margin="12,0,0,0"
-                                       TextTrimming="CharacterEllipsis"
-                                       ToolTip="{Binding Integrity}"
-                                       Foreground="{DynamicResource MutedTextBrush}" />
                         </Grid>
                     </Border>
                 </DataTemplate>

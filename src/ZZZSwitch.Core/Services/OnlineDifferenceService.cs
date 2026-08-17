@@ -263,7 +263,7 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
                 Sha256 = file.Sha256
             }).ToList(),
             DeleteFiles = plan.DeleteFiles.Select(path => new DeleteFileEntry { Target = path }).ToList(),
-            Notes = "测试版在线差异源：由 Sophon 清单自动分类、下载并完成 MD5/SHA-256 校验；未使用 .zzzswitch\\packages。"
+            Notes = "Sophon 在线差异源：已完成完整性校验；未使用 .zzzswitch\\packages。"
         };
         await WriteManifestAsync(workspace, manifest, cancellationToken).ConfigureAwait(false);
         return new OnlineDifferenceMaterialization
@@ -430,7 +430,7 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
         ProfileIds.Global => SophonRegion.OS,
         ProfileIds.CnOfficial => SophonRegion.CN,
         ProfileIds.Bilibili => throw new NotSupportedException(
-            "测试版尚未识别 B 服独立 Sophon 清单，已阻止切换；不会回退到已有差异包。"),
+            "尚未提供 B 服独立 Sophon 清单，已阻止在线切换；不会回退到已有差异包。"),
         _ => throw new NotSupportedException($"不支持的服务器配置：{profile}")
     };
 

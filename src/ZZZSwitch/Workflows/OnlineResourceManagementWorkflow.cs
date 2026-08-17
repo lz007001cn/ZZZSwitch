@@ -174,14 +174,14 @@ public sealed class OnlineResourceManagementWorkflow
         }
 
         using var operation = lease!;
-        _context.SetBusy(true, "正在校验客户端差异包 SHA-256…");
+        _context.SetBusy(true, "正在校验客户端差异包…");
         try
         {
             await Task.Run(() => _catalog.VerifyPackage(package));
             _dialogs.Show(
                 "客户端差异包校验通过",
                 $"{package.GameVersion} {DisplayFormatting.ShortProfileName(package.TargetProfile)}差异包的 " +
-                $"{package.FileCount:N0} 个文件均通过长度与 SHA-256 校验。",
+                $"{package.FileCount:N0} 个文件均通过完整性校验。",
                 MessageTone.Success);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)

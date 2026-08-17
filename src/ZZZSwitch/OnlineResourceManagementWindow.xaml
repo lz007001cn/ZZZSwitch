@@ -95,7 +95,7 @@
                     Click="Verify_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Margin="0,0,8,0"
-                    ToolTip="按差异包清单重新计算所有文件的 SHA-256" />
+                    ToolTip="按差异包清单重新校验所有文件" />
             <Button x:Name="UpdatePackageButton"
                     Content="更新差异包"
                     Width="116"

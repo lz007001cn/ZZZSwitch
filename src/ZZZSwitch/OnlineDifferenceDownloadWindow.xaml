@@ -12,9 +12,8 @@
         Icon="Assets/ZZZSwitch-Icon.png"
         Foreground="{DynamicResource TextBrush}"
         FontFamily="Segoe UI, Microsoft YaHei UI">
-    <Grid Margin="24">
+    <Grid x:Name="DownloadRootGrid" Margin="24">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -51,30 +50,16 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="完整性" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
-                    <TextBlock Text="MD5 + SHA-256" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock x:Name="IntegrityText"
+                               Text="自动校验"
+                               Margin="0,6,0,0"
+                               FontSize="18"
+                               FontWeight="SemiBold" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <Border Grid.Row="2"
-                Margin="0,10,0,0"
-                Padding="14,12"
-                CornerRadius="8"
-                Background="{DynamicResource WarningSurfaceBrush}"
-                BorderBrush="{DynamicResource WarningSurfaceBorderBrush}"
-                BorderThickness="1">
-            <StackPanel>
-                <TextBlock Text="本次测试范围" FontWeight="SemiBold" Foreground="{DynamicResource WarningSurfaceTextBrush}" />
-                <TextBlock x:Name="ScopeText"
-                           Margin="0,5,0,0"
-                           FontSize="12"
-                           LineHeight="19"
-                           Foreground="{DynamicResource WarningSurfaceTextBrush}"
-                           TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
-
-        <Border Grid.Row="3" Style="{StaticResource CardStyle}" Margin="0,10,0,0">
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Margin="0,10,0,0">
             <StackPanel>
                 <DockPanel LastChildFill="True">
                     <TextBlock x:Name="PercentText"
@@ -107,7 +92,7 @@
             </StackPanel>
         </Border>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
             <Button x:Name="CancelButton"
                     Content="取消"
                     Width="92"
@@ -119,7 +104,7 @@
                     Width="112"
                     IsDefault="True"
                     Click="Start_Click"
-                    Style="{StaticResource PrimaryButtonStyle}" />
+                    Style="{StaticResource SecondaryButtonStyle}" />
         </StackPanel>
     </Grid>
 </Window>

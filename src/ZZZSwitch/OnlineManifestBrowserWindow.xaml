@@ -100,7 +100,6 @@
                         <ColumnDefinition Width="110" />
                         <ColumnDefinition Width="70" />
                         <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="220" />
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="PathHeaderText"
                                Text="路径"
@@ -121,12 +120,6 @@
                     <TextBlock Grid.Column="3"
                                x:Name="SizeHeaderText"
                                Text="大小"
-                               Margin="12,0,0,0"
-                               FontSize="10"
-                               Foreground="{DynamicResource MutedTextBrush}" />
-                    <TextBlock Grid.Column="4"
-                               x:Name="Md5HeaderText"
-                               Text="MD5"
                                Margin="12,0,0,0"
                                FontSize="10"
                                Foreground="{DynamicResource MutedTextBrush}" />
@@ -161,7 +154,6 @@
                                     <ColumnDefinition Width="110" />
                                     <ColumnDefinition Width="70" />
                                     <ColumnDefinition Width="90" />
-                                    <ColumnDefinition Width="220" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="{Binding Path}"
                                            TextTrimming="CharacterEllipsis"
@@ -176,12 +168,6 @@
                                 <TextBlock Grid.Column="3"
                                            Text="{Binding Size}"
                                            Margin="12,0,0,0"
-                                           Foreground="{DynamicResource MutedTextBrush}" />
-                                <TextBlock Grid.Column="4"
-                                           Text="{Binding Md5}"
-                                           Margin="12,0,0,0"
-                                           TextTrimming="CharacterEllipsis"
-                                           ToolTip="{Binding Md5}"
                                            Foreground="{DynamicResource MutedTextBrush}" />
                             </Grid>
                         </Border>
