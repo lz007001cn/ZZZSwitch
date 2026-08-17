@@ -1,45 +1,80 @@
 # ZZZSwitch
 
-ZZZSwitch is a Windows multi-region switcher for **Zenless Zone Zero**. The current test build obtains Global ↔ CN Official client differences from Sophon when the user starts a switch; those two regions do not require a bundled local replacement package. Bilibili directions keep the legacy local-package workflow.
+ZZZSwitch is a Windows server switcher for **Zenless Zone Zero**, supporting **Global**, **CN Official**, and **Bilibili** clients.
 
-It can automatically detect the game installation directory and provides **verified online difference downloads, automatic current-region cache preservation**, and transactional switching between supported regions.
+Starting with **v1.3.0**, Global ↔ CN Official switching no longer depends on a separately distributed replacement package. ZZZSwitch reads the official Sophon manifests for the installed game version, calculates the required client differences, downloads and verifies the real files, and saves the completed result as a reusable local version package. Bilibili switching remains a CN-based channel overlay and continues to use the matching legacy local package.
 
 ![ZZZSwitch main window](docs/images/zzzswitch-main-window.png)
 
-> [!NOTE]
-> The current runnable **test build** changes Global ↔ CN Official switching to an online Sophon workflow. The first download uses resumable, bounded-parallel chunk transfers and creates a versioned local automatic package; later switches within that version use the ready package without reopening the download workflow. The home page and Version Resources window show saved targets and disk usage. Every switch still verifies SHA-256 and uses the existing transactional backup/rollback engine. Global ↔ CN Official never reads or falls back to `.zzzswitch\packages`; any direction involving Bilibili deliberately keeps the legacy local-package workflow and is not shown in Sophon Manifest management. See [the test workflow and scope](docs/manifest-analysis.md#主程序测试版在线切换).
+## Highlights
 
----
+- Automatically detects the Zenless Zone Zero installation or lets you select it manually.
+- Retrieves Global and CN Official Sophon manifests for the exact installed game version.
+- Builds versioned Global ↔ CN Official client-difference packages on demand.
+- Resumes verified file and chunk downloads after cancellation or network failure.
+- Reuses a completed package for later switches in the same version and direction.
+- Preserves each server's hot-update cache automatically before switching.
+- Supports Bilibili as a separate login/channel overlay while sharing CN resource caches.
+- Verifies switch files with MD5 and SHA-256 before applying them.
+- Uses transactional backups, rollback journals, process checks, and path-safety validation.
+- Provides package management, Manifest browsing, previews, updates, integrity checks, cache management, and backup history.
+
+## Requirements
+
+- Windows x64.
+- An installed PC version of Zenless Zone Zero.
+- Internet access for the first Global ↔ CN Official package download for each game version and direction.
+- A version-matched legacy local package for any switch involving Bilibili. Bilibili resources are not obtained through Sophon in v1.3.0.
 
 ## Usage
 
-1. Download and run the ZZZSwitch test build. Global ↔ CN Official needs no separate package; Bilibili switching requires the matching legacy package under the game's `.zzzswitch\packages` directory.
+1. Download `ZZZSwitch-win-x64-v1.3.0.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
 
-2. Let the program detect the game installation directory, or select it manually.
+2. Let ZZZSwitch detect the game directory, or choose the installation manually.
 
-3. Choose Global or CN Official. ZZZSwitch analyzes the current-version manifests and shows the files and maximum download size.
+3. Completely close both the game and HoYoPlay before starting a switch.
 
-4. Confirm the download. Completed files are verified and cached; cancellation never falls back to an old local package.
+4. Select the target server:
 
-5. Confirm the switch. Before changing client files, ZZZSwitch automatically saves the current region's `Persistent\Blocks` and version/revision state inside the existing rollback transaction.
+   - **Global ↔ CN Official:** if a ready package for the detected game version and direction already exists, ZZZSwitch verifies and reuses it. Otherwise it downloads the two Sophon manifests, calculates the client differences, and opens the download window.
+   - **Bilibili:** ZZZSwitch uses the matching legacy package under the game's `.zzzswitch\packages\<game-version>` directory. Bilibili is intentionally excluded from Manifest download and browsing.
 
-   > The first switch may require downloading approximately **3–10 GB** of additional game resources.
+5. For a first-time Global/CN download, review the file count and maximum download size, then start the download. Verified complete files and chunks are retained, so retrying does not restart from zero.
 
-6. Launch the game and make sure you can successfully enter the target region.
+6. Review the switch summary and confirm. ZZZSwitch automatically backs up the current client state and saves the source server's hot-update cache before changing files.
 
-7. Close both the game and launcher before switching again. No manual cache-initialization button is required.
+7. Start the game and complete any target-server resource download. The first entry into a new server may still require approximately **3–10 GB** of in-game resources.
 
----
+8. Before switching again, close the game and launcher. No manual “Initialize Current Region Cache” step is required; the current server cache is saved automatically during the next switch.
 
-## Notes
+## Packages, Manifests, and caches
+
+Open **Manage packages** from the main window to:
+
+- view saved packages by game version and target server;
+- download or refresh the current Global/CN Manifests;
+- browse all resources, story/video files, audio, Streaming Blocks, state metadata, or client differences;
+- preview and verify a completed difference package;
+- update a package while reusing existing verified files and chunks;
+- open or remove selected local package data.
+
+Manifest metadata and automatic Global/CN packages are stored under `%LOCALAPPDATA%\ZZZSwitch`. Large server-specific Blocks caches remain independent from client-difference packages and can be moved or cleaned through **Cache management**.
+
+Packages and caches are isolated by game installation and game version. After a game update, ZZZSwitch requests the new version's Manifests and creates new package/cache records instead of applying an older version's files. Previous versions remain available for manual cleanup.
+
+## Safety notes
 
 > [!IMPORTANT]
-> Make sure both the **game and launcher processes are completely closed** before downloading for a switch or applying it.
+> Do not switch while Zenless Zone Zero or its launcher is running. Keep the game and HoYoPlay closed until ZZZSwitch reports that the operation has completed.
 
-- The online manifest and downloaded files must match the detected game version.
-- The first switch to a new region may require downloading additional resources.
-- After a game update, ZZZSwitch creates a new version-scoped online cache and saves the current region automatically.
+- ZZZSwitch will not apply a package whose game version, file count, size, MD5, or SHA-256 validation fails.
+- Global/CN online switching never falls back to an old `.zzzswitch\packages` replacement package.
+- `Persistent\Blocks` is managed as a server cache; `Persistent\Video` is not moved, copied, verified, or deleted.
+- File replacement, Blocks exchange, state updates, and backups participate in the same recoverable transaction.
+- If an operation is interrupted, startup recovery uses the saved transaction journals and rollback backup.
 
-## Developer tools
+## Developer documentation
 
-- [Sophon Manifest retrieval and cross-region diff test tool](docs/manifest-analysis.md)
+- [Sophon Manifest retrieval, classification, download, and cross-region diff](docs/manifest-analysis.md)
+- [Architecture and transaction design](docs/design.md)
+- [Automated test coverage](docs/testing.md)
