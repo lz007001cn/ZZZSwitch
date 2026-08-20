@@ -8,6 +8,8 @@ ZZZSwitch 是一款适用于 Windows 的《绝区零》服务器切换工具，�
 
 ![ZZZSwitch 主界面](docs/images/zzzswitch-main-window.png)
 
+![ZZZSwitch 精简界面](docs/images/zzzswitch-compact-window.png)
+
 ## 主要功能
 
 - 自动检测《绝区零》安装目录，也可以手动选择。
@@ -51,8 +53,6 @@ ZZZSwitch 是一款适用于 Windows 的《绝区零》服务器切换工具，�
 7. 切换完成后启动游戏，并完成目标服务器可能要求的资源下载。首次进入其他服务器仍可能需要在游戏内下载约 **3–10 GB** 资源。
 
 8. 默认关闭窗口后程序隐藏到系统托盘。左键单击一次托盘图标即可重新打开已配置的窗口，也可以使用右键菜单；如需直接退出，可在设置中启用“关闭时退出程序”。
-
-![ZZZSwitch 精简界面](docs/images/zzzswitch-compact-window.png)
 
 ## 差异包、Manifest 与缓存
 

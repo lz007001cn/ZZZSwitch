@@ -8,6 +8,8 @@ Global ↔ CN Official switching uses the official Sophon manifests for the inst
 
 ![ZZZSwitch main window](docs/images/zzzswitch-main-window.png)
 
+![ZZZSwitch compact window](docs/images/zzzswitch-compact-window.png)
+
 ## Highlights
 
 - Detects the game installation automatically or accepts a manually selected directory.
@@ -51,8 +53,6 @@ Global ↔ CN Official switching uses the official Sophon manifests for the inst
 7. After switching, start the game and complete any target-server resource download. The first entry into another server may still require approximately **3–10 GB** of in-game resources.
 
 8. Closing the application hides it in the system tray by default. Left-click the tray icon once to reopen the configured window, or use the right-click menu. Enable **Exit when closing a window** in Settings if preferred.
-
-![ZZZSwitch compact window](docs/images/zzzswitch-compact-window.png)
 
 ## Packages, Manifests, and caches
 
