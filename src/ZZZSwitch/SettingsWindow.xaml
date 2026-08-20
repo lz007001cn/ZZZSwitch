@@ -156,6 +156,19 @@
                                       Content="{DynamicResource L.Settings.ShowLastGame}"
                                       Margin="0,0,0,8" />
                         </WrapPanel>
+                        <WrapPanel Margin="0,4,0,0">
+                            <CheckBox x:Name="StartCompactCheckBox"
+                                      Content="{DynamicResource L.Settings.StartCompact}"
+                                      Margin="0,0,22,8" />
+                            <CheckBox x:Name="ExitOnCloseCheckBox"
+                                      Content="{DynamicResource L.Settings.ExitOnClose}"
+                                      Margin="0,0,22,8" />
+                            <Button x:Name="RunOnboardingButton"
+                                    Content="{DynamicResource L.Settings.RunOnboarding}"
+                                    Click="RunOnboarding_Click"
+                                    Style="{StaticResource SettingsButtonStyle}"
+                                    Margin="0,0,0,8" />
+                        </WrapPanel>
                     </StackPanel>
                 </Border>
 

@@ -31,7 +31,7 @@ public sealed class ServerSwitchWorkflow
         _context = context;
     }
 
-    public async Task RunAsync(string targetProfile)
+    public async Task RunAsync(string targetProfile, bool useCompactExperience = false)
     {
         if (_context.IsBusy() || !_operations.TryBegin(out var lease))
         {
@@ -167,7 +167,7 @@ public sealed class ServerSwitchWorkflow
             return;
         }
 
-        if (!_dialogs.ConfirmSwitch(new SwitchConfirmationRequest(
+        if (UsesModalSwitchFlow(useCompactExperience) && !_dialogs.ConfirmSwitch(new SwitchConfirmationRequest(
                 sourceProfile,
                 DisplayFormatting.ShortProfileName(sourceProfile),
                 targetProfile,
@@ -182,23 +182,27 @@ public sealed class ServerSwitchWorkflow
 
         _context.SetBusy(true, "准备执行切换…");
         var progress = new Progress<OperationProgress>(_context.ShowOperationProgress);
+        OperationResult? result = null;
         try
         {
-            var result = await _engine.ExecuteAsync(plan, progress);
-            _dialogs.Show(
-                result.Success
-                    ? T("切换完成", "Switch complete")
-                    : T("切换失败", "Switch failed"),
-                result.Success
-                    ? T(
-                        $"服务器资源已切换完成。\n\n替换 {result.SuccessfulReplace}/{result.PlannedReplace} 个文件\n删除 {result.SuccessfulDelete}/{result.PlannedDelete} 个文件\n缓存恢复 {result.SuccessfulCacheRestore}/{result.PlannedCacheRestore}\n\n回滚备份：{result.BackupPath}" +
-                        BilibiliLaunchHint(targetProfile, plan.GamePath, english: false),
-                        $"Server resources were switched successfully.\n\nReplaced {result.SuccessfulReplace}/{result.PlannedReplace} files\nDeleted {result.SuccessfulDelete}/{result.PlannedDelete} files\nRestored {result.SuccessfulCacheRestore}/{result.PlannedCacheRestore} cache files\n\nRollback backup: {result.BackupPath}" +
-                        BilibiliLaunchHint(targetProfile, plan.GamePath, english: true))
-                    : T(
-                        $"切换未能完成。\n\n{result.Error}\n\n自动回滚：{(result.RolledBack ? "成功" : "未完成或无需")}",
-                        $"The switch could not be completed.\n\n{result.Error}\n\nAutomatic rollback: {(result.RolledBack ? "successful" : "not completed or not required")}"),
-                result.Success ? MessageTone.Success : MessageTone.Error);
+            result = await _engine.ExecuteAsync(plan, progress);
+            if (UsesModalSwitchFlow(useCompactExperience))
+            {
+                _dialogs.Show(
+                    result.Success
+                        ? T("切换完成", "Switch complete")
+                        : T("切换失败", "Switch failed"),
+                    result.Success
+                        ? T(
+                            $"服务器资源已切换完成。\n\n替换 {result.SuccessfulReplace}/{result.PlannedReplace} 个文件\n删除 {result.SuccessfulDelete}/{result.PlannedDelete} 个文件\n缓存恢复 {result.SuccessfulCacheRestore}/{result.PlannedCacheRestore}\n\n回滚备份：{result.BackupPath}" +
+                            BilibiliLaunchHint(targetProfile, plan.GamePath, english: false),
+                            $"Server resources were switched successfully.\n\nReplaced {result.SuccessfulReplace}/{result.PlannedReplace} files\nDeleted {result.SuccessfulDelete}/{result.PlannedDelete} files\nRestored {result.SuccessfulCacheRestore}/{result.PlannedCacheRestore} cache files\n\nRollback backup: {result.BackupPath}" +
+                            BilibiliLaunchHint(targetProfile, plan.GamePath, english: true))
+                        : T(
+                            $"切换未能完成。\n\n{result.Error}\n\n自动回滚：{(result.RolledBack ? "成功" : "未完成或无需")}",
+                            $"The switch could not be completed.\n\n{result.Error}\n\nAutomatic rollback: {(result.RolledBack ? "successful" : "not completed or not required")}"),
+                    result.Success ? MessageTone.Success : MessageTone.Error);
+            }
         }
         finally
         {
@@ -206,11 +210,25 @@ public sealed class ServerSwitchWorkflow
             await _context.RefreshInspectionWhileBusy();
             _context.SetBusy(false, "操作结束");
         }
+
+        if (useCompactExperience && result is not null)
+        {
+            _context.ShowInlineSwitchResult(
+                result.Success
+                    ? $"切换完成：替换 {result.SuccessfulReplace}，删除 {result.SuccessfulDelete}"
+                    : $"切换失败：{result.Error}",
+                result.Success
+                    ? $"Switch complete: {result.SuccessfulReplace} replaced, {result.SuccessfulDelete} deleted"
+                    : $"Switch failed: {result.Error}",
+                result.Success);
+        }
     }
 
     private static bool UsesLegacyBilibiliPackage(string sourceProfile, string targetProfile) =>
         string.Equals(sourceProfile, ProfileIds.Bilibili, StringComparison.OrdinalIgnoreCase) ||
         string.Equals(targetProfile, ProfileIds.Bilibili, StringComparison.OrdinalIgnoreCase);
+
+    private static bool UsesModalSwitchFlow(bool useCompactExperience) => !useCompactExperience;
 
     private string T(string chinese, string english) => _context.Localize(chinese, english);
 

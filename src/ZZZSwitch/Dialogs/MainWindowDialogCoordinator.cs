@@ -51,9 +51,9 @@ public interface IMainWindowDialogs
 
 public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
 {
-    private readonly Window _owner;
+    private readonly Window _fallbackOwner;
 
-    public MainWindowDialogCoordinator(Window owner) => _owner = owner;
+    public MainWindowDialogCoordinator(Window owner) => _fallbackOwner = owner;
 
     public bool? Show(
         string title,
@@ -63,7 +63,7 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
         string primaryText = "知道了",
         MediaBrush? accentBrush = null) =>
         ThemedMessageWindow.Show(
-            _owner,
+            ResolveOwner(),
             title,
             message,
             tone,
@@ -84,7 +84,7 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
             return candidates[0];
         }
 
-        var dialog = new GameDirectorySelectionWindow(candidates) { Owner = _owner };
+        var dialog = new GameDirectorySelectionWindow(candidates) { Owner = ResolveOwner() };
         return dialog.ShowDialog() == true ? dialog.SelectedCandidate : null;
     }
 
@@ -122,19 +122,19 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
             CheckFileExists = true,
             Multiselect = false
         };
-        return dialog.ShowDialog(_owner) == true ? dialog.FileName : null;
+        return dialog.ShowDialog(ResolveOwner()) == true ? dialog.FileName : null;
     }
 
     public async Task<CacheManagementAction> SelectCacheManagementActionAsync(CacheUsageSummary usage)
     {
-        var dialog = new CacheManagementWindow(usage) { Owner = _owner };
+        var dialog = new CacheManagementWindow(usage) { Owner = ResolveOwner() };
         await ModelessWindowPresenter.ShowAsync(dialog);
         return dialog.SelectedAction;
     }
 
     public async Task<BackupLocationAction> SelectBackupLocationActionAsync(BackupLocationUsage usage)
     {
-        var dialog = new BackupLocationWindow(usage) { Owner = _owner };
+        var dialog = new BackupLocationWindow(usage) { Owner = ResolveOwner() };
         await ModelessWindowPresenter.ShowAsync(dialog);
         return dialog.SelectedAction;
     }
@@ -151,7 +151,7 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
             request.DeleteCount,
             request.BackupPath)
         {
-            Owner = _owner
+            Owner = ResolveOwner()
         };
         return dialog.ShowDialog() == true;
     }
@@ -160,25 +160,25 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
         OnlineDifferenceInventory inventory,
         string? currentGameVersion)
     {
-        var dialog = new OnlineResourceManagementWindow(inventory, currentGameVersion) { Owner = _owner };
+        var dialog = new OnlineResourceManagementWindow(inventory, currentGameVersion) { Owner = ResolveOwner() };
         await ModelessWindowPresenter.ShowAsync(dialog);
         return dialog.Selection;
     }
 
     public Task ShowOnlineDifferencePreviewAsync(OnlineDifferencePackagePreview preview) =>
         ModelessWindowPresenter.ShowAsync(
-            new OnlineDifferencePreviewWindow(preview) { Owner = _owner });
+            new OnlineDifferencePreviewWindow(preview) { Owner = ResolveOwner() });
 
     public Task ShowManifestBrowserAsync(OnlineManifestBrowserData data) =>
         ModelessWindowPresenter.ShowAsync(
-            new OnlineManifestBrowserWindow(data) { Owner = _owner });
+            new OnlineManifestBrowserWindow(data) { Owner = ResolveOwner() });
 
     public OnlineDifferenceMaterialization? DownloadOnlineDifference(
         OnlineDifferencePlan plan,
         IOnlineDifferenceService service,
         bool continueToSwitch = true)
     {
-        var dialog = new OnlineDifferenceDownloadWindow(plan, service, continueToSwitch) { Owner = _owner };
+        var dialog = new OnlineDifferenceDownloadWindow(plan, service, continueToSwitch) { Owner = ResolveOwner() };
         return dialog.ShowDialog() == true ? dialog.Result : null;
     }
 
@@ -190,6 +190,17 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
         string gamePath) =>
         new BackupWindow(backups, restore, safetyPolicy, operations, gamePath)
         {
-            Owner = _owner
+            Owner = ResolveOwner()
         }.Show();
+
+    private Window ResolveOwner()
+    {
+        var visibleWindows = System.Windows.Application.Current?.Windows
+            .OfType<Window>()
+            .Where(window => window.IsVisible)
+            .ToArray() ?? [];
+        return visibleWindows.FirstOrDefault(window => window.IsActive)
+               ?? visibleWindows.FirstOrDefault()
+               ?? _fallbackOwner;
+    }
 }

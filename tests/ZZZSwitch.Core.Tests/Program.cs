@@ -1893,10 +1893,16 @@ internal static class Program
     {
         using var fixture = new TempFixture();
         var service = new UiSettingsService(fixture.Paths);
+        var defaults = service.Load();
+        True(!defaults.OnboardingCompleted && !defaults.StartInCompactMode && !defaults.ExitOnClose,
+            "首次启动应进入引导，且默认使用完整窗口并关闭到托盘。");
         service.Save(new UiSettings
         {
             Theme = ThemePreference.Dark,
             Language = AppLanguage.English,
+            OnboardingCompleted = true,
+            StartInCompactMode = true,
+            ExitOnClose = true,
             AutoDetectGameDirectory = true,
             AutoInspectOnStartup = false,
             ShowLastGameDirectory = false,
@@ -1915,7 +1921,8 @@ internal static class Program
         Equal(AppLanguage.English, loaded.Language);
         True(loaded.AutoDetectGameDirectory && !loaded.AutoInspectOnStartup &&
              !loaded.ShowLastGameDirectory && loaded.RememberWindowPlacement &&
-             loaded.ShowDetailedStatus && loaded.WindowMaximized,
+             loaded.ShowDetailedStatus && loaded.WindowMaximized &&
+             loaded.OnboardingCompleted && loaded.StartInCompactMode && loaded.ExitOnClose,
             "界面与启动布尔设置未完整持久化。");
         Equal(30, loaded.LogRetentionDays);
         Equal(1100d, loaded.WindowWidth);

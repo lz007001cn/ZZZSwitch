@@ -4,77 +4,74 @@ English | [简体中文](README.zh-CN.md)
 
 ZZZSwitch is a Windows server switcher for **Zenless Zone Zero**, supporting **Global**, **CN Official**, and **Bilibili** clients.
 
-Starting with **v1.3.0**, Global ↔ CN Official switching no longer depends on a separately distributed replacement package. ZZZSwitch reads the official Sophon manifests for the installed game version, calculates the required client differences, downloads and verifies the real files, and saves the completed result as a reusable local version package. Bilibili switching remains a CN-based channel overlay and continues to use the matching legacy local package.
+Global ↔ CN Official switching uses the official Sophon manifests for the installed game version. ZZZSwitch reuses files already available in the current client, downloads only missing target files, and preserves the source-region differences before replacement so the reverse switch can reuse local data instead of downloading the original client again. Bilibili remains a CN-based channel overlay and uses a version-matched local package.
 
 ![ZZZSwitch main window](docs/images/zzzswitch-main-window.png)
 
 ## Highlights
 
-- Automatically detects the Zenless Zone Zero installation or lets you select it manually.
-- Retrieves Global and CN Official Sophon manifests for the exact installed game version.
-- Builds versioned Global ↔ CN Official client-difference packages on demand.
-- Reuses local files that match the target manifest and preserves source-region differences before they are overwritten, allowing the reverse switch to avoid downloading the original client files again.
-- Resumes verified file and chunk downloads after cancellation or network failure.
-- Reuses a completed package for later switches in the same version and direction.
+- Detects the game installation automatically or accepts a manually selected directory.
+- Supports Chinese and English, light and dark themes, and a first-run setup guide.
+- Provides a full window for status, package, cache, backup, and settings management.
+- Provides a compact window with three server buttons, current-server highlighting, and inline switch progress.
+- Runs in the system tray by default. A single left click restores the configured window; the right-click menu opens the full window, compact window, or exits.
+- Lets you choose whether closing a window hides the application to the tray or exits it.
+- Retrieves and browses Global/CN Sophon manifests for the exact installed game version.
+- Reuses verified local files and completed version packages, including resumable file and chunk downloads.
 - Preserves each server's hot-update cache automatically before switching.
-- Supports Bilibili as a separate login/channel overlay while sharing CN resource caches.
-- Verifies switch files with MD5 and SHA-256 before applying them.
-- Uses transactional backups, rollback journals, process checks, and path-safety validation.
-- Provides package management, Manifest browsing, previews, updates, integrity checks, cache management, and backup history.
+- Supports custom cache and backup locations, old-version cache cleanup, startup behavior, and log retention.
+- Uses MD5/SHA-256 verification, transactional backups, rollback journals, process checks, and path-safety validation.
 
 ## Requirements
 
 - Windows x64.
 - An installed PC version of Zenless Zone Zero.
-- Internet access to retrieve both manifests and any target files not already available locally for the first Global ↔ CN Official switch of a game version.
-- A version-matched legacy local package for any switch involving Bilibili. Bilibili resources are not obtained through Sophon in v1.3.0.
+- Internet access for Global ↔ CN Official manifests and any target files not already available locally.
+- A version-matched legacy local package for any switch involving Bilibili. Bilibili resources are not obtained through Sophon.
 
 ## Usage
 
-1. Download `ZZZSwitch-win-x64-v1.3.1.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
+1. Download `ZZZSwitch-win-x64-v1.3.2.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
 
-2. Let ZZZSwitch detect the game directory, or choose the installation manually.
+2. On first launch, complete the setup guide:
+   - choose Chinese or English and the interface theme;
+   - detect or select the Zenless Zone Zero game directory;
+   - choose the startup window and close behavior.
 
-3. Completely close both the game and HoYoPlay before starting a switch.
+3. Completely close Zenless Zone Zero and HoYoPlay before switching.
 
 4. Select the target server:
+   - **Global ↔ CN Official:** ZZZSwitch checks both directions, reads the matching manifests when needed, preserves reusable source files, and downloads only missing target files.
+   - **Bilibili:** ZZZSwitch uses the matching package under `.zzzswitch\packages\<game-version>` and shares CN Blocks resources while retaining a separate channel identity.
 
-   - **Global ↔ CN Official:** ZZZSwitch checks both the target and reverse packages. If either is missing, it retrieves both Sophon manifests, preserves verified files from the installed source client, and downloads only target files that are not already available locally.
-   - **Bilibili:** ZZZSwitch uses the matching legacy package under the game's `.zzzswitch\packages\<game-version>` directory. Bilibili is intentionally excluded from Manifest download and browsing.
+5. In the full window, review and confirm the switch summary. In the compact window, selecting a server starts the switch directly and reports progress in the lower-left corner without extra confirmation or completion dialogs.
 
-5. For a first-time Global/CN download, review the file count and maximum download size, then start the download. Verified complete files and chunks are retained, so retrying does not restart from zero.
+6. ZZZSwitch backs up affected files and saves the source server's hot-update cache before applying changes. Verified downloads and chunks are retained after cancellation or network failure, so retrying does not restart from zero.
 
-6. Review the switch summary and confirm. ZZZSwitch automatically backs up the current client state and saves the source server's hot-update cache before changing files.
+7. After switching, start the game and complete any target-server resource download. The first entry into another server may still require approximately **3–10 GB** of in-game resources.
 
-7. Start the game and complete any target-server resource download. The first entry into a new server may still require approximately **3–10 GB** of in-game resources.
+8. Closing the application hides it in the system tray by default. Left-click the tray icon once to reopen the configured window, or use the right-click menu. Enable **Exit when closing a window** in Settings if preferred.
 
-8. Before switching again, close the game and launcher. No manual “Initialize Current Region Cache” step is required; the current server cache is saved automatically during the next switch.
+![ZZZSwitch compact window](docs/images/zzzswitch-compact-window.png)
 
 ## Packages, Manifests, and caches
 
-Open **Manage packages** from the main window to:
+Open **Manage packages** to view saved versions, update or browse manifests, preview and verify completed packages, resume package updates, and remove selected local data.
 
-- view saved packages by game version and target server;
-- download or refresh the current Global/CN Manifests;
-- browse all resources, story/video files, audio, Streaming Blocks, state metadata, or client differences;
-- preview and verify a completed difference package;
-- update a package while reusing existing verified files and chunks;
-- open or remove selected local package data.
+Manifest metadata and automatic Global/CN packages are stored under `%LOCALAPPDATA%\ZZZSwitch`. Large server-specific Blocks caches remain separate and can be moved or cleaned through **Cache management**. Backup location, cache location, startup mode, close behavior, language, theme, and log retention are available in **Settings**.
 
-Manifest metadata and automatic Global/CN packages are stored under `%LOCALAPPDATA%\ZZZSwitch`. Large server-specific Blocks caches remain independent from client-difference packages and can be moved or cleaned through **Cache management**.
-
-Packages and caches are isolated by game installation and game version. After a game update, ZZZSwitch requests the new version's Manifests and creates new package/cache records instead of applying an older version's files. Previous versions remain available for manual cleanup.
+Packages and caches are isolated by game installation and version. After a game update, ZZZSwitch creates new manifest, package, and cache records instead of applying older-version files. Previous-version caches can be cleaned independently, including read-only leftovers.
 
 ## Safety notes
 
 > [!IMPORTANT]
-> Do not switch while Zenless Zone Zero or its launcher is running. Keep the game and HoYoPlay closed until ZZZSwitch reports that the operation has completed.
+> Do not switch while Zenless Zone Zero or HoYoPlay is running. Keep both closed until ZZZSwitch reports that the operation has completed.
 
-- ZZZSwitch will not apply a package whose game version, file count, size, MD5, or SHA-256 validation fails.
+- ZZZSwitch does not apply a package when the game version, file count, size, MD5, or SHA-256 validation fails.
 - Global/CN online switching never falls back to an old `.zzzswitch\packages` replacement package.
 - `Persistent\Blocks` is managed as a server cache; `Persistent\Video` is not moved, copied, verified, or deleted.
 - File replacement, Blocks exchange, state updates, and backups participate in the same recoverable transaction.
-- If an operation is interrupted, startup recovery uses the saved transaction journals and rollback backup.
+- Startup recovery uses saved transaction journals and rollback backups after an interrupted operation.
 
 ## Developer documentation
 

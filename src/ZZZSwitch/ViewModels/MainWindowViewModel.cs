@@ -24,9 +24,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _report = string.Empty;
     private string _busyStatus = "正在处理…";
     private bool _isBusy;
+    private bool _showCompactStatus;
+    private bool _isProgressIndeterminate;
+    private double _progressMaximum = 1;
+    private double _progressValue;
     private bool _hasStatusIssues;
     private bool _inspectionCanManageCache;
     private bool _inspectionCanManageOnlineResources;
+    private string? _activeProfile;
     private MediaBrush? _profileAccent;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -67,6 +72,28 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         get => _profileAccent;
         set => SetField(ref _profileAccent, value);
     }
+
+    public string? ActiveProfile
+    {
+        get => _activeProfile;
+        set
+        {
+            if (!SetField(ref _activeProfile, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(IsGlobalActive));
+            OnPropertyChanged(nameof(IsCnActive));
+            OnPropertyChanged(nameof(IsBilibiliActive));
+        }
+    }
+
+    public bool IsGlobalActive => string.Equals(ActiveProfile, ProfileIds.Global, StringComparison.Ordinal);
+
+    public bool IsCnActive => string.Equals(ActiveProfile, ProfileIds.CnOfficial, StringComparison.Ordinal);
+
+    public bool IsBilibiliActive => string.Equals(ActiveProfile, ProfileIds.Bilibili, StringComparison.Ordinal);
 
     public string GameVersion
     {
@@ -129,6 +156,30 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public bool IsInteractionEnabled => !IsBusy;
 
+    public bool ShowCompactStatus
+    {
+        get => _showCompactStatus;
+        set => SetField(ref _showCompactStatus, value);
+    }
+
+    public bool IsProgressIndeterminate
+    {
+        get => _isProgressIndeterminate;
+        set => SetField(ref _isProgressIndeterminate, value);
+    }
+
+    public double ProgressMaximum
+    {
+        get => _progressMaximum;
+        set => SetField(ref _progressMaximum, value);
+    }
+
+    public double ProgressValue
+    {
+        get => _progressValue;
+        set => SetField(ref _progressValue, value);
+    }
+
     public bool HasStatusIssues
     {
         get => _hasStatusIssues;
@@ -158,6 +209,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public void ApplyInspection(InspectionPresentation presentation)
     {
+        ActiveProfile = presentation.ActiveProfile;
         Profile = presentation.Profile;
         GameVersion = presentation.GameVersion;
         Packages = presentation.Packages;

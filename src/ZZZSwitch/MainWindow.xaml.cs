@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -47,6 +48,7 @@ public partial class MainWindow : Window
     private HotUpdateCacheStatus[] _lastCacheStatuses = [];
     private string? _lastHealthPromptKey;
     private bool _busy;
+    private (string Chinese, string English)? _inlineSwitchStatus;
     private readonly string? _startupStateWarning;
     private readonly ThemeManager _theme;
     private readonly LocalizationManager _localization;
@@ -58,6 +60,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
         var app = (App)System.Windows.Application.Current;
+        app.RegisterMainWindow(this);
         _theme = app.Theme;
         _localization = app.Localization;
         _viewModel.ApplyInitialLanguage(_localization.Language);
@@ -65,7 +68,7 @@ public partial class MainWindow : Window
         _uiSettings = _uiSettingsService.Load();
         ApplyWindowPlacement(_uiSettings);
         DetailsExpander.IsExpanded = _uiSettings.ShowDetailedStatus;
-        Closing += (_, _) => SaveWindowPlacement();
+        Closing += OnClosing;
         _dialogs = new MainWindowDialogCoordinator(this);
         var informationalVersion = GetType().Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
@@ -126,6 +129,7 @@ public partial class MainWindow : Window
             status => _viewModel.BusyStatus = _localization.TranslateKnown(status),
             ShowOperationInProgress,
             ShowOperationProgress,
+            ShowInlineSwitchResult,
             ProfileBrush,
             OpenDirectory,
             _localization.Choose);
@@ -179,7 +183,8 @@ public partial class MainWindow : Window
             _cacheManagementWorkflow.ManageAsync,
             _backupManagementWorkflow.ManageDirectoryAsync,
             OpenDirectory,
-            ApplyRuntimeSettings);
+            ApplyRuntimeSettings,
+            async () => _ = await RunOnboardingAsync());
 
         var stateLoad = _stateStore.LoadWithStatus();
         _startupStateWarning = stateLoad.Warning;
@@ -190,7 +195,9 @@ public partial class MainWindow : Window
         _viewModel.ConfigureCommands(new MainWindowCommandHandlers(
             AutoDetectAsync,
             ChooseDirectoryAsync,
-            _serverSwitchWorkflow.RunAsync,
+            profile => _serverSwitchWorkflow.RunAsync(
+                profile,
+                ((App)System.Windows.Application.Current).IsCompactModeActive),
             _cacheManagementWorkflow.ManageAsync,
             _onlineResourceManagementWorkflow.ManageAsync,
             _backupManagementWorkflow.ShowHistory,
@@ -201,6 +208,12 @@ public partial class MainWindow : Window
             ShowUnexpectedCommandError));
         Loaded += async (_, _) =>
         {
+            var inspectedDuringOnboarding = false;
+            if (!_uiSettings.OnboardingCompleted)
+            {
+                inspectedDuringOnboarding = await RunOnboardingAsync();
+            }
+
             var startup = await _startupWorkflow.RunAsync(_startupStateWarning);
             var recovery = startup.Recovery;
             if (recovery.Found)
@@ -221,15 +234,46 @@ public partial class MainWindow : Window
                     MessageTone.Warning);
             }
 
-            if (_uiSettings.AutoDetectGameDirectory)
+            if (!inspectedDuringOnboarding)
             {
-                await AutoDetectAsync();
+                if (_uiSettings.AutoDetectGameDirectory)
+                {
+                    await AutoDetectAsync();
+                }
+                else if (_uiSettings.AutoInspectOnStartup && !string.IsNullOrWhiteSpace(_viewModel.GamePath))
+                {
+                    await RefreshInspectionAsync(offerStorageRecovery: true);
+                }
             }
-            else if (_uiSettings.AutoInspectOnStartup && !string.IsNullOrWhiteSpace(_viewModel.GamePath))
+
+            if (_uiSettings.OnboardingCompleted && _uiSettings.StartInCompactMode)
             {
-                await RefreshInspectionAsync(offerStorageRecovery: true);
+                _ = Dispatcher.BeginInvoke(app.ShowCompactWindow);
             }
         };
+    }
+
+    private async Task<bool> RunOnboardingAsync()
+    {
+        var window = new OnboardingWindow(_uiSettingsService.Load(), _viewModel.GamePath)
+        {
+            Owner = this
+        };
+        if (window.ShowDialog() != true ||
+            window.ResultSettings is null ||
+            string.IsNullOrWhiteSpace(window.SelectedGamePath))
+        {
+            return false;
+        }
+
+        _uiSettingsService.Save(window.ResultSettings);
+        _theme.SetPreference(window.ResultSettings.Theme);
+        _localization.SetLanguage(window.ResultSettings.Language);
+        ApplyRuntimeSettings(window.ResultSettings);
+        _viewModel.GamePath = window.SelectedGamePath;
+        SaveSelectedPath(window.SelectedGamePath);
+        await RefreshInspectionAsync(offerStorageRecovery: true);
+        return true;
     }
 
     private async Task RefreshInspectionAsync(
@@ -253,8 +297,8 @@ public partial class MainWindow : Window
         {
             _viewModel.BusyStatus = _localization.TranslateKnown(
                 "正在重新检查游戏目录与服务器状态…");
-            OperationProgress.IsIndeterminate = true;
-            OperationProgress.Value = 0;
+            _viewModel.IsProgressIndeterminate = true;
+            _viewModel.ProgressValue = 0;
         }
         try
         {
@@ -300,7 +344,7 @@ public partial class MainWindow : Window
             _localization.Language);
         _viewModel.ApplyInspection(presentation);
         _viewModel.ProfileAccent = ProfileBrush(presentation.ActiveProfile);
-        OperationProgress.Value = 0;
+        _viewModel.ProgressValue = 0;
         DetailsExpander.IsExpanded = presentation.ExpandDetails;
     }
 
@@ -379,13 +423,19 @@ public partial class MainWindow : Window
     private void SetBusy(bool busy, string status)
     {
         _busy = busy;
+        if (busy)
+        {
+            _inlineSwitchStatus = null;
+        }
         // BusyIndicator 是根网格上的浮层，不参与主 StackPanel 测量；显示进度不会推动页面内容。
         _viewModel.BusyStatus = _localization.TranslateKnown(status);
         _viewModel.IsBusy = busy;
-        OperationProgress.IsIndeterminate = busy;
+        _viewModel.ShowCompactStatus =
+            busy && ((App)System.Windows.Application.Current).IsCompactModeActive;
+        _viewModel.IsProgressIndeterminate = busy;
         if (!busy)
         {
-            OperationProgress.Value = 0;
+            _viewModel.ProgressValue = 0;
         }
         _viewModel.SetInspectionCapabilities(
             _lastReport?.Game.IsValid == true && _lastReport.Game.GameVersion is not null,
@@ -399,11 +449,11 @@ public partial class MainWindow : Window
         _viewModel.BusyStatus = progress.IsRollingBack
             ? _localization.Choose($"回滚中：{progress.Step}", $"Rolling back: {step}")
             : step;
-        OperationProgress.IsIndeterminate = false;
-        OperationProgress.Maximum = Math.Max(
+        _viewModel.IsProgressIndeterminate = false;
+        _viewModel.ProgressMaximum = Math.Max(
             1,
             progress.PlannedReplace + progress.PlannedDelete + progress.PlannedCacheRestore);
-        OperationProgress.Value =
+        _viewModel.ProgressValue =
             progress.SuccessfulReplace +
             progress.SuccessfulDelete +
             progress.SuccessfulCacheRestore;
@@ -418,6 +468,16 @@ public partial class MainWindow : Window
             $"Deleted: {progress.SuccessfulDelete}/{progress.PlannedDelete}, failed {progress.FailedDelete}\n" +
             $"Cache restored: {progress.SuccessfulCacheRestore}/{progress.PlannedCacheRestore}, failed {progress.FailedCacheRestore}\n" +
             $"Rolling back: {(progress.IsRollingBack ? "Yes" : "No")}");
+    }
+
+    private void ShowInlineSwitchResult(string chineseStatus, string englishStatus, bool success)
+    {
+        _inlineSwitchStatus = (chineseStatus, englishStatus);
+        _viewModel.BusyStatus = _localization.Choose(chineseStatus, englishStatus);
+        _viewModel.IsProgressIndeterminate = false;
+        _viewModel.ProgressMaximum = 1;
+        _viewModel.ProgressValue = success ? 1 : 0;
+        _viewModel.ShowCompactStatus = true;
     }
 
     private void SaveSelectedPath(string path)
@@ -529,6 +589,10 @@ public partial class MainWindow : Window
     {
         _uiSettings = settings;
         DetailsExpander.IsExpanded = settings.ShowDetailedStatus;
+        if (_viewModel.ShowCompactStatus && _inlineSwitchStatus is { } status)
+        {
+            _viewModel.BusyStatus = _localization.Choose(status.Chinese, status.English);
+        }
         if (_lastReport is not null)
         {
             RenderReport(_lastReport, readOnlyBanner: false);
@@ -578,6 +642,15 @@ public partial class MainWindow : Window
             // Window placement persistence must never block application shutdown.
         }
     }
+
+    private void OnClosing(object? sender, CancelEventArgs e)
+    {
+        SaveWindowPlacement();
+        ((App)System.Windows.Application.Current).HandleWindowClosing(this, e);
+    }
+
+    private void CompactMode_Click(object sender, RoutedEventArgs e) =>
+        ((App)System.Windows.Application.Current).ShowCompactWindow();
 
     private void OpenDirectory(string path, bool mustExist)
     {

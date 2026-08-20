@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using MediaBrush = System.Windows.Media.Brush;
+using MediaBrushes = System.Windows.Media.Brushes;
 
 namespace ZZZSwitch.Controls;
 
@@ -24,6 +26,24 @@ public partial class ServerSwitchCard : System.Windows.Controls.UserControl
         typeof(ServerSwitchCard),
         new PropertyMetadata(null));
 
+    public static readonly DependencyProperty IsCompactProperty = DependencyProperty.Register(
+        nameof(IsCompact),
+        typeof(bool),
+        typeof(ServerSwitchCard),
+        new PropertyMetadata(false));
+
+    public static readonly DependencyProperty IsCurrentProperty = DependencyProperty.Register(
+        nameof(IsCurrent),
+        typeof(bool),
+        typeof(ServerSwitchCard),
+        new PropertyMetadata(false));
+
+    public static readonly DependencyProperty AccentBrushProperty = DependencyProperty.Register(
+        nameof(AccentBrush),
+        typeof(MediaBrush),
+        typeof(ServerSwitchCard),
+        new PropertyMetadata(MediaBrushes.Transparent));
+
     public ServerSwitchCard() => InitializeComponent();
 
     public string ServerName
@@ -42,5 +62,23 @@ public partial class ServerSwitchCard : System.Windows.Controls.UserControl
     {
         get => (ICommand?)GetValue(CommandProperty);
         set => SetValue(CommandProperty, value);
+    }
+
+    public bool IsCompact
+    {
+        get => (bool)GetValue(IsCompactProperty);
+        set => SetValue(IsCompactProperty, value);
+    }
+
+    public bool IsCurrent
+    {
+        get => (bool)GetValue(IsCurrentProperty);
+        set => SetValue(IsCurrentProperty, value);
+    }
+
+    public MediaBrush AccentBrush
+    {
+        get => (MediaBrush)GetValue(AccentBrushProperty);
+        set => SetValue(AccentBrushProperty, value);
     }
 }

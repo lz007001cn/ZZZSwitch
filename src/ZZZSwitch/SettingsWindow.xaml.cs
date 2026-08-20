@@ -10,7 +10,8 @@ public enum SettingsAction
     SaveAndClose,
     ManageCache,
     ManageBackup,
-    OpenLogs
+    OpenLogs,
+    RunOnboarding
 }
 
 public sealed record SettingsViewData(
@@ -53,6 +54,8 @@ public partial class SettingsWindow : Window
         AutoDetectCheckBox.IsChecked = data.Settings.AutoDetectGameDirectory;
         AutoInspectCheckBox.IsChecked = data.Settings.AutoInspectOnStartup;
         ShowLastGameCheckBox.IsChecked = data.Settings.ShowLastGameDirectory;
+        StartCompactCheckBox.IsChecked = data.Settings.StartInCompactMode;
+        ExitOnCloseCheckBox.IsChecked = data.Settings.ExitOnClose;
 
         CachePathTextBlock.Text = data.CacheUsage?.CacheRootPath ?? "—";
         CachePathTextBlock.ToolTip = data.CacheUsage?.CacheRootPath;
@@ -79,6 +82,7 @@ public partial class SettingsWindow : Window
     private void ManageCache_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.ManageCache);
     private void ManageBackup_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.ManageBackup);
     private void OpenLogs_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.OpenLogs);
+    private void RunOnboarding_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.RunOnboarding);
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
     private void Save_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.SaveAndClose);
 
@@ -88,6 +92,9 @@ public partial class SettingsWindow : Window
         {
             Language = Selected(LanguageComboBox, OriginalSettings.Language),
             Theme = Selected(ThemeComboBox, OriginalSettings.Theme),
+            OnboardingCompleted = OriginalSettings.OnboardingCompleted,
+            StartInCompactMode = StartCompactCheckBox.IsChecked == true,
+            ExitOnClose = ExitOnCloseCheckBox.IsChecked == true,
             AutoDetectGameDirectory = AutoDetectCheckBox.IsChecked == true,
             AutoInspectOnStartup = AutoInspectCheckBox.IsChecked == true,
             ShowLastGameDirectory = ShowLastGameCheckBox.IsChecked == true,

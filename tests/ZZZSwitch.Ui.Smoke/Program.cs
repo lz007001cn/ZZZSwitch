@@ -33,6 +33,8 @@ internal static class Program
         OnlineResourceManagementWindow? onlineResources = null;
         OnlineDifferencePreviewWindow? onlinePreview = null;
         OnlineManifestBrowserWindow? onlineManifestBrowser = null;
+        CompactModeWindow? compact = null;
+        OnboardingWindow? onboarding = null;
         try
         {
             var bilibiliButton = Require<ServerSwitchCard>(main, "SwitchBilibiliButton");
@@ -64,6 +66,8 @@ internal static class Program
                 $"界面版本号不正确：{versionText.Text}");
             Assert(main.Title == "ZZZSwitch",
                 "Window title should not include the version number.");
+            Assert(Require<ScrollViewer>(main, "MainScrollViewer").FocusVisualStyle is null,
+                "主内容滚动区仍会在窗口获得焦点时绘制虚线焦点框。");
             AssertStableLoadingLayout(main, viewModel, 980, 760, "默认窗口");
             AssertStableLoadingLayout(main, viewModel, 820, 680, "最窄窗口");
             AssertScaledLayout(main, viewModel, 1.25);
@@ -92,11 +96,15 @@ internal static class Program
             Assert(main.FindName("RestoreLatestButton") is null,
                 "主界面不应继续显示独立的恢复上次状态按钮。");
             Require<Button>(main, "BackupDirectoryButton");
-            Require<Button>(main, "SettingsButton");
+            var compactModeButton = Require<Button>(main, "CompactModeButton");
+            var settingsButton = Require<Button>(main, "SettingsButton");
+            Assert(Grid.GetColumn(settingsButton) == 2 && Grid.GetColumn(compactModeButton) == 3,
+                "工具栏应先显示设置按钮，再显示精简版按钮。");
             Assert(new[]
                    {
                        Require<TextBlock>(main, "BackupHistoryIcon"),
                        Require<TextBlock>(main, "BackupDirectoryIcon"),
+                       Require<TextBlock>(main, "CompactModeIcon"),
                        Require<TextBlock>(main, "SettingsIcon")
                    }.All(icon => icon.VerticalAlignment == VerticalAlignment.Center && icon.FontSize == 15),
                 "工具栏图标未与文字按统一基线居中。" );
@@ -407,8 +415,11 @@ internal static class Program
             Assert(settingsWindow.FindName("LanguageComboBox") is ComboBox &&
                    settingsWindow.FindName("ThemeComboBox") is ComboBox &&
                    settingsWindow.FindName("CachePathTextBlock") is TextBlock &&
-                   settingsWindow.FindName("BackupPathTextBlock") is TextBlock,
-                "设置窗口缺少语言、主题、缓存或备份入口。");
+                   settingsWindow.FindName("BackupPathTextBlock") is TextBlock &&
+                   settingsWindow.FindName("StartCompactCheckBox") is CheckBox &&
+                   settingsWindow.FindName("ExitOnCloseCheckBox") is CheckBox &&
+                   settingsWindow.FindName("RunOnboardingButton") is Button,
+                "设置窗口缺少语言、主题、缓存、备份或后台行为入口。");
             Assert(settingsWindow.Title == string.Empty &&
                    settingsWindow.FindName("GamePathTextBox") is null,
                 "设置窗口标题不正确，或仍保留重复的游戏目录区块。");
@@ -434,6 +445,80 @@ internal static class Program
             AssertSettingsLayout(settingsWindow, 775, 600, 1.25);
             AssertSettingsLayout(settingsWindow, 1240, 960, 2.0);
             settingsWindow.Close();
+
+            compact = new CompactModeWindow(main.DataContext);
+            Assert(ReferenceEquals(compact.DataContext, main.DataContext),
+                "精简窗口没有共享主窗口的切换状态与命令。");
+            Require<ServerSwitchCard>(compact, "CompactGlobalButton");
+            Require<ServerSwitchCard>(compact, "CompactCnButton");
+            Require<ServerSwitchCard>(compact, "CompactBilibiliButton");
+            Require<Button>(compact, "FullModeButton");
+            Assert(compact.Width == 620 && compact.Height == 180 &&
+                   compact.MinWidth == compact.MaxWidth && compact.MinHeight == compact.MaxHeight &&
+                   compact.ResizeMode == ResizeMode.NoResize,
+                "精简窗口尺寸不稳定，切换状态可能引发布局跳动。");
+            Layout(compact, 620, 180);
+            var compactGlobal = Require<ServerSwitchCard>(compact, "CompactGlobalButton");
+            var compactCn = Require<ServerSwitchCard>(compact, "CompactCnButton");
+            var compactBilibili = Require<ServerSwitchCard>(compact, "CompactBilibiliButton");
+            var compactStatus = Require<Grid>(compact, "CompactOperationStatus");
+            var compactProgress = Require<ProgressBar>(compact, "CompactOperationProgress");
+            Assert(Math.Abs(compactGlobal.ActualHeight - 68) <= 1 &&
+                   Math.Abs(compactCn.ActualHeight - 68) <= 1 &&
+                   Math.Abs(compactBilibili.ActualHeight - 68) <= 1,
+                $"精简窗口的三服卡片没有使用扁平紧凑高度：" +
+                $"{compactGlobal.ActualHeight}/{compactCn.ActualHeight}/{compactBilibili.ActualHeight}。");
+            viewModel.ActiveProfile = ProfileIds.CnOfficial;
+            Layout(compact, 620, 180);
+            Assert(!compactGlobal.IsCurrent && compactCn.IsCurrent && !compactBilibili.IsCurrent,
+                "精简窗口未高亮当前国服服务器。");
+            Assert(Require<Border>(compactCn, "ActiveOutline").Visibility == Visibility.Visible &&
+                   Require<TextBlock>(compactCn, "StateIcon").Text == "\uE73E" &&
+                   Require<TextBlock>(compactGlobal, "StateIcon").Text == "\uE72A",
+                "精简窗口当前服务器未使用强调描边和勾选标识。");
+            viewModel.ActiveProfile = ProfileIds.Global;
+            Layout(compact, 620, 180);
+            Assert(compactGlobal.IsCurrent && !compactCn.IsCurrent &&
+                   Require<Border>(compactGlobal, "ActiveOutline").Visibility == Visibility.Visible &&
+                   Require<Border>(compactCn, "ActiveOutline").Visibility == Visibility.Collapsed,
+                "精简窗口当前服务器高亮未随检测结果动态更新。");
+            viewModel.BusyStatus = "正在替换文件";
+            viewModel.ProgressMaximum = 10;
+            viewModel.ProgressValue = 4;
+            viewModel.ShowCompactStatus = true;
+            Layout(compact, 620, 180);
+            Assert(compactStatus.Visibility == Visibility.Visible &&
+                   compactProgress.Maximum == 10 && compactProgress.Value == 4 &&
+                   Require<TextBlock>(compact, "CompactStatusText").Text == "正在替换文件",
+                "精简窗口左下角没有显示共享的切换进度。");
+            viewModel.ShowCompactStatus = false;
+
+            onboarding = new OnboardingWindow(new UiSettings(), string.Empty);
+            Require<Border>(onboarding, "StepOneIndicator");
+            Require<Border>(onboarding, "StepTwoIndicator");
+            Require<Border>(onboarding, "StepThreeIndicator");
+            Require<ComboBox>(onboarding, "LanguageComboBox");
+            Require<ComboBox>(onboarding, "ThemeComboBox");
+            Require<TextBox>(onboarding, "GamePathTextBox");
+            Require<Button>(onboarding, "DetectButton");
+            Require<Button>(onboarding, "BrowseButton");
+            var nextButton = Require<Button>(onboarding, "NextButton");
+            var nextButtonText = Require<TextBlock>(onboarding, "NextButtonText");
+            Assert(System.Windows.Data.BindingOperations.GetBindingExpression(
+                       nextButtonText,
+                       TextBlock.ForegroundProperty) is not null,
+                "引导主按钮文字没有跟随按钮主题前景色。");
+            nextButton.IsEnabled = false;
+            Layout(onboarding, 640, 460);
+            Assert(nextButton.Background == onboarding.FindResource("RaisedSurfaceBrush") &&
+                   nextButton.Foreground == onboarding.FindResource("MutedTextBrush"),
+                "深色主题下禁用的主按钮仍使用错误的亮色主题。");
+            Assert(Require<RadioButton>(onboarding, "FullModeRadio").IsChecked == true &&
+                   Require<RadioButton>(onboarding, "CompactModeRadio").IsChecked == false,
+                "首次引导默认启动模式应为完整窗口。");
+            Assert(Require<RadioButton>(onboarding, "CloseToTrayRadio").IsChecked == true &&
+                   Require<RadioButton>(onboarding, "ExitOnCloseRadio").IsChecked == false,
+                "首次引导默认关闭行为应为隐藏到托盘。");
 
             var paths = new AppPaths(Path.Combine(tempRoot, "AppData"), Path.Combine(tempRoot, "config"));
             var files = new PhysicalFileOperations();
@@ -519,13 +604,31 @@ internal static class Program
                 new OperationCoordinator(paths),
                 Path.Combine(tempRoot, "Game"));
             Require<Button>(backupHistory, "RestoreLatestButton");
+            using var trayMenu = typeof(App)
+                .GetMethod("BuildTrayMenu", BindingFlags.Instance | BindingFlags.NonPublic)?
+                .Invoke(app, null) as System.Windows.Forms.ContextMenuStrip
+                ?? throw new InvalidOperationException("应用没有创建系统托盘快捷菜单。");
+            var trayItems = trayMenu.Items.OfType<System.Windows.Forms.ToolStripMenuItem>().ToArray();
+            Assert(!trayMenu.ShowImageMargin && !trayMenu.ShowCheckMargin &&
+                   trayMenu.MinimumSize.Width == 184 &&
+                   trayItems.Length == 3 && trayItems.All(item => item.Height == 30),
+                "系统托盘菜单没有使用紧凑尺寸，或仍由独立窗口代替。" );
+            var shouldOpenFromTray = typeof(App).GetMethod(
+                "ShouldOpenFromTray",
+                BindingFlags.Static | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("应用缺少托盘单击打开策略。");
+            Assert((bool)shouldOpenFromTray.Invoke(null, [System.Windows.Forms.MouseButtons.Left])! &&
+                   !(bool)shouldOpenFromTray.Invoke(null, [System.Windows.Forms.MouseButtons.Right])!,
+                "托盘图标应仅在左键单击时打开窗口，右键必须保留给菜单。" );
 
             Console.WriteLine("PASS  正式版显示国际服/国服/B服。");
             Console.WriteLine("PASS  默认与窄窗口在扫描前后宽高保持不变。");
             Console.WriteLine("PASS  125%/150%/200% 布局缩放压力验证通过。");
             Console.WriteLine("PASS  跟随 Windows / 深色 / 浅色主题资源可动态切换。");
+            Console.WriteLine("PASS  托盘菜单与应用深浅主题保持一致。");
             Console.WriteLine("PASS  中文 / English 主界面资源可动态切换。");
             Console.WriteLine("PASS  设置窗口在最窄尺寸及 125%/200% 缩放下可滚动且布局有效。");
+            Console.WriteLine("PASS  精简窗口共享三服切换命令，首次引导默认关闭到托盘。");
             Console.WriteLine("PASS  主窗口展示状态由 ViewModel 驱动，服务器卡片可复用。");
             Console.WriteLine("PASS  Command 路由、忙碌禁用和异步异常处理通过。");
             Console.WriteLine("PASS  启动恢复编排和非交互弹窗路由通过。");
@@ -543,6 +646,7 @@ internal static class Program
         }
         finally
         {
+            onboarding?.Close();
             backupHistory?.Close();
             onlineResources?.Close();
             onlinePreview?.Close();
@@ -550,8 +654,8 @@ internal static class Program
             onlineDownload?.Close();
             backupLocation?.Close();
             cache?.Close();
-            main.Close();
-            app.Shutdown();
+            typeof(App).GetMethod("RequestExit", BindingFlags.Instance | BindingFlags.NonPublic)?
+                .Invoke(app, null);
             if (Directory.Exists(tempRoot))
             {
                 Directory.Delete(tempRoot, true);
@@ -612,12 +716,12 @@ internal static class Program
         }
     }
 
-    private static void Layout(MainWindow main, double width, double height)
+    private static void Layout(Window window, double width, double height)
     {
-        main.Width = width;
-        main.Height = height;
-        var root = main.Content as FrameworkElement
-                   ?? throw new InvalidOperationException("主窗口根视觉不存在。");
+        window.Width = width;
+        window.Height = height;
+        var root = window.Content as FrameworkElement
+                   ?? throw new InvalidOperationException("窗口根视觉不存在。");
         root.Measure(new Size(width, height));
         root.Arrange(new Rect(0, 0, width, height));
         root.UpdateLayout();
@@ -669,6 +773,15 @@ internal static class Program
         Assert(Require<Border>(main, "HeaderBorder").Background is SolidColorBrush header &&
                header.Color == Color.FromRgb(246, 246, 246),
             "浅色主题的品牌栏仍然是黑色。 ");
+        Assert(Require<Button>(main, "CompactModeButton").Background is SolidColorBrush toolButton &&
+               toolButton.Color == Color.FromRgb(241, 241, 241),
+            "浅色主题工具按钮没有使用略深于纯白背景的表面色。");
+        var lightSwitchButton = Require<Button>(
+            Require<ServerSwitchCard>(main, "SwitchGlobalButton"),
+            "SwitchButton");
+        Assert(lightSwitchButton.Background is SolidColorBrush switchButton &&
+               switchButton.Color == Color.FromRgb(255, 255, 255),
+            "浅色主题三服按钮没有恢复原来的白色表面。");
         Assert(Require<System.Windows.Shapes.Rectangle>(main, "BrandMark").Fill is SolidColorBrush logo &&
                logo.Color == Color.FromRgb(28, 28, 28),
             "浅色主题的品牌标识未切换为深色。 ");
@@ -690,6 +803,8 @@ internal static class Program
         main.UpdateLayout();
         Assert(Require<Button>(main, "AutoDetectButton").Content?.ToString() == "Auto detect",
             "English 语言未更新主界面按钮。");
+        Assert(Require<TextBlock>(main, "CompactModeText").Text == "Compact window",
+            "English 语言未更新精简窗口入口。");
         Assert(Require<ServerSwitchCard>(main, "SwitchBilibiliButton").ServerName == "Bilibili",
             "English 语言未更新服务器卡片。");
         Assert(localization.TranslateKnown("正在只读扫描游戏目录与服务器状态…") ==
@@ -705,6 +820,24 @@ internal static class Program
         Assert(mainViewModel.BusyStatus == "Scanning the game directory and server state…",
             "英文模式的主窗口忙碌浮层仍显示中文。");
         setBusy.Invoke(main, [false, "目录检测完成"]);
+
+        localization.SetLanguage(AppLanguage.Chinese);
+        var showInlineSwitchResult = typeof(MainWindow).GetMethod(
+            "ShowInlineSwitchResult",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("主窗口缺少精简切换结果入口。");
+        showInlineSwitchResult.Invoke(main,
+            ["切换完成：替换 105，删除 0", "Switch complete: 105 replaced, 0 deleted", true]);
+        Assert(mainViewModel.BusyStatus == "切换完成：替换 105，删除 0",
+            "中文模式的精简切换结果不正确。");
+        localization.SetLanguage(AppLanguage.English);
+        var applyRuntimeSettings = typeof(MainWindow).GetMethod(
+            "ApplyRuntimeSettings",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("主窗口缺少运行时设置入口。");
+        applyRuntimeSettings.Invoke(main, [new UiSettings { Language = AppLanguage.English }]);
+        Assert(mainViewModel.BusyStatus == "Switch complete: 105 replaced, 0 deleted",
+            "精简切换结果未在切换到 English 后动态更新。");
 
         var confirmation = new SwitchConfirmationWindow(
             ProfileIds.Global,
@@ -879,6 +1012,14 @@ internal static class Program
 
     private static void VerifyMainWindowWorkflows(string tempRoot)
     {
+        var usesModalSwitchFlow = typeof(ServerSwitchWorkflow).GetMethod(
+            "UsesModalSwitchFlow",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("切换工作流缺少精简模式策略。");
+        Assert((bool)usesModalSwitchFlow.Invoke(null, [false])! &&
+               !(bool)usesModalSwitchFlow.Invoke(null, [true])!,
+            "精简模式仍会打开确认或完成结果窗口。");
+
         var workflowRoot = Path.Combine(tempRoot, "Workflows");
         var paths = new AppPaths(Path.Combine(workflowRoot, "AppData"), Path.Combine(workflowRoot, "config"));
         var operations = new OperationCoordinator(paths);
@@ -911,6 +1052,7 @@ internal static class Program
             _ => { },
             () => inProgressCount++,
             _ => { },
+            (_, _, _) => { },
             _ => Brushes.Transparent,
             (path, _) => openedPath = path,
             (chinese, _) => chinese);
@@ -1105,6 +1247,7 @@ internal static class Program
             CacheAction = CacheManagementAction.None;
         }
     }
+
 
     private static void VerifyDifferenceWindowThemes(
         App app,

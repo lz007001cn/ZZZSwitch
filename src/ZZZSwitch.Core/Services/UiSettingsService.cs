@@ -22,6 +22,9 @@ public sealed class UiSettings
 {
     public ThemePreference Theme { get; set; } = ThemePreference.FollowWindows;
     public AppLanguage Language { get; set; } = AppLanguage.Chinese;
+    public bool OnboardingCompleted { get; set; }
+    public bool StartInCompactMode { get; set; }
+    public bool ExitOnClose { get; set; }
     public bool AutoDetectGameDirectory { get; set; }
     public bool AutoInspectOnStartup { get; set; } = true;
     public bool ShowLastGameDirectory { get; set; } = true;

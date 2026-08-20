@@ -20,6 +20,7 @@ public sealed class SettingsWorkflow
     private readonly Func<Task> _manageBackup;
     private readonly Action<string, bool> _openDirectory;
     private readonly Action<UiSettings> _applySettings;
+    private readonly Func<Task> _runOnboarding;
 
     public SettingsWorkflow(
         Window owner,
@@ -35,7 +36,8 @@ public sealed class SettingsWorkflow
         Func<Task> manageCache,
         Func<Task> manageBackup,
         Action<string, bool> openDirectory,
-        Action<UiSettings> applySettings)
+        Action<UiSettings> applySettings,
+        Func<Task> runOnboarding)
     {
         _owner = owner;
         _paths = paths;
@@ -51,6 +53,7 @@ public sealed class SettingsWorkflow
         _manageBackup = manageBackup;
         _openDirectory = openDirectory;
         _applySettings = applySettings;
+        _runOnboarding = runOnboarding;
     }
 
     public async Task ShowAsync()
@@ -86,6 +89,9 @@ public sealed class SettingsWorkflow
                 case SettingsAction.OpenLogs:
                     _openDirectory(_paths.LogsRoot, false);
                     break;
+                case SettingsAction.RunOnboarding:
+                    await _runOnboarding();
+                    return;
             }
         }
     }

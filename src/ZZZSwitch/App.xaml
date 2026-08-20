@@ -27,6 +27,7 @@
         <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource SidebarColor}" />
         <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
         <SolidColorBrush x:Key="RaisedSurfaceBrush" Color="{StaticResource RaisedSurfaceColor}" />
+        <SolidColorBrush x:Key="SwitchButtonBrush" Color="{StaticResource SurfaceColor}" />
         <SolidColorBrush x:Key="HoverBrush" Color="{StaticResource HoverColor}" />
         <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
         <SolidColorBrush x:Key="StrongBorderBrush" Color="{StaticResource StrongBorderColor}" />
@@ -176,10 +177,6 @@
                                               TextElement.Foreground="{TemplateBinding Foreground}" />
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource HoverBrush}" />
-                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource StrongBorderBrush}" />
-                            </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.72" />
                             </Trigger>
@@ -190,6 +187,16 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsMouseOver" Value="True" />
+                        <Condition Property="IsEnabled" Value="True" />
+                    </MultiTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource StrongBorderBrush}" />
+                </MultiTrigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}" />
@@ -200,8 +207,18 @@
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsMouseOver" Value="True" />
+                        <Condition Property="IsEnabled" Value="True" />
+                    </MultiTrigger.Conditions>
                     <Setter Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryHoverBrush}" />
+                </MultiTrigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource RaisedSurfaceBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -221,7 +238,7 @@
         </Style>
 
         <Style x:Key="SwitchButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SwitchButtonBrush}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="18,16" />
             <Setter Property="MinHeight" Value="84" />
