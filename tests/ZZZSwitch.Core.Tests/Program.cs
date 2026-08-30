@@ -24,6 +24,7 @@ internal static class Program
         ("拒绝绝对路径", () => PathRejected(@"C:\outside.txt")),
         ("拒绝通配符删除路径", () => PathRejected(@"Data\*.dll")),
         ("安全路径保持在根目录内", PathAccepted),
+        ("磁盘容量使用可读单位", ReadableByteSizes),
         ("验证游戏目录与版本", GameDirectoryValidation),
         ("自动检测忽略无效路径并返回有效安装", GameDirectoryDiscovery),
         ("替换数量不符时停止", () => PlannerFailure("count")),
@@ -140,6 +141,15 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine($"结果：{passed}/{Tests.Count} 通过");
         return passed == Tests.Count ? 0 : 1;
+    }
+
+    private static Task ReadableByteSizes()
+    {
+        Equal("512 B", ByteSizeFormatter.Format(512));
+        Equal("1.5 KiB", ByteSizeFormatter.Format(1536));
+        Equal("128 MiB", ByteSizeFormatter.Format(128L * 1024 * 1024));
+        Equal("1.25 GiB", ByteSizeFormatter.Format(5L * 1024 * 1024 * 1024 / 4));
+        return Task.CompletedTask;
     }
 
     private static int InspectLiveReadOnly(string gamePath, string configPath)

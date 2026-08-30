@@ -38,12 +38,6 @@ public partial class OnlineDifferenceDownloadWindow : Window
             $"{plan.DownloadFiles.Count:N0}");
         DownloadSizeText.Text = FormatBytes(plan.DownloadBytes);
         StatusText.Text = _localization.Choose("等待开始", "Ready");
-        CurrentFileText.Text = _localization.Choose(
-            "开始后将下载到 ZZZSwitch 应用数据缓存，再交给事务切换。",
-            "Files will be stored in the ZZZSwitch application cache before the switch.");
-        DetailText.Text = _localization.Choose(
-            "已完成的文件会在校验通过后复用。",
-            "Completed files are reused after verification.");
         PercentText.Text = "0%";
     }
 
@@ -68,7 +62,9 @@ public partial class OnlineDifferenceDownloadWindow : Window
         ErrorText.Visibility = Visibility.Collapsed;
         StatusText.Text = _localization.Choose("正在下载并校验…", "Downloading and verifying…");
         CurrentFileText.Text = _localization.Choose("正在准备第一个文件…", "Preparing the first file…");
+        CurrentFileText.Visibility = Visibility.Visible;
         DetailText.Text = string.Empty;
+        DetailText.Visibility = Visibility.Collapsed;
         var progress = new Progress<OnlineDifferenceProgress>(ShowProgress);
         try
         {
@@ -89,6 +85,7 @@ public partial class OnlineDifferenceDownloadWindow : Window
                         ? $"preserved {Result.PreservedSourceFiles:N0} reusable source files; "
                         : string.Empty) +
                 (_continueToSwitch ? "opening switch confirmation." : "the package is ready for future switches."));
+            DetailText.Visibility = Visibility.Visible;
             DownloadProgressBar.Value = 100;
             PercentText.Text = "100%";
             _allowClose = true;
@@ -100,6 +97,7 @@ public partial class OnlineDifferenceDownloadWindow : Window
             DetailText.Text = _localization.Choose(
                 "未完成的临时文件已清理；已校验完成的缓存可在下次复用。",
                 "Incomplete temporary files were removed; verified cache files can be reused next time.");
+            DetailText.Visibility = Visibility.Visible;
             _allowClose = true;
             DialogResult = false;
         }
@@ -109,6 +107,7 @@ public partial class OnlineDifferenceDownloadWindow : Window
             DetailText.Text = _localization.Choose(
                 "已校验的完整文件和分块断点均会保留；可点击“重试”继续。",
                 "Verified files and chunk checkpoints were retained. Select Retry to continue.");
+            DetailText.Visibility = Visibility.Visible;
             ErrorText.Text = ex.Message;
             ErrorText.Visibility = Visibility.Visible;
             StartButton.Content = _localization.Text("L.Download.Retry");
@@ -135,6 +134,7 @@ public partial class OnlineDifferenceDownloadWindow : Window
         DownloadProgressBar.Value = ratio * 100;
         PercentText.Text = $"{ratio:P0}";
         CurrentFileText.Text = progress.CurrentFile;
+        CurrentFileText.Visibility = Visibility.Visible;
         StatusText.Text = _localization.Choose(
             progress.PreservingSourceFiles
                 ? "正在保存当前客户端文件…"
@@ -179,6 +179,7 @@ public partial class OnlineDifferenceDownloadWindow : Window
                 ? progress.PreservingSourceFiles ? " · preserved for reverse switch" : " · reused complete file"
                 : string.Empty) +
             (progress.ReusingChunkCache ? " · chunk checkpoint reused" : string.Empty));
+        DetailText.Visibility = Visibility.Visible;
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)

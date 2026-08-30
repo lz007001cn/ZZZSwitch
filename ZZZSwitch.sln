@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -14,6 +14,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZZZSwitch.ManifestTool", "tools\ZZZSwitch.ManifestTool\ZZZSwitch.ManifestTool.csproj", "{6A4D2635-38D8-40D5-A3E4-9895E65E7284}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZZZSwitch.ManifestTool.Tests", "tests\ZZZSwitch.ManifestTool.Tests\ZZZSwitch.ManifestTool.Tests.csproj", "{86A8F218-6C3D-45F6-975C-9028A77CE55E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{92EEBC1B-FE75-482B-89BC-ECE03FF0E279}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZZZManifestDiffDemo", "tools\ZZZManifestDiffDemo\ZZZManifestDiffDemo.csproj", "{917E25F0-49CC-4C11-A1EA-6B1B17243944}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{28DBF0E2-D88E-4596-9D04-AFADFBE0B6BC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZZZManifestDiffDemo.Tests", "tests\ZZZManifestDiffDemo.Tests\ZZZManifestDiffDemo.Tests.csproj", "{74F23551-C3C6-4C6C-B04B-8912F42215D7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,5 +53,17 @@ Global
 		{86A8F218-6C3D-45F6-975C-9028A77CE55E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{86A8F218-6C3D-45F6-975C-9028A77CE55E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{86A8F218-6C3D-45F6-975C-9028A77CE55E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{917E25F0-49CC-4C11-A1EA-6B1B17243944}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{917E25F0-49CC-4C11-A1EA-6B1B17243944}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{917E25F0-49CC-4C11-A1EA-6B1B17243944}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{917E25F0-49CC-4C11-A1EA-6B1B17243944}.Release|Any CPU.Build.0 = Release|Any CPU
+		{74F23551-C3C6-4C6C-B04B-8912F42215D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{74F23551-C3C6-4C6C-B04B-8912F42215D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{74F23551-C3C6-4C6C-B04B-8912F42215D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{74F23551-C3C6-4C6C-B04B-8912F42215D7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{917E25F0-49CC-4C11-A1EA-6B1B17243944} = {92EEBC1B-FE75-482B-89BC-ECE03FF0E279}
+		{74F23551-C3C6-4C6C-B04B-8912F42215D7} = {28DBF0E2-D88E-4596-9D04-AFADFBE0B6BC}
 	EndGlobalSection
 EndGlobal

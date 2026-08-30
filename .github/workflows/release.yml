@@ -67,6 +67,10 @@ jobs:
         shell: pwsh
         run: dotnet run --project tests/ZZZSwitch.Ui.Smoke/ZZZSwitch.Ui.Smoke.csproj -c Release --no-build
 
+      - name: Run Manifest diff demo tests
+        shell: pwsh
+        run: dotnet run --project tests/ZZZManifestDiffDemo.Tests/ZZZManifestDiffDemo.Tests.csproj -c Release --no-build
+
       - name: Publish portable application
         shell: pwsh
         run: ./publish-win-x64.ps1 -Version $env:RELEASE_VERSION

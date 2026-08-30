@@ -48,7 +48,6 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="{DynamicResource L.Resources.ManifestCache}"
-                               ToolTip="{DynamicResource L.Resources.ManifestCacheTip}"
                                FontSize="11"
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBlock x:Name="ManifestCacheText" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
@@ -64,45 +63,39 @@
                     Width="80"
                     Click="Refresh_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
-                    Margin="0,0,8,0"
-                    ToolTip="{DynamicResource L.Resources.RefreshTip}" />
+                    Margin="0,0,8,0" />
             <Button x:Name="RefreshManifestButton"
                     Content="{DynamicResource L.Resources.UpdateManifest}"
                     Width="128"
                     Click="RefreshManifest_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
-                    Margin="0,0,8,0"
-                    ToolTip="{DynamicResource L.Resources.UpdateManifestTip}" />
+                    Margin="0,0,8,0" />
             <Button x:Name="BrowseManifestButton"
                     Content="{DynamicResource L.Resources.BrowseManifest}"
                     Width="116"
                     Click="BrowseManifest_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
-                    Margin="0,0,8,0"
-                    ToolTip="{DynamicResource L.Resources.BrowseManifestTip}" />
+                    Margin="0,0,8,0" />
             <Button x:Name="PreviewButton"
                     Content="{DynamicResource L.Resources.Preview}"
                     Width="108"
                     IsEnabled="False"
                     Click="Preview_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
-                    Margin="0,0,8,0"
-                    ToolTip="{DynamicResource L.Resources.PreviewTip}" />
+                    Margin="0,0,8,0" />
             <Button x:Name="VerifyButton"
                     Content="{DynamicResource L.Resources.Verify}"
                     Width="92"
                     IsEnabled="False"
                     Click="Verify_Click"
                     Style="{StaticResource SecondaryButtonStyle}"
-                    Margin="0,0,8,0"
-                    ToolTip="{DynamicResource L.Resources.VerifyTip}" />
+                    Margin="0,0,8,0" />
             <Button x:Name="UpdatePackageButton"
                     Content="{DynamicResource L.Resources.UpdatePackage}"
                     Width="116"
                     IsEnabled="False"
                     Click="UpdatePackage_Click"
-                    Style="{StaticResource SecondaryButtonStyle}"
-                    ToolTip="{DynamicResource L.Resources.UpdatePackageTip}" />
+                    Style="{StaticResource SecondaryButtonStyle}" />
         </StackPanel>
 
         <ListBox Grid.Row="3"

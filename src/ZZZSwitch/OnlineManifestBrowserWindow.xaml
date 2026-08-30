@@ -60,8 +60,7 @@
                                Foreground="{DynamicResource MutedTextBrush}" />
                     <TextBox x:Name="SearchTextBox"
                              Margin="0,7,0,0"
-                             TextChanged="Search_TextChanged"
-                             ToolTip="{DynamicResource L.ManifestBrowser.SearchTip}" />
+                             TextChanged="Search_TextChanged" />
                 </StackPanel>
             </Grid>
         </Border>

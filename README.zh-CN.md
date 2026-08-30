@@ -33,7 +33,7 @@ ZZZSwitch 是一款适用于 Windows 的《绝区零》服务器切换工具，�
 
 ## 使用说明
 
-1. 从 [最新 Release](https://github.com/lz007001cn/ZZZSwitch/releases/latest) 下载 `ZZZSwitch-win-x64-v1.3.2.zip`，解压到任意目录后运行 `ZZZSwitch.exe`。
+1. 从 [最新 Release](https://github.com/lz007001cn/ZZZSwitch/releases/latest) 下载 `ZZZSwitch-win-x64-v1.3.3.zip`，解压到任意目录后运行 `ZZZSwitch.exe`。
 
 2. 首次启动时完成新手引导：
    - 选择中文或 English 以及界面主题；

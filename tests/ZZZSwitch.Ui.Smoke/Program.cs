@@ -198,6 +198,11 @@ internal static class Program
                    downloadForeground.Color == Color.FromRgb(242, 242, 242),
                 "客户端差异包下载窗口没有完整接入当前深浅主题资源。");
             AssertOverlayWindow(onlineDownload, "客户端差异包下载");
+            Assert(string.IsNullOrEmpty(Require<TextBlock>(onlineDownload, "CurrentFileText").Text) &&
+                   Require<TextBlock>(onlineDownload, "CurrentFileText").Visibility == Visibility.Collapsed &&
+                   string.IsNullOrEmpty(Require<TextBlock>(onlineDownload, "DetailText").Text) &&
+                   Require<TextBlock>(onlineDownload, "DetailText").Visibility == Visibility.Collapsed,
+                "在线差异下载窗口空闲状态仍显示教程式说明文字。");
             Assert(Require<TextBlock>(onlineDownload, "DetailText").TextWrapping == TextWrapping.Wrap &&
                    Require<TextBlock>(onlineDownload, "ErrorText").TextWrapping == TextWrapping.Wrap,
                 "在线差异下载窗口的进度或错误信息不能完整换行显示。");
@@ -611,8 +616,35 @@ internal static class Program
             var trayItems = trayMenu.Items.OfType<System.Windows.Forms.ToolStripMenuItem>().ToArray();
             Assert(!trayMenu.ShowImageMargin && !trayMenu.ShowCheckMargin &&
                    trayMenu.MinimumSize.Width == 184 &&
+                   Math.Abs(trayMenu.Font.SizeInPoints - 9.0f) < 0.01f &&
                    trayItems.Length == 3 && trayItems.All(item => item.Height == 30),
-                "系统托盘菜单没有使用紧凑尺寸，或仍由独立窗口代替。" );
+                "中文系统托盘菜单没有使用紧凑尺寸和较小字号，或仍由独立窗口代替。" );
+            var trayLocalization = new LocalizationManager(
+                app,
+                new AppPaths(
+                    Path.Combine(tempRoot, "TrayLanguageData"),
+                    Path.Combine(tempRoot, "TrayLanguageConfig")));
+            trayLocalization.SetLanguage(AppLanguage.English);
+            using var englishTrayMenu = typeof(App)
+                .GetMethod("BuildTrayMenu", BindingFlags.Instance | BindingFlags.NonPublic)?
+                .Invoke(app, null) as System.Windows.Forms.ContextMenuStrip
+                ?? throw new InvalidOperationException("应用没有创建英文系统托盘快捷菜单。");
+            var englishTrayItems = englishTrayMenu.Items
+                .OfType<System.Windows.Forms.ToolStripMenuItem>()
+                .ToArray();
+            Assert(englishTrayMenu.MinimumSize.Width == 220 &&
+                   Math.Abs(englishTrayMenu.Font.SizeInPoints - 9.5f) < 0.01f &&
+                   englishTrayItems.Length == 3 &&
+                   englishTrayItems.All(item =>
+                       System.Windows.Forms.TextRenderer.MeasureText(
+                           item.Text,
+                           englishTrayMenu.Font,
+                           new System.Drawing.Size(int.MaxValue, item.Height),
+                           System.Windows.Forms.TextFormatFlags.SingleLine |
+                           System.Windows.Forms.TextFormatFlags.NoPrefix |
+                           System.Windows.Forms.TextFormatFlags.NoPadding).Width <= item.Width - 24),
+                "英文系统托盘菜单宽度不足，仍可能截断菜单文字。" );
+            trayLocalization.SetLanguage(AppLanguage.Chinese);
             var shouldOpenFromTray = typeof(App).GetMethod(
                 "ShouldOpenFromTray",
                 BindingFlags.Static | BindingFlags.NonPublic)

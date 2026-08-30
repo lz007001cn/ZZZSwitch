@@ -12,7 +12,10 @@ namespace ZZZSwitch;
 internal static class TrayContextMenu
 {
     internal const int MenuWidth = 184;
+    internal const int EnglishMenuWidth = 220;
     internal const int ItemHeight = 30;
+    internal const float ChineseFontSize = 9.0f;
+    internal const float EnglishFontSize = 9.5f;
 
     public static Forms.ContextMenuStrip Create(
         bool isDark,
@@ -23,6 +26,11 @@ internal static class TrayContextMenu
         Action showCompact,
         Action exit)
     {
+        var usesChineseTypography = UsesChineseTypography(showFullText, showCompactText, exitText);
+        var menuWidth = usesChineseTypography ? MenuWidth : EnglishMenuWidth;
+        var font = usesChineseTypography
+            ? new DrawingFont("Microsoft YaHei UI", ChineseFontSize)
+            : new DrawingFont("Segoe UI", EnglishFontSize);
         var palette = isDark
             ? new Palette(
                 Background: DrawingColor.FromArgb(34, 34, 34),
@@ -40,28 +48,28 @@ internal static class TrayContextMenu
             AutoSize = true,
             BackColor = palette.Background,
             ForeColor = palette.Text,
-            Font = new DrawingFont("Segoe UI", 9.5f),
-            MinimumSize = new DrawingSize(MenuWidth, 0),
+            Font = font,
+            MinimumSize = new DrawingSize(menuWidth, 0),
             Padding = new Forms.Padding(5),
             Renderer = new Renderer(palette),
             ShowCheckMargin = false,
             ShowImageMargin = false
         };
 
-        menu.Items.Add(CreateItem(showFullText, showFull));
-        menu.Items.Add(CreateItem(showCompactText, showCompact));
+        menu.Items.Add(CreateItem(showFullText, showFull, menuWidth));
+        menu.Items.Add(CreateItem(showCompactText, showCompact, menuWidth));
         menu.Items.Add(new Forms.ToolStripSeparator
         {
             AutoSize = false,
-            Size = new DrawingSize(MenuWidth - 10, 9)
+            Size = new DrawingSize(menuWidth - 10, 9)
         });
-        menu.Items.Add(CreateItem(exitText, exit));
+        menu.Items.Add(CreateItem(exitText, exit, menuWidth));
         menu.Opening += (_, _) => ApplyRoundedRegion(menu);
         menu.SizeChanged += (_, _) => ApplyRoundedRegion(menu);
         return menu;
     }
 
-    private static Forms.ToolStripMenuItem CreateItem(string text, Action action)
+    private static Forms.ToolStripMenuItem CreateItem(string text, Action action, int menuWidth)
     {
         var item = new Forms.ToolStripMenuItem(text)
         {
@@ -69,11 +77,14 @@ internal static class TrayContextMenu
             ForeColor = DrawingColor.Empty,
             Margin = Forms.Padding.Empty,
             Padding = Forms.Padding.Empty,
-            Size = new DrawingSize(MenuWidth - 10, ItemHeight)
+            Size = new DrawingSize(menuWidth - 10, ItemHeight)
         };
         item.Click += (_, _) => action();
         return item;
     }
+
+    private static bool UsesChineseTypography(params string[] labels) =>
+        labels.Any(label => label.Any(character => character is >= '\u3400' and <= '\u9FFF'));
 
     private static void ApplyRoundedRegion(Forms.ContextMenuStrip menu)
     {

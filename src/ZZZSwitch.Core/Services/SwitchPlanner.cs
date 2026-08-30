@@ -386,9 +386,14 @@ public sealed class SwitchPlanner
             {
                 var available = new DriveInfo(root).AvailableFreeSpace;
                 const long safetyMargin = 64L * 1024 * 1024;
-                if (available < requiredBytes + safetyMargin)
+                var requiredWithMargin = checked(requiredBytes + safetyMargin);
+                if (available < requiredWithMargin)
                 {
-                    issues.Add(new(IssueSeverity.Error, "disk.space", $"应用数据盘空间不足，备份和临时预复制至少需要 {requiredBytes + safetyMargin:N0} 字节。"));
+                    issues.Add(new(
+                        IssueSeverity.Error,
+                        "disk.space",
+                        $"应用数据盘空间不足。备份和临时预复制需要约 {ByteSizeFormatter.Format(requiredWithMargin)}（{requiredWithMargin:N0} 字节），" +
+                        $"当前可用 {ByteSizeFormatter.Format(available)}（{available:N0} 字节）。"));
                 }
             }
         }

@@ -33,7 +33,7 @@ Global ↔ CN Official switching uses the official Sophon manifests for the inst
 
 ## Usage
 
-1. Download `ZZZSwitch-win-x64-v1.3.2.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
+1. Download `ZZZSwitch-win-x64-v1.3.3.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
 
 2. On first launch, complete the setup guide:
    - choose Chinese or English and the interface theme;

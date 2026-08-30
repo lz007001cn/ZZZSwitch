@@ -808,10 +808,15 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
         var required = checked(
             bytesForMissingFiles + largestExistingCandidate + largestDownloadFile + safetyMargin);
         var driveRoot = Path.GetPathRoot(contentRoot);
-        if (!string.IsNullOrWhiteSpace(driveRoot) && new DriveInfo(driveRoot).AvailableFreeSpace < required)
+        if (!string.IsNullOrWhiteSpace(driveRoot))
         {
-            throw new IOException(
-                $"在线差异缓存盘空间不足。至少需要约 {required:N0} 字节（含临时校验余量）。");
+            var available = new DriveInfo(driveRoot).AvailableFreeSpace;
+            if (available < required)
+            {
+                throw new IOException(
+                    $"在线差异缓存盘空间不足。需要约 {ByteSizeFormatter.Format(required)}（{required:N0} 字节），" +
+                    $"当前可用 {ByteSizeFormatter.Format(available)}（{available:N0} 字节），所需空间已包含临时校验余量。");
+            }
         }
     }
 

@@ -40,6 +40,7 @@ Invoke-DotNet @('build', 'ZZZSwitch.sln', '-c', 'Release', '--nologo')
 Invoke-DotNet @('run', '--project', 'tests\ZZZSwitch.Core.Tests\ZZZSwitch.Core.Tests.csproj', '-c', 'Release')
 Invoke-DotNet @('run', '--project', 'tests\ZZZSwitch.ManifestTool.Tests\ZZZSwitch.ManifestTool.Tests.csproj', '-c', 'Release')
 Invoke-DotNet @('run', '--project', 'tests\ZZZSwitch.Ui.Smoke\ZZZSwitch.Ui.Smoke.csproj', '-c', 'Release')
+Invoke-DotNet @('run', '--project', 'tests\ZZZManifestDiffDemo.Tests\ZZZManifestDiffDemo.Tests.csproj', '-c', 'Release')
 
 New-Item -ItemType Directory -Path $resolvedOutputRoot -Force | Out-Null
 try {
@@ -81,6 +82,7 @@ try {
             coreTests = 'passed'
             manifestToolTests = 'passed'
             uiSmoke = 'passed'
+            manifestDiffDemoTests = 'passed'
         }
     }
     $buildInfo | ConvertTo-Json -Depth 4 | Set-Content `

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>ZZZManifestDiffDemo</AssemblyName>
+    <RootNamespace>ZZZManifestDiffDemo</RootNamespace>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0-demo</InformationalVersion>
+    <Product>ZZZ Manifest Diff Demo</Product>
+    <Title>ZZZ Manifest Diff Demo</Title>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ZZZSwitch.ManifestTool\ZZZSwitch.ManifestTool.csproj" />
+  </ItemGroup>
+</Project>
