@@ -1,11 +1,12 @@
 [CmdletBinding()]
 param(
-    [string]$OutputRoot = (Join-Path $PSScriptRoot '_verification\runnable-test')
+    [string]$OutputRoot
 )
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath($PSScriptRoot)
 $allowedRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot '_verification\runnable-test'))
+$OutputRoot = if ([string]::IsNullOrWhiteSpace($OutputRoot)) { $allowedRoot } else { $OutputRoot }
 $resolvedOutputRoot = [IO.Path]::GetFullPath($OutputRoot)
 $allowedPrefix = $allowedRoot.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
 

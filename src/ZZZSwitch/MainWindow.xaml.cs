@@ -15,10 +15,16 @@ namespace ZZZSwitch;
 
 public partial class MainWindow : Window
 {
+    private const string BundledBilibiliGameVersion = "3.1.0";
+    private const string BundledBilibiliResourceName =
+        "ZZZSwitch.BundledPackages.Bilibili.3.1.0.zip";
+    private const string BundledBilibiliBundleId =
+        "4D16EE071919DCEFAE0BF2CFD9F45D0944C544C1CCB56B378DA3E5E1FA009631";
     private readonly MainWindowViewModel _viewModel = new();
     private readonly AppPaths _paths = new();
     private readonly MainWindowDialogCoordinator _dialogs;
     private readonly ConfigurationRepository _configuration;
+    private readonly BundledBilibiliPackageService _bundledBilibiliPackage;
     private readonly StateStore _stateStore;
     private readonly InspectionService _inspection;
     private readonly GameDirectoryDiscoveryService _gameDirectoryDiscovery;
@@ -53,6 +59,8 @@ public partial class MainWindow : Window
     private readonly ThemeManager _theme;
     private readonly LocalizationManager _localization;
     private readonly UiSettingsService _uiSettingsService;
+    private readonly HashSet<string> _preparedBilibiliPackages =
+        new(StringComparer.OrdinalIgnoreCase);
     private UiSettings _uiSettings;
 
     public MainWindow()
@@ -79,6 +87,11 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
         _operations = new OperationCoordinator(_paths);
         _configuration = new ConfigurationRepository(_paths);
+        _bundledBilibiliPackage = new BundledBilibiliPackageService(
+            _configuration,
+            OpenBundledBilibiliPackage,
+            BundledBilibiliGameVersion,
+            BundledBilibiliBundleId);
         _stateStore = new StateStore(_paths);
         var gameDirectory = new GameDirectoryService();
         _gameDirectoryDiscovery = new GameDirectoryDiscoveryService(gameDirectory);
@@ -304,6 +317,33 @@ public partial class MainWindow : Window
         {
             var path = _viewModel.GamePath.Trim();
             report = await Task.Run(() => _inspection.Inspect(path));
+            if (report.Game.IsValid && report.Game.GameVersion is { } gameVersion)
+            {
+                var packageKey = $"{Path.GetFullPath(path)}|{gameVersion}";
+                if (!_preparedBilibiliPackages.Contains(packageKey))
+                {
+                    _viewModel.BusyStatus = _localization.Choose(
+                        "正在准备 B 服组件…",
+                        "Preparing Bilibili components…");
+                    try
+                    {
+                        await Task.Run(() =>
+                            _bundledBilibiliPackage.EnsureInstalled(path, gameVersion));
+                        _preparedBilibiliPackages.Add(packageKey);
+                    }
+                    catch (Exception ex) when (
+                        ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+                    {
+                        report.Issues.Add(new(
+                            IssueSeverity.Warning,
+                            "bilibili.bundle.install.failed",
+                            _localization.Choose(
+                                $"B 服组件未能自动准备：{ex.Message}",
+                                $"Bilibili components could not be prepared automatically: {ex.Message}")));
+                    }
+                }
+            }
+
             _lastReport = report;
             RenderReport(report, showReadOnlyBanner);
         }
@@ -326,6 +366,10 @@ public partial class MainWindow : Window
             await OfferStorageRecoveryAsync(report);
         }
     }
+
+    private static Stream OpenBundledBilibiliPackage() =>
+        Assembly.GetExecutingAssembly().GetManifestResourceStream(BundledBilibiliResourceName)
+        ?? throw new InvalidDataException("软件本体缺少内置 B 服组件。");
 
     private void RenderReport(InspectionReport report, bool readOnlyBanner)
     {

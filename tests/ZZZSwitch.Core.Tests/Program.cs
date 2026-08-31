@@ -85,6 +85,9 @@ internal static class Program
         ("差异包导入可恢复替换中断残留", PackageArchiveRecoversInterruptedReplacement),
         ("差异包导入拒绝跨目录路径", PackageArchiveRejectsTraversal),
         ("差异包导入拒绝错误游戏版本", PackageArchiveRejectsWrongVersion),
+        ("首次运行自动安装内置B服组件", BundledBilibiliPackageInstallsOnFirstRun),
+        ("损坏的内置B服组件会自动修复", BundledBilibiliPackageRepairsCorruption),
+        ("内置B服组件拒绝异常归档路径", BundledBilibiliPackageRejectsUnsafeArchive),
         ("主题偏好可持久化且损坏设置安全回退", ThemePreferencePersistsAndFallsBack),
         ("界面与启动设置整体持久化", UiSettingsPersistAsOneDocument),
         ("日志保留只清理超过设定天数的文件", ExpiredLogsFollowRetention),
@@ -1887,6 +1890,86 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    private static Task BundledBilibiliPackageInstallsOnFirstRun()
+    {
+        using var fixture = new TempFixture();
+        const string content = "bilibili-component";
+        PrepareBundledBilibiliConfiguration(fixture, content);
+        var archiveBytes = CreateBundledBilibiliArchive("3.1.0", content);
+        var service = new BundledBilibiliPackageService(
+            new ConfigurationRepository(fixture.Paths),
+            () => new MemoryStream(archiveBytes, writable: false),
+            "3.1.0",
+            "test-bundle");
+
+        var installed = service.EnsureInstalled(fixture.Game, "3.1.0");
+        Equal(BundledBilibiliPackageStatus.Installed, installed.Status);
+        Equal(content, File.ReadAllText(Path.Combine(installed.PackageDirectory, "payload.bin")));
+        True(File.Exists(Path.Combine(installed.PackageDirectory, ".bundled-package.json")),
+            "完整校验并提交后应写入内置包标记。");
+
+        var reused = service.EnsureInstalled(fixture.Game, "3.1.0");
+        Equal(BundledBilibiliPackageStatus.AlreadyInstalled, reused.Status);
+        return Task.CompletedTask;
+    }
+
+    private static Task BundledBilibiliPackageRepairsCorruption()
+    {
+        using var fixture = new TempFixture();
+        const string content = "verified-component";
+        PrepareBundledBilibiliConfiguration(fixture, content);
+        var archiveBytes = CreateBundledBilibiliArchive("3.1.0", content);
+        var service = new BundledBilibiliPackageService(
+            new ConfigurationRepository(fixture.Paths),
+            () => new MemoryStream(archiveBytes, writable: false),
+            "3.1.0",
+            "test-bundle");
+        var installed = service.EnsureInstalled(fixture.Game, "3.1.0");
+        var payload = Path.Combine(installed.PackageDirectory, "payload.bin");
+        File.WriteAllText(payload, "tampered-component");
+
+        var repaired = service.EnsureInstalled(fixture.Game, "3.1.0");
+        Equal(BundledBilibiliPackageStatus.Repaired, repaired.Status);
+        Equal(content, File.ReadAllText(payload));
+        True(!Directory.GetDirectories(
+                GameStorageLayout.GetPackageRoot(fixture.Game, "3.1.0"),
+                ".previous-bilibili-*").Any(),
+            "修复成功后不应遗留旧 B 服组件目录。");
+        return Task.CompletedTask;
+    }
+
+    private static Task BundledBilibiliPackageRejectsUnsafeArchive()
+    {
+        using var fixture = new TempFixture();
+        const string content = "safe-component";
+        PrepareBundledBilibiliConfiguration(fixture, content);
+        var archiveBytes = CreateBundledBilibiliArchive(
+            "3.1.0",
+            content,
+            ".zzzswitch/packages/3.1.0/bilibili/../payload.bin");
+        var service = new BundledBilibiliPackageService(
+            new ConfigurationRepository(fixture.Paths),
+            () => new MemoryStream(archiveBytes, writable: false),
+            "3.1.0",
+            "test-bundle");
+        var rejected = false;
+        try
+        {
+            service.EnsureInstalled(fixture.Game, "3.1.0");
+        }
+        catch (InvalidDataException)
+        {
+            rejected = true;
+        }
+
+        True(rejected, "内置 B 服 ZIP 的跨目录路径必须被拒绝。");
+        True(!File.Exists(Path.Combine(
+                GameStorageLayout.GetPackageRoot(fixture.Game, "3.1.0"),
+                "payload.bin")),
+            "拒绝归档后不得把文件写出 B 服组件目录。");
+        return Task.CompletedTask;
+    }
+
     private static Task ThemePreferencePersistsAndFallsBack()
     {
         using var fixture = new TempFixture();
@@ -2964,6 +3047,63 @@ internal static class Program
             var bytes = Encoding.UTF8.GetBytes(value);
             stream.Write(bytes);
         }
+    }
+
+    private static void PrepareBundledBilibiliConfiguration(TempFixture fixture, string content)
+    {
+        foreach (var profile in ProfileIds.All)
+        {
+            File.WriteAllText(
+                Path.Combine(fixture.Config, "profiles", profile + ".json"),
+                JsonSerializer.Serialize(new ProfileDefinition
+                {
+                    Id = profile,
+                    DisplayName = profile,
+                    PackageDirectoryName = profile,
+                    KeyFiles = []
+                }, JsonSupport.Options));
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(content);
+        File.WriteAllText(
+            Path.Combine(fixture.Config, "transitions", "cn-official-to-bilibili.json"),
+            JsonSerializer.Serialize(new TransitionManifest
+            {
+                SourceProfile = ProfileIds.CnOfficial,
+                TargetProfile = ProfileIds.Bilibili,
+                GameVersion = "3.1.0",
+                ExpectedReplaceCount = 1,
+                ExpectedDeleteCount = 0,
+                ReplaceFiles =
+                [
+                    new ReplaceFileEntry
+                    {
+                        Source = "payload.bin",
+                        Target = "payload.bin",
+                        Length = bytes.Length,
+                        Sha256 = Convert.ToHexString(SHA256.HashData(bytes))
+                    }
+                ]
+            }, JsonSupport.Options));
+    }
+
+    private static byte[] CreateBundledBilibiliArchive(
+        string version,
+        string content,
+        string? entryName = null)
+    {
+        using var output = new MemoryStream();
+        using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = archive.CreateEntry(
+                entryName ?? $".zzzswitch/packages/{version}/bilibili/payload.bin",
+                CompressionLevel.NoCompression);
+            using var stream = entry.Open();
+            var bytes = Encoding.UTF8.GetBytes(content);
+            stream.Write(bytes);
+        }
+
+        return output.ToArray();
     }
 
     private static string Sha256Text(string value) =>

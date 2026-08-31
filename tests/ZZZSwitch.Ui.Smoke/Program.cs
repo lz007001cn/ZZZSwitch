@@ -1,5 +1,6 @@
 using System.IO;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -64,6 +65,33 @@ internal static class Program
                 ?? throw new InvalidOperationException("程序集缺少信息版本。");
             Assert(versionText.Text == $"v{expectedVersion}",
                 $"界面版本号不正确：{versionText.Text}");
+            using (var bundledBilibili = typeof(MainWindow).Assembly.GetManifestResourceStream(
+                       "ZZZSwitch.BundledPackages.Bilibili.3.1.0.zip"))
+            {
+                Assert(bundledBilibili is not null,
+                    "正式程序没有包含 B 服组件归档。");
+                Assert(bundledBilibili!.Length == 82_456_658,
+                    "内置 B 服组件归档长度不正确。");
+                Assert(Convert.ToHexString(SHA256.HashData(bundledBilibili)) ==
+                       "4D16EE071919DCEFAE0BF2CFD9F45D0944C544C1CCB56B378DA3E5E1FA009631",
+                    "内置 B 服组件归档 SHA-256 不正确。");
+            }
+            var bundledInstallGame = Path.Combine(tempRoot, "BundledInstall", "Game");
+            Directory.CreateDirectory(bundledInstallGame);
+            var bundledInstaller = new BundledBilibiliPackageService(
+                new ConfigurationRepository(new AppPaths(
+                    Path.Combine(tempRoot, "BundledInstallData"),
+                    Path.Combine(AppContext.BaseDirectory, "config"))),
+                () => typeof(MainWindow).Assembly.GetManifestResourceStream(
+                          "ZZZSwitch.BundledPackages.Bilibili.3.1.0.zip")
+                      ?? throw new InvalidDataException("内置 B 服组件资源不存在。"),
+                "3.1.0",
+                "4D16EE071919DCEFAE0BF2CFD9F45D0944C544C1CCB56B378DA3E5E1FA009631");
+            var bundledInstall = bundledInstaller.EnsureInstalled(bundledInstallGame, "3.1.0");
+            Assert(bundledInstall.Status == BundledBilibiliPackageStatus.Installed &&
+                   bundledInstall.FileCount == 72 &&
+                   bundledInstall.TotalBytes == 195_255_618,
+                "正式程序内置 B 服组件没有完整解压并通过切换清单校验。");
             Assert(main.Title == "ZZZSwitch",
                 "Window title should not include the version number.");
             Assert(Require<ScrollViewer>(main, "MainScrollViewer").FocusVisualStyle is null,

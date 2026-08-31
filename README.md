@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 ZZZSwitch is a Windows server switcher for **Zenless Zone Zero**, supporting **Global**, **CN Official**, and **Bilibili** clients.
 
-Global ↔ CN Official switching uses the official Sophon manifests for the installed game version. ZZZSwitch reuses files already available in the current client, downloads only missing target files, and preserves the source-region differences before replacement so the reverse switch can reuse local data instead of downloading the original client again. Bilibili remains a CN-based channel overlay and uses a version-matched local package.
+Global ↔ CN Official switching uses the official Sophon manifests for the installed game version. ZZZSwitch reuses files already available in the current client, downloads only missing target files, and preserves the source-region differences before replacement so the reverse switch can reuse local data instead of downloading the original client again. Bilibili remains a CN-based channel overlay; starting with 1.3.4, the channel components for the supported game version are included in the app.
 
 ![ZZZSwitch main window](docs/images/zzzswitch-main-window.png)
 
@@ -29,11 +29,11 @@ Global ↔ CN Official switching uses the official Sophon manifests for the inst
 - Windows x64.
 - An installed PC version of Zenless Zone Zero.
 - Internet access for Global ↔ CN Official manifests and any target files not already available locally.
-- A version-matched legacy local package for any switch involving Bilibili. Bilibili resources are not obtained through Sophon.
+- Direct Global ↔ Bilibili switching still needs the matching Global/CN base difference files. The Bilibili channel components themselves no longer require a separate download.
 
 ## Usage
 
-1. Download `ZZZSwitch-win-x64-v1.3.3.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
+1. Download `ZZZSwitch-win-x64-v1.3.4.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
 
 2. On first launch, complete the setup guide:
    - choose Chinese or English and the interface theme;
@@ -44,7 +44,7 @@ Global ↔ CN Official switching uses the official Sophon manifests for the inst
 
 4. Select the target server:
    - **Global ↔ CN Official:** ZZZSwitch checks both directions, reads the matching manifests when needed, preserves reusable source files, and downloads only missing target files.
-   - **Bilibili:** ZZZSwitch uses the matching package under `.zzzswitch\packages\<game-version>` and shares CN Blocks resources while retaining a separate channel identity.
+   - **Bilibili:** On the first inspection of a supported game version, ZZZSwitch verifies and installs its bundled channel components under `.zzzswitch\packages\<game-version>\bilibili`. Bilibili shares CN Blocks resources while retaining a separate channel identity.
 
 5. In the full window, review and confirm the switch summary. In the compact window, selecting a server starts the switch directly and reports progress in the lower-left corner without extra confirmation or completion dialogs.
 
