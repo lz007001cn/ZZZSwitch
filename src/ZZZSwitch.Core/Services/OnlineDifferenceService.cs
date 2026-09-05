@@ -19,6 +19,13 @@ public interface IOnlineDifferenceService
         string gameVersion,
         out OnlineDifferenceMaterialization? materialization);
 
+    (
+        OnlineDifferenceMaterialization? Forward,
+        OnlineDifferenceMaterialization? Reverse) GetReadyMaterializations(
+        string sourceProfile,
+        string targetProfile,
+        string gameVersion);
+
     Task<OnlineDifferencePlan> AnalyzeAsync(
         string sourceProfile,
         string targetProfile,
@@ -65,7 +72,18 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
         string gameVersion,
         out OnlineDifferenceMaterialization? materialization) =>
         _catalog.TryGetReadyMaterialization(
-            sourceProfile, targetProfile, gameVersion, out materialization);
+            sourceProfile,
+            targetProfile,
+            gameVersion,
+            out materialization);
+
+    public (
+        OnlineDifferenceMaterialization? Forward,
+        OnlineDifferenceMaterialization? Reverse) GetReadyMaterializations(
+        string sourceProfile,
+        string targetProfile,
+        string gameVersion) =>
+        _catalog.GetReadyMaterializations(sourceProfile, targetProfile, gameVersion);
 
     public async Task<OnlineDifferencePlan> AnalyzeAsync(
         string sourceProfile,

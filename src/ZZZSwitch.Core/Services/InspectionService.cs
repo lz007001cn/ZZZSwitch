@@ -319,16 +319,6 @@ public sealed class InspectionService
         string gamePath,
         List<ValidationIssue> issues)
     {
-        if (manifest.PlannedReplaceCount != manifest.ExpectedReplaceCount)
-        {
-            issues.Add(new(IssueSeverity.Error, "manifest.replace.count", $"{manifest.SourceProfile} → {manifest.TargetProfile} 的替换清单数量不符。"));
-        }
-
-        if (manifest.DeleteFiles.Count != manifest.ExpectedDeleteCount)
-        {
-            issues.Add(new(IssueSeverity.Error, "manifest.delete.count", $"{manifest.SourceProfile} → {manifest.TargetProfile} 的删除清单数量不符。"));
-        }
-
         var missingIntegrity = manifest.ReplaceFiles.Count(x =>
             !x.Length.HasValue || string.IsNullOrWhiteSpace(x.Sha256));
         if (missingIntegrity > 0)

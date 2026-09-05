@@ -54,12 +54,6 @@ public sealed class StorageLayoutService
                 before.PackageVersionPath,
                 before.CacheRootPath
             }
-            .Concat(profiles
-                .Where(x => x.Enabled)
-                .Select(x => GameStorageLayout.GetPackageDirectory(
-                    gamePath,
-                    gameVersion,
-                    x.PackageDirectoryName)))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var created = directories

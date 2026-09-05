@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Security.Cryptography;
 using ZZZSwitch.Core.Models;
 
 namespace ZZZSwitch.Core.Services;
@@ -8,26 +7,31 @@ public sealed class BackupService
 {
     private readonly IFileOperations _files;
     private readonly AppPaths _paths;
+    private readonly VerifiedFileTransfer _transfers;
 
     public BackupService(IFileOperations files, AppPaths paths)
     {
         _files = files;
         _paths = paths;
+        _transfers = new VerifiedFileTransfer(files);
     }
 
     public BackupRecord CreateBackup(SwitchPlan plan, IEnumerable<string>? additionalAffectedFiles = null)
     {
-        _paths.EnsureWritableDirectories();
-        EnsureUnderBackupsRoot(plan.BackupPath);
-        _files.CreateDirectory(plan.BackupPath);
-        var filesRoot = Path.Combine(plan.BackupPath, "files");
-        _files.CreateDirectory(filesRoot);
-
         var affected = plan.Manifest.ReplaceFiles.Select(x => x.Target)
             .Concat(plan.Manifest.IniPatches.Select(x => x.Target))
             .Concat(plan.Manifest.DeleteFiles.Select(x => x.Target))
             .Concat(plan.Manifest.OptionalDeleteFiles.Select(x => x.Target))
-            .Concat(additionalAffectedFiles ?? [])
+            .Concat(additionalAffectedFiles ?? []);
+        return CreateBackupForAffectedFiles(plan, affected);
+    }
+
+    public BackupRecord CreateBackupForAffectedFiles(SwitchPlan plan, IEnumerable<string> affectedFiles)
+    {
+        _paths.EnsureWritableDirectories();
+        EnsureUnderBackupsRoot(plan.BackupPath);
+        _files.CreateDirectory(plan.BackupPath);
+        var affected = affectedFiles
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -40,9 +44,10 @@ public sealed class BackupService
             GameVersion = plan.Manifest.GameVersion,
             GamePath = plan.GamePath,
             FilesPlannedForDeletion = plan.Manifest.DeleteFiles.Select(x => x.Target).ToList(),
-            ReplaceCount = plan.Manifest.ExpectedReplaceCount,
-            DeleteCount = plan.Manifest.ExpectedDeleteCount
+            ReplaceCount = plan.Manifest.PlannedReplaceCount,
+            DeleteCount = plan.Manifest.PlannedDeleteCount
         };
+        var filesRoot = Path.Combine(plan.BackupPath, "files");
 
         foreach (var relative in affected)
         {
@@ -53,28 +58,14 @@ public sealed class BackupService
                 continue;
             }
 
-            var destination = PathSafety.ResolveOrThrow(filesRoot, relative);
-            var parent = Path.GetDirectoryName(destination);
+            var target = PathSafety.ResolveOrThrow(filesRoot, relative);
+            var parent = Path.GetDirectoryName(target);
             if (parent is not null)
             {
                 _files.CreateDirectory(parent);
             }
-
-            _files.CopyFile(source, destination, false);
-            if (!_files.FileExists(destination) || _files.GetLength(destination) != _files.GetLength(source))
-            {
-                throw new IOException($"备份校验失败：{relative}");
-            }
-
-            var sourceHash = ComputeSha256(source);
-            var destinationHash = ComputeSha256(destination);
-            if (!string.Equals(sourceHash, destinationHash, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new IOException($"备份完整性校验失败：{relative}");
-            }
-
+            _transfers.CopyAndVerify(source, target, overwrite: false);
             record.BackedUpFiles.Add(relative);
-            record.BackedUpFileSha256[relative] = destinationHash;
         }
 
         SaveRecord(plan.BackupPath, record);
@@ -91,35 +82,15 @@ public sealed class BackupService
         {
             try
             {
-                var source = PathSafety.ResolveOrThrow(filesRoot, relative);
+                var source = ResolveBackupSource(record, filesRoot, relative);
                 var destination = PathSafety.ResolveOrThrow(record.GamePath, relative);
-                string? expectedHash = null;
-                var hasExpectedHash = record.BackedUpFileSha256 is not null &&
-                                      record.BackedUpFileSha256.TryGetValue(relative, out expectedHash) &&
-                                      !string.IsNullOrWhiteSpace(expectedHash);
-                if (hasExpectedHash &&
-                    !string.Equals(ComputeSha256(source), expectedHash, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidDataException("备份文件完整性校验失败，拒绝恢复。");
-                }
-
                 var parent = Path.GetDirectoryName(destination);
                 if (parent is not null)
                 {
                     _files.CreateDirectory(parent);
                 }
 
-                _files.CopyFile(source, destination, true);
-                if (!_files.FileExists(destination) || _files.GetLength(destination) != _files.GetLength(source))
-                {
-                    throw new IOException("恢复后校验失败。");
-                }
-
-                if (hasExpectedHash &&
-                    !string.Equals(ComputeSha256(destination), expectedHash, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new IOException("恢复后完整性校验失败。");
-                }
+                _transfers.CopyAndVerify(source, destination, overwrite: true);
             }
             catch (Exception ex)
             {
@@ -337,7 +308,6 @@ public sealed class BackupService
             string.IsNullOrWhiteSpace(record.GameVersion) ||
             string.IsNullOrWhiteSpace(record.GamePath) ||
             record.BackedUpFiles is null ||
-            record.BackedUpFileSha256 is null ||
             record.OriginallyMissingFiles is null ||
             record.FilesPlannedForDeletion is null)
         {
@@ -357,9 +327,7 @@ public sealed class BackupService
                 return false;
             }
 
-            return record.BackedUpFileSha256.All(x =>
-                record.BackedUpFiles.Contains(x.Key, StringComparer.OrdinalIgnoreCase) &&
-                FileIntegrityService.IsValidSha256(x.Value));
+            return true;
         }
         catch (Exception ex) when (
             ex is ArgumentException or NotSupportedException or PathTooLongException)
@@ -433,9 +401,40 @@ public sealed class BackupService
         }
     }
 
-    private static string ComputeSha256(string path)
+    private string ResolveBackupSource(BackupRecord record, string filesRoot, string relative)
     {
-        using var stream = File.OpenRead(path);
-        return Convert.ToHexString(SHA256.HashData(stream));
+        var physical = PathSafety.ResolveOrThrow(filesRoot, relative);
+        if (_files.FileExists(physical))
+        {
+            return physical;
+        }
+
+        if (record.LegacyContentObjects is not null &&
+            record.LegacyContentLengths is not null &&
+            record.LegacyContentObjects.TryGetValue(relative, out var objectId) &&
+            record.LegacyContentLengths.TryGetValue(relative, out var expectedLength) &&
+            IsLegacyObjectId(objectId))
+        {
+            var normalized = objectId.ToUpperInvariant();
+            var legacy = Path.Combine(
+                GetLegacyContentRoot(record.GamePath),
+                "sha256",
+                normalized[..2],
+                normalized + ".blob");
+            if (_files.FileExists(legacy) && _files.GetLength(legacy) == expectedLength)
+            {
+                return legacy;
+            }
+        }
+
+        throw new FileNotFoundException("备份文件不存在。", physical);
     }
+
+    private static string GetLegacyContentRoot(string gamePath) =>
+        Path.Combine(
+            GameStorageLayout.GetAppDataRoot(gamePath),
+            GameStorageLayout.BackupContentDirectoryName);
+
+    private static bool IsLegacyObjectId(string value) =>
+        value.Length == 64 && value.All(Uri.IsHexDigit);
 }

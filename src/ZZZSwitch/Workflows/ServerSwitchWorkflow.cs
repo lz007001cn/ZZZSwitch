@@ -14,6 +14,7 @@ public sealed class ServerSwitchWorkflow
     private readonly IOnlineDifferenceService _onlineDifferences;
     private readonly IMainWindowDialogs _dialogs;
     private readonly MainWindowWorkflowContext _context;
+    private readonly BundledBilibiliPackageService? _bundledBilibiliPackage;
 
     public ServerSwitchWorkflow(
         SwitchPlanner planner,
@@ -21,7 +22,8 @@ public sealed class ServerSwitchWorkflow
         OperationCoordinator operations,
         IOnlineDifferenceService onlineDifferences,
         IMainWindowDialogs dialogs,
-        MainWindowWorkflowContext context)
+        MainWindowWorkflowContext context,
+        BundledBilibiliPackageService? bundledBilibiliPackage = null)
     {
         _planner = planner;
         _engine = engine;
@@ -29,6 +31,7 @@ public sealed class ServerSwitchWorkflow
         _onlineDifferences = onlineDifferences;
         _dialogs = dialogs;
         _context = context;
+        _bundledBilibiliPackage = bundledBilibiliPackage;
     }
 
     public async Task RunAsync(string targetProfile, bool useCompactExperience = false)
@@ -78,11 +81,17 @@ public sealed class ServerSwitchWorkflow
             return;
         }
 
-        var usesLegacyBilibiliPackage = UsesLegacyBilibiliPackage(sourceProfile, targetProfile);
+        var sourceResourceProfile = ProfileIds.ToResourceProfile(sourceProfile);
+        var targetResourceProfile = ProfileIds.ToResourceProfile(targetProfile);
+        var usesBilibili = UsesBilibili(sourceProfile, targetProfile);
+        var usesLocalBilibiliOverlayOnly = usesBilibili && string.Equals(
+            sourceResourceProfile,
+            targetResourceProfile,
+            StringComparison.Ordinal);
         OnlineDifferenceMaterialization? materialization = null;
         SwitchPlan plan;
         var selectedGamePath = _context.GetGamePath().Trim();
-        if (usesLegacyBilibiliPackage)
+        if (usesLocalBilibiliOverlayOnly)
         {
             _context.SetBusy(true, "正在校验本地 B 服差异包…");
             try
@@ -97,50 +106,14 @@ public sealed class ServerSwitchWorkflow
         }
         else
         {
-            var hasReadyTarget = _onlineDifferences.TryGetReadyMaterialization(
-                sourceProfile, targetProfile, gameVersion, out materialization);
-            var hasReadyReverse = _onlineDifferences.TryGetReadyMaterialization(
-                targetProfile, sourceProfile, gameVersion, out _);
-            if (!hasReadyTarget || !hasReadyReverse)
+            materialization = await PrepareOnlineMaterializationAsync(
+                sourceResourceProfile,
+                targetResourceProfile,
+                gameVersion,
+                selectedGamePath);
+            if (materialization is null)
             {
-                OnlineDifferencePlan? onlinePlan = null;
-                _context.SetBusy(true, "正在读取 Sophon 清单并计算差异…");
-                try
-                {
-                    onlinePlan = await _onlineDifferences.AnalyzeAsync(
-                        sourceProfile,
-                        targetProfile,
-                        gameVersion,
-                        selectedGamePath);
-                }
-                catch (Exception) when (hasReadyTarget)
-                {
-                    // The existing target package remains usable even when an optional
-                    // reverse-package refresh cannot reach or read the manifests.
-                }
-                catch (Exception ex)
-                {
-                    _dialogs.Show(
-                        T("无法获取客户端差异包", "Unable to get the client difference package"),
-                        T(
-                            $"{ex.Message}\n\n国服与国际服不会回退到游戏目录中的旧差异包。",
-                            $"{ex.Message}\n\nGlobal/CN switching will not fall back to a legacy package in the game directory."),
-                        MessageTone.Error);
-                    return;
-                }
-                finally
-                {
-                    _context.SetBusy(false, "客户端差异分析结束");
-                }
-
-                if (onlinePlan is not null)
-                {
-                    materialization = _dialogs.DownloadOnlineDifference(onlinePlan, _onlineDifferences);
-                    if (materialization is null)
-                    {
-                        return;
-                    }
-                }
+                return;
             }
 
             _context.SetBusy(true, materialization!.ReusedReadyPackage
@@ -148,12 +121,54 @@ public sealed class ServerSwitchWorkflow
                 : "正在执行切换前完整性检查…");
             try
             {
-                plan = await Task.Run(() =>
-                    _planner.CreateOnlinePlan(selectedGamePath, materialization));
+                plan = await Task.Run(() => usesBilibili
+                    ? _planner.CreateBilibiliCompositePlan(
+                        selectedGamePath,
+                        sourceProfile,
+                        targetProfile,
+                        materialization)
+                    : _planner.CreateOnlinePlan(selectedGamePath, materialization));
             }
             finally
             {
                 _context.SetBusy(false, "差异包校验结束");
+            }
+        }
+
+        if (usesBilibili &&
+            _bundledBilibiliPackage is not null &&
+            plan.Issues.Any(issue => issue.Code is
+                "package.directory.missing" or
+                "package.source.missing" or
+                "package.integrity.failed"))
+        {
+            _context.SetBusy(true, "正在修复 B 服组件并重新检查…");
+            try
+            {
+                await Task.Run(() => _bundledBilibiliPackage.EnsureInstalled(
+                    selectedGamePath,
+                    gameVersion,
+                    requireFullVerification: true));
+                plan = await Task.Run(() => usesLocalBilibiliOverlayOnly
+                    ? _planner.CreatePlan(selectedGamePath, sourceProfile, targetProfile)
+                    : _planner.CreateBilibiliCompositePlan(
+                        selectedGamePath,
+                        sourceProfile,
+                        targetProfile,
+                        materialization!));
+            }
+            catch (Exception ex) when (
+                ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+            {
+                _dialogs.Show(
+                    T("无法修复 B 服组件", "Unable to repair Bilibili components"),
+                    ex.Message,
+                    MessageTone.Error);
+                return;
+            }
+            finally
+            {
+                _context.SetBusy(false, "B 服组件检查结束");
             }
         }
 
@@ -162,7 +177,7 @@ public sealed class ServerSwitchWorkflow
         {
             _dialogs.Show(
                 T("切换前检查未通过", "Pre-switch checks failed"),
-                string.Join(Environment.NewLine, errors.Select(x => "• " + x.Message)),
+                string.Join(Environment.NewLine, errors.Select(FormatValidationIssue)),
                 MessageTone.Warning);
             return;
         }
@@ -173,8 +188,8 @@ public sealed class ServerSwitchWorkflow
                 targetProfile,
                 DisplayFormatting.ShortProfileName(targetProfile),
                 plan.Manifest.GameVersion,
-                plan.Manifest.ExpectedReplaceCount,
-                plan.Manifest.ExpectedDeleteCount,
+                plan.Manifest.PlannedReplaceCount,
+                plan.Manifest.PlannedDeleteCount,
                 plan.BackupPath)))
         {
             return;
@@ -199,8 +214,8 @@ public sealed class ServerSwitchWorkflow
                             $"Server resources were switched successfully.\n\nReplaced {result.SuccessfulReplace}/{result.PlannedReplace} files\nDeleted {result.SuccessfulDelete}/{result.PlannedDelete} files\nRestored {result.SuccessfulCacheRestore}/{result.PlannedCacheRestore} cache files\n\nRollback backup: {result.BackupPath}" +
                             BilibiliLaunchHint(targetProfile, plan.GamePath, english: true))
                         : T(
-                            $"切换未能完成。\n\n{result.Error}\n\n自动回滚：{(result.RolledBack ? "成功" : "未完成或无需")}",
-                            $"The switch could not be completed.\n\n{result.Error}\n\nAutomatic rollback: {(result.RolledBack ? "successful" : "not completed or not required")}"),
+                            FormatFailure(result, english: false),
+                            FormatFailure(result, english: true)),
                     result.Success ? MessageTone.Success : MessageTone.Error);
             }
         }
@@ -216,15 +231,100 @@ public sealed class ServerSwitchWorkflow
             _context.ShowInlineSwitchResult(
                 result.Success
                     ? $"切换完成：替换 {result.SuccessfulReplace}，删除 {result.SuccessfulDelete}"
-                    : $"切换失败：{result.Error}",
+                    : FormatFailure(result, english: false),
                 result.Success
                     ? $"Switch complete: {result.SuccessfulReplace} replaced, {result.SuccessfulDelete} deleted"
-                    : $"Switch failed: {result.Error}",
+                    : FormatFailure(result, english: true),
                 result.Success);
         }
     }
 
-    private static bool UsesLegacyBilibiliPackage(string sourceProfile, string targetProfile) =>
+    private string FormatValidationIssue(ValidationIssue issue)
+    {
+        var text = "• " + issue.Message;
+        return string.IsNullOrWhiteSpace(issue.Path) || issue.Message.Contains(issue.Path, StringComparison.OrdinalIgnoreCase)
+            ? text
+            : $"{text}\n  {T("路径", "Path")}: {issue.Path}";
+    }
+
+    private static string FormatFailure(OperationResult result, bool english)
+    {
+        var state = result.RolledBack
+            ? (english ? "Restored to the previous state." : "已恢复到切换前状态。")
+            : result.GameFilesUnchanged
+                ? (english ? "Game files were not modified by this operation." : "本次操作未修改游戏文件。")
+                : (english ? "Recovery needs attention." : "恢复尚未完成，需要处理。");
+        var message = english
+            ? $"Switch failed: {state}\n\n{result.Error}"
+            : $"切换失败：{state}\n\n{result.Error}";
+        if (!result.RolledBack && !result.GameFilesUnchanged)
+        {
+            message += english
+                ? "\n\nRestart ZZZSwitch to resume recovery. If it still fails, check the operation log."
+                : "\n\n请重新启动 ZZZSwitch 完成恢复；若仍失败，请查看操作日志。";
+            if (!string.IsNullOrWhiteSpace(result.BackupPath))
+            {
+                message += $"\n{(english ? "Retained backup" : "保留的备份")}: {result.BackupPath}";
+            }
+        }
+
+        return message;
+    }
+
+    private async Task<OnlineDifferenceMaterialization?> PrepareOnlineMaterializationAsync(
+        string sourceProfile,
+        string targetProfile,
+        string gameVersion,
+        string selectedGamePath)
+    {
+        var ready = _onlineDifferences.GetReadyMaterializations(
+            sourceProfile,
+            targetProfile,
+            gameVersion);
+        var materialization = ready.Forward;
+        var hasReadyTarget = materialization is not null;
+        var hasReadyReverse = ready.Reverse is not null;
+        if (hasReadyTarget && hasReadyReverse)
+        {
+            return materialization;
+        }
+
+        OnlineDifferencePlan? onlinePlan = null;
+        _context.SetBusy(true, "正在读取 Sophon 清单并计算差异…");
+        try
+        {
+            onlinePlan = await _onlineDifferences.AnalyzeAsync(
+                sourceProfile,
+                targetProfile,
+                gameVersion,
+                selectedGamePath);
+        }
+        catch (Exception) when (hasReadyTarget)
+        {
+            // The existing target package remains usable even when an optional
+            // reverse-package refresh cannot reach or read the manifests.
+        }
+        catch (Exception ex)
+        {
+            _dialogs.Show(
+                T("无法获取客户端差异包", "Unable to get the client difference package"),
+                T(
+                    $"{ex.Message}\n\n国服与国际服不会回退到游戏目录中的旧差异包。",
+                    $"{ex.Message}\n\nGlobal/CN switching will not fall back to a legacy package in the game directory."),
+                MessageTone.Error);
+            return null;
+        }
+        finally
+        {
+            _context.SetBusy(false, "客户端差异分析结束");
+        }
+
+        return onlinePlan is null
+            ? materialization
+            : _dialogs.DownloadOnlineDifference(onlinePlan, _onlineDifferences);
+    }
+
+    private static bool UsesBilibili(string sourceProfile, string targetProfile) =>
         string.Equals(sourceProfile, ProfileIds.Bilibili, StringComparison.OrdinalIgnoreCase) ||
         string.Equals(targetProfile, ProfileIds.Bilibili, StringComparison.OrdinalIgnoreCase);
 

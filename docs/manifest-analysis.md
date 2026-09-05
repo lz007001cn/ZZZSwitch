@@ -54,7 +54,7 @@ dotnet run --project tools\ZZZSwitch.ManifestTool -- classify --source OS --targ
 可使用 `--output <目录>` 指定输出，`--verbose` 查看已脱敏的诊断，`--no-cache` 强制重新下载 manifest。默认缓存位于：
 
 ```text
-%LOCALAPPDATA%\ZZZSwitch\ManifestCache\nap\<region>\<version>\<category>\snapshot.json
+<game parent>\.zzzswitch\app-data\sophon-manifests\nap\<region>\<version>\<category>\snapshot.json
 ```
 
 缓存只保存已解析快照，不保存 branch password。
@@ -129,13 +129,13 @@ dotnet run --project tools\ZZZSwitch.ManifestTool -- download `
 
 ## 主程序测试版在线切换
 
-测试版主程序的 Global ↔ 国服官服切换不再从游戏目录下的 `.zzzswitch\packages` 读取文件。涉及 B 服的四个切换方向仍沿用旧版本地差异包、三服检测、事务备份与回滚逻辑；B 服不加入 Sophon Manifest 下载、浏览或自动差异包清单。点击国际服/国服切换后会：
+主程序的 Global ↔ 国服官服切换不再从游戏目录下的 `.zzzswitch\packages` 读取基础资源。国服 ↔ B服只使用软件内嵌的 B服覆盖层；国际服 ↔ B服将 Global/CN Sophon 在线基础差异与该覆盖层合并为一次事务。B服自身不加入 Sophon Manifest 下载、浏览或自动差异包清单。涉及国际服/国服基础资源的切换会：
 
 1. 先按游戏版本查询目标方向和反向自动差异包；两者都是 `Ready` 时跳过 Sophon 分析和下载窗口，直接进入切换前 SHA-256 校验。
 2. 缺少任一方向时，按当前游戏版本并行获取来源服与目标服 Sophon manifest，自动计算双向差异并分类。
 3. 弹出下载窗口后，先按目标 Manifest 查找可直接复用的本地文件，再按来源 Manifest 校验当前客户端中即将被覆盖的差异文件，并保存为反向差异包。只有长度和 MD5 同时匹配的文件才会进入缓存。
 4. 对目标方向仍缺失的文件显示逐文件/逐 chunk 实时网络进度、完整文件复用和分块断点命中状态；失败原因在独立的可换行区域显示。
-5. 文件保存到 `%LOCALAPPDATA%\ZZZSwitch\OnlineDifferenceFiles\<version>\<target>\<manifest>\content`。下载器使用共享的最多四路分块并发；每个解压后 MD5 正确的 chunk 先写入同工作区的 `chunks` 断点缓存。取消或网络失败时只删除当前重建临时文件，重试会复用已完成文件、已保存的来源文件和已验证分块。单个 chunk 采用单层最多六次自动重试；完整文件提交后清理其冗余分块缓存。
+5. 文件保存到 `<game parent>\.zzzswitch\app-data\downloads\<version>\<target>\<manifest>\content`。下载器使用共享的最多四路分块并发；每个解压后 MD5 正确的 chunk 先写入同工作区的 `chunks` 断点缓存。取消或网络失败时只删除当前重建临时文件，重试会复用已完成文件、已保存的来源文件和已验证分块。单个 chunk 采用单层最多六次自动重试；完整文件提交后清理其冗余分块缓存。
 6. 每个 chunk、完整文件 MD5 和最终 SHA-256 全部通过后，原子生成动态 `TransitionManifest`；目标与反向工作区分别成为对应版本的本地自动差异包。
 7. 把目标自动差异包交给原有 `SwitchPlanner` / `SwitchEngine`，继续执行 SHA-256、进程占用、磁盘空间、备份、预复制、事务日志、Blocks 缓存处理和失败回滚。
 
@@ -145,7 +145,7 @@ dotnet run --project tools\ZZZSwitch.ManifestTool -- download `
 
 自动范围仅包含 `BaseClient`、`StateMetadata` 和非 Blocks 的 `BaseResource`；所有 `Removed` 项都保留为人工复核，不会自动删除。3.1.0 两个方向都是 60 个文件，约 1.04 GiB。`StreamingAssets\Blocks` 在下载窗口单独列出但不纳入：OS→CN 为 2,067 个、9,995,031,492 字节，CN→OS 为 2,070 个、9,999,059,714 字节。`Persistent\Blocks` 继续由现有按服热更新缓存管理。
 
-Bilibili 在可信 Sophon 渠道映射尚未确认前不进入在线差异服务。主程序会在调用 Sophon 前识别任一端为 B 服的方向，并改走旧版本地差异包；因此 Manifest 管理始终只显示国际服与国服官服。
+Bilibili 不作为独立 Sophon 资源服；它归一为国服资源加本地登录覆盖层。因此 Manifest 管理始终只显示国际服与国服官服，国际服与 B服互切时在线服务只处理 Global/CN 基础资源。
 
 ## Bilibili 预留
 

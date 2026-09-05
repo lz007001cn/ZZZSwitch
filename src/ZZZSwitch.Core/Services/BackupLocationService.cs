@@ -11,6 +11,7 @@ public sealed class BackupLocationService
     public BackupLocationUsage GetUsage()
     {
         var measure = MeasureDirectory(_paths.BackupsRoot);
+        var legacyContent = MeasureDirectory(_paths.LegacyBackupContentRoot);
         var backupCount = Directory.Exists(_paths.BackupsRoot)
             ? Directory.GetDirectories(_paths.BackupsRoot).Length
             : 0;
@@ -19,7 +20,9 @@ public sealed class BackupLocationService
             backupCount,
             measure.FileCount,
             measure.TotalBytes,
-            !SamePath(_paths.BackupsRoot, _paths.DefaultBackupsRoot));
+            !SamePath(_paths.BackupsRoot, _paths.DefaultBackupsRoot),
+            legacyContent.FileCount,
+            legacyContent.TotalBytes);
     }
 
     public BackupLocationMigrationResult ChangeLocation(string requestedRoot, string? gamePath = null)
@@ -167,7 +170,8 @@ public sealed class BackupLocationService
             throw new InvalidOperationException("备份目录不能与游戏目录重叠。");
         }
 
-        if (IsSameOrChild(storageRoot, targetRoot) || IsSameOrChild(targetRoot, storageRoot))
+        if (!SamePath(targetRoot, _paths.DefaultBackupsRoot) &&
+            (IsSameOrChild(storageRoot, targetRoot) || IsSameOrChild(targetRoot, storageRoot)))
         {
             throw new InvalidOperationException("备份目录不能与 .zzzswitch 存储目录重叠。");
         }
@@ -285,7 +289,9 @@ public sealed record BackupLocationUsage(
     int BackupCount,
     int FileCount,
     long TotalBytes,
-    bool IsCustomLocation);
+    bool IsCustomLocation,
+    int LegacyContentFileCount = 0,
+    long LegacyContentBytes = 0);
 
 public sealed record BackupLocationMigrationResult(
     string SourceBackupRoot,

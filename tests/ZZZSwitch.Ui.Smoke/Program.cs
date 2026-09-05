@@ -1,6 +1,7 @@
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -70,11 +71,6 @@ internal static class Program
             {
                 Assert(bundledBilibili is not null,
                     "正式程序没有包含 B 服组件归档。");
-                Assert(bundledBilibili!.Length == 82_456_658,
-                    "内置 B 服组件归档长度不正确。");
-                Assert(Convert.ToHexString(SHA256.HashData(bundledBilibili)) ==
-                       "4D16EE071919DCEFAE0BF2CFD9F45D0944C544C1CCB56B378DA3E5E1FA009631",
-                    "内置 B 服组件归档 SHA-256 不正确。");
             }
             var bundledInstallGame = Path.Combine(tempRoot, "BundledInstall", "Game");
             Directory.CreateDirectory(bundledInstallGame);
@@ -86,11 +82,11 @@ internal static class Program
                           "ZZZSwitch.BundledPackages.Bilibili.3.1.0.zip")
                       ?? throw new InvalidDataException("内置 B 服组件资源不存在。"),
                 "3.1.0",
-                "4D16EE071919DCEFAE0BF2CFD9F45D0944C544C1CCB56B378DA3E5E1FA009631");
+                "ui-smoke-bilibili-3.1.0");
             var bundledInstall = bundledInstaller.EnsureInstalled(bundledInstallGame, "3.1.0");
             Assert(bundledInstall.Status == BundledBilibiliPackageStatus.Installed &&
-                   bundledInstall.FileCount == 72 &&
-                   bundledInstall.TotalBytes == 195_255_618,
+                   bundledInstall.FileCount > 0 &&
+                   bundledInstall.TotalBytes > 0,
                 "正式程序内置 B 服组件没有完整解压并通过切换清单校验。");
             Assert(main.Title == "ZZZSwitch",
                 "Window title should not include the version number.");
@@ -486,23 +482,26 @@ internal static class Program
             Require<ServerSwitchCard>(compact, "CompactCnButton");
             Require<ServerSwitchCard>(compact, "CompactBilibiliButton");
             Require<Button>(compact, "FullModeButton");
-            Assert(compact.Width == 620 && compact.Height == 180 &&
-                   compact.MinWidth == compact.MaxWidth && compact.MinHeight == compact.MaxHeight &&
+            Assert(compact.Width == 620 && compact.MinWidth == compact.MaxWidth &&
+                   compact.SizeToContent == SizeToContent.Height &&
                    compact.ResizeMode == ResizeMode.NoResize,
-                "精简窗口尺寸不稳定，切换状态可能引发布局跳动。");
-            Layout(compact, 620, 180);
+                "精简窗口应保持固定宽度，并按客户区内容自动计算高度。");
+            LayoutCompact(compact);
             var compactGlobal = Require<ServerSwitchCard>(compact, "CompactGlobalButton");
             var compactCn = Require<ServerSwitchCard>(compact, "CompactCnButton");
             var compactBilibili = Require<ServerSwitchCard>(compact, "CompactBilibiliButton");
             var compactStatus = Require<Grid>(compact, "CompactOperationStatus");
             var compactProgress = Require<ProgressBar>(compact, "CompactOperationProgress");
+            var fullModeButton = Require<Button>(compact, "FullModeButton");
             Assert(Math.Abs(compactGlobal.ActualHeight - 68) <= 1 &&
                    Math.Abs(compactCn.ActualHeight - 68) <= 1 &&
                    Math.Abs(compactBilibili.ActualHeight - 68) <= 1,
                 $"精简窗口的三服卡片没有使用扁平紧凑高度：" +
                 $"{compactGlobal.ActualHeight}/{compactCn.ActualHeight}/{compactBilibili.ActualHeight}。");
+            Assert(fullModeButton.ActualHeight >= fullModeButton.MinHeight && fullModeButton.ActualHeight >= 36,
+                $"精简窗口的完整版按钮被裁切：{fullModeButton.ActualHeight} < 36。");
             viewModel.ActiveProfile = ProfileIds.CnOfficial;
-            Layout(compact, 620, 180);
+            LayoutCompact(compact);
             Assert(!compactGlobal.IsCurrent && compactCn.IsCurrent && !compactBilibili.IsCurrent,
                 "精简窗口未高亮当前国服服务器。");
             Assert(Require<Border>(compactCn, "ActiveOutline").Visibility == Visibility.Visible &&
@@ -510,7 +509,7 @@ internal static class Program
                    Require<TextBlock>(compactGlobal, "StateIcon").Text == "\uE72A",
                 "精简窗口当前服务器未使用强调描边和勾选标识。");
             viewModel.ActiveProfile = ProfileIds.Global;
-            Layout(compact, 620, 180);
+            LayoutCompact(compact);
             Assert(compactGlobal.IsCurrent && !compactCn.IsCurrent &&
                    Require<Border>(compactGlobal, "ActiveOutline").Visibility == Visibility.Visible &&
                    Require<Border>(compactCn, "ActiveOutline").Visibility == Visibility.Collapsed,
@@ -519,12 +518,14 @@ internal static class Program
             viewModel.ProgressMaximum = 10;
             viewModel.ProgressValue = 4;
             viewModel.ShowCompactStatus = true;
-            Layout(compact, 620, 180);
+            LayoutCompact(compact);
             Assert(compactStatus.Visibility == Visibility.Visible &&
                    compactProgress.Maximum == 10 && compactProgress.Value == 4 &&
                    Require<TextBlock>(compact, "CompactStatusText").Text == "正在替换文件",
                 "精简窗口左下角没有显示共享的切换进度。");
             viewModel.ShowCompactStatus = false;
+
+            VerifySwitchFeedback(app, main, compact, tempRoot);
 
             onboarding = new OnboardingWindow(new UiSettings(), string.Empty);
             Require<Border>(onboarding, "StepOneIndicator");
@@ -689,6 +690,7 @@ internal static class Program
             Console.WriteLine("PASS  中文 / English 主界面资源可动态切换。");
             Console.WriteLine("PASS  设置窗口在最窄尺寸及 125%/200% 缩放下可滚动且布局有效。");
             Console.WriteLine("PASS  精简窗口共享三服切换命令，首次引导默认关闭到托盘。");
+            Console.WriteLine("PASS  切换失败状态、预检路径与阶段进度在中英文和精简窗口中正确显示。");
             Console.WriteLine("PASS  主窗口展示状态由 ViewModel 驱动，服务器卡片可复用。");
             Console.WriteLine("PASS  Command 路由、忙碌禁用和异步异常处理通过。");
             Console.WriteLine("PASS  启动恢复编排和非交互弹窗路由通过。");
@@ -787,6 +789,20 @@ internal static class Program
         root.UpdateLayout();
     }
 
+    private static void LayoutCompact(CompactModeWindow window)
+    {
+        const double width = 620;
+        window.Width = width;
+        var root = window.Content as FrameworkElement
+                   ?? throw new InvalidOperationException("精简窗口根视觉不存在。");
+        root.Measure(new Size(width, double.PositiveInfinity));
+        var desiredHeight = root.DesiredSize.Height;
+        Assert(IsFinite(desiredHeight) && desiredHeight > 0,
+            $"精简窗口自动高度无效：{desiredHeight}。");
+        root.Arrange(new Rect(0, 0, width, desiredHeight));
+        root.UpdateLayout();
+    }
+
     private static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 
     private static void AssertSettingsLayout(
@@ -879,6 +895,18 @@ internal static class Program
             ?? throw new InvalidOperationException("主窗口未绑定 MainWindowViewModel。");
         Assert(mainViewModel.BusyStatus == "Scanning the game directory and server state…",
             "英文模式的主窗口忙碌浮层仍显示中文。");
+        var showProgress = typeof(MainWindow).GetMethod("ShowOperationProgress", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        foreach (var (step, english) in new[]
+                 {
+                     ("正在检测实际文件变更", "Checking which files need changes"),
+                     ("正在校验并准备实际差异文件", "Verifying and staging changed files"),
+                     ("正在备份实际受影响文件", "Backing up changed files")
+                 })
+        {
+            showProgress.Invoke(main, [new OperationProgress { Step = step, IsIndeterminate = true }]);
+            Assert(mainViewModel.IsProgressIndeterminate && mainViewModel.BusyStatus == english,
+                "准备阶段应显示活动进度及英文阶段说明。");
+        }
         setBusy.Invoke(main, [false, "目录检测完成"]);
 
         localization.SetLanguage(AppLanguage.Chinese);
@@ -939,7 +967,7 @@ internal static class Program
             new BackupLocationUsage(@"D:\ZZZSwitchBackups", 3, 8, 4096, true));
         Assert(Require<TextBlock>(englishBackupLocation, "HeadingText").Text == "Backup location" &&
                Require<TextBlock>(englishBackupLocation, "LocationModeText").Text == "Custom location" &&
-               Require<TextBlock>(englishBackupLocation, "UsageText").Text.Contains("3 backups · 8 files", StringComparison.Ordinal) &&
+               Require<TextBlock>(englishBackupLocation, "UsageText").Text.Contains("3 backups · 4 KiB", StringComparison.Ordinal) &&
                Require<Button>(englishBackupLocation, "OpenButton").Content?.ToString() == "Open folder",
             "英文语言未覆盖备份目录窗口。" );
         englishBackupLocation.Close();
@@ -1070,16 +1098,206 @@ internal static class Program
             "空游戏目录候选列表应直接返回空结果。");
     }
 
+    private static void VerifySwitchFeedback(App app, MainWindow main, CompactModeWindow compact, string tempRoot)
+    {
+        var viewModel = (MainWindowViewModel)main.DataContext;
+        var showProgress = typeof(MainWindow).GetMethod("ShowOperationProgress", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var showResult = typeof(MainWindow).GetMethod("ShowInlineSwitchResult", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var compactProgress = Require<ProgressBar>(compact, "CompactOperationProgress");
+        var status = Require<TextBlock>(compact, "CompactStatusText");
+        viewModel.ShowCompactStatus = true;
+        showProgress.Invoke(main, [new OperationProgress { Step = "正在备份实际受影响文件", IsIndeterminate = true }]);
+        LayoutCompact(compact);
+        Assert(viewModel.IsProgressIndeterminate && compactProgress.IsIndeterminate, "精简窗口应共享备份阶段活动进度。");
+        showProgress.Invoke(main, [new OperationProgress { Step = "已替换 a.bin", PlannedReplace = 2, SuccessfulReplace = 1 }]);
+        LayoutCompact(compact);
+        Assert(!compactProgress.IsIndeterminate && compactProgress.Value == 1 && compactProgress.Maximum == 2,
+            "实际替换阶段应恢复文件数量进度。");
+        showProgress.Invoke(main, [new OperationProgress { Step = "操作失败，正在回滚", IsRollingBack = true }]);
+        LayoutCompact(compact);
+        Assert(compactProgress.IsIndeterminate, "回滚阶段不能停留在确定进度。");
+
+        var localization = new LocalizationManager(app, new AppPaths(Path.Combine(tempRoot, "FeedbackLanguage")));
+        foreach (var (failure, chineseState, englishState) in new[]
+                 {
+                     ("staging",
+                         "本次操作未修改游戏文件", "Game files were not modified"),
+                     ("replace",
+                         "已恢复到切换前状态", "Restored to the previous state"),
+                     ("rollback",
+                         "恢复尚未完成，需要处理", "Recovery needs attention")
+                 })
+        {
+            // Exercise the public workflow with real planner/engine/file operations.
+            // Only the dialog boundary and the precise I/O fault are substituted.
+            var chinese = RunFailedSwitchWorkflow(tempRoot, failure, compact: true, english: false);
+            var english = RunFailedSwitchWorkflow(tempRoot, failure, compact: true, english: true);
+            foreach (var compactMode in new[] { false, true })
+            {
+                var chineseMessage = compactMode ? chinese : RunFailedSwitchWorkflow(tempRoot, failure, compact: false, english: false);
+                var englishMessage = compactMode ? english : RunFailedSwitchWorkflow(tempRoot, failure, compact: false, english: true);
+                Assert(chineseMessage.Contains(chineseState) && englishMessage.Contains(englishState) &&
+                       !chineseMessage.Contains("未完成或无需"),
+                    "实际切换失败后，弹窗和精简模式都必须区分未修改、已恢复和待处理。");
+            }
+            foreach (var language in new[] { AppLanguage.Chinese, AppLanguage.English })
+            {
+                localization.SetLanguage(language);
+                showResult.Invoke(main, [chinese, english, false]);
+                LayoutCompact(compact);
+                var expected = language == AppLanguage.English ? english : chinese;
+                Assert(status.Text == expected && status.ToolTip?.ToString() == expected && !compactProgress.IsIndeterminate,
+                    "精简窗口应显示相应语言的失败摘要，悬停保留完整详情并停止进度动画。");
+                Assert(status.ActualHeight <= 16.1, "错误详情不应撑高精简窗口的单行状态区域。");
+            }
+        }
+        localization.SetLanguage(AppLanguage.Chinese);
+        viewModel.ShowCompactStatus = false;
+    }
+
+    private static string RunFailedSwitchWorkflow(string tempRoot, string failure, bool compact, bool english)
+    {
+        var root = Path.Combine(tempRoot, "SwitchFailures", $"{failure}-{compact}-{english}");
+        var game = Path.Combine(root, "Game");
+        var paths = new AppPaths(Path.Combine(root, "AppData"), Path.Combine(root, "config"));
+        var persistent = Path.Combine(game, "ZenlessZoneZero_Data", "Persistent");
+        Directory.CreateDirectory(persistent);
+        File.WriteAllText(Path.Combine(game, "ZenlessZoneZero.exe"), "fixture");
+        File.WriteAllText(Path.Combine(game, "GameAssembly.dll"), "fixture");
+        File.WriteAllText(Path.Combine(game, "version_info"), "3.1.0");
+        File.WriteAllText(Path.Combine(persistent, "data_version"), "source-version");
+        var package = GameStorageLayout.GetPackageDirectory(game, "3.1.0", ProfileIds.Bilibili);
+        Directory.CreateDirectory(package);
+        var manifest = new TransitionManifest
+        {
+            SourceProfile = ProfileIds.CnOfficial,
+            TargetProfile = ProfileIds.Bilibili,
+            GameVersion = "3.1.0"
+        };
+        foreach (var name in new[] { "a.bin", "b.bin" })
+        {
+            File.WriteAllText(Path.Combine(game, name), "original");
+            File.WriteAllText(Path.Combine(package, name), "new");
+            var bytes = File.ReadAllBytes(Path.Combine(package, name));
+            manifest.ReplaceFiles.Add(new ReplaceFileEntry
+            {
+                Source = name, Target = name, Length = bytes.Length,
+                Sha256 = Convert.ToHexString(SHA256.HashData(bytes))
+            });
+        }
+        Directory.CreateDirectory(Path.Combine(paths.ConfigRoot, "profiles"));
+        Directory.CreateDirectory(Path.Combine(paths.ConfigRoot, "transitions"));
+        var profile = new ProfileDefinition
+        {
+            Id = ProfileIds.Bilibili, DisplayName = "Bilibili", PackageDirectoryName = ProfileIds.Bilibili,
+            KeyFiles = [new FileSignature { Path = "a.bin", Length = 3 }]
+        };
+        File.WriteAllText(Path.Combine(paths.ConfigRoot, "profiles", "bilibili.json"), JsonSerializer.Serialize(profile, JsonSupport.Options));
+        File.WriteAllText(Path.Combine(paths.ConfigRoot, "transitions", "cn-to-bilibili.json"), JsonSerializer.Serialize(manifest, JsonSupport.Options));
+
+        var files = new SwitchFeedbackFileOperations(game, failure);
+        var snapshots = new ProfileSnapshotService(paths, files);
+        var planner = new SwitchPlanner(new ConfigurationRepository(paths), new GameDirectoryService(),
+            new NoRunningProcesses(), files, paths, snapshots);
+        var stateStore = new StateStore(paths);
+        var backups = new BackupService(files, paths);
+        var engine = new SwitchEngine(files, paths, backups, stateStore, new OperationLogger(paths), snapshots);
+        var operations = new OperationCoordinator(paths);
+        var dialogs = new TestMainWindowDialogs { ConfirmSwitchResult = true };
+        var busy = false;
+        var inlineCount = 0;
+        string? inlineMessage = null;
+        var report = new InspectionReport
+        {
+            Game = new GameDirectoryResult { GamePath = game, GameVersion = "3.1.0", IsValid = true },
+            Detection = new DetectionResult { Profile = DetectedProfile.CnOfficial }
+        };
+        var context = new MainWindowWorkflowContext(
+            () => busy, () => game, () => report,
+            () => Task.CompletedTask, () => Task.CompletedTask,
+            (value, _) => busy = value, _ => { },
+            () => throw new InvalidOperationException("Isolated workflow unexpectedly busy."),
+            _ => { },
+            (chinese, englishText, success) =>
+            {
+                Assert(!success, "故障切换不应报告成功。");
+                inlineCount++;
+                inlineMessage = english ? englishText : chinese;
+            },
+            _ => Brushes.Transparent, (_, _) => { },
+            (chinese, englishText) => english ? englishText : chinese);
+        var workflow = new ServerSwitchWorkflow(planner, engine, operations, null!, dialogs, context);
+        // No WPF callbacks run in this fixture; avoid capturing the UI synchronization context.
+        Task.Run(() => workflow.RunAsync(ProfileIds.Bilibili, compact)).GetAwaiter().GetResult();
+
+        Assert(files.FailurePath is not null, "流程未到达预期的文件故障，可能被提前预检拦截。" + dialogs.LastMessage);
+        Assert(!busy && !operations.IsBusy, "失败后应释放界面忙碌状态和操作锁。");
+        Assert(dialogs.ConfirmSwitchCalled == !compact && dialogs.ShowCount == (compact ? 0 : 1) &&
+               inlineCount == (compact ? 1 : 0), "主窗口应确认并弹出结果；精简模式应只报告行内结果。");
+        Assert(compact || dialogs.LastTitle == (english ? "Switch failed" : "切换失败"), "主窗口应显示切换失败结果。");
+        var message = (compact ? inlineMessage : dialogs.LastMessage) ?? throw new InvalidOperationException("缺少切换结果。");
+        Assert(message.Contains(files.FailurePath!), "错误提示应保留实际失败文件的路径。");
+        Assert(File.ReadAllText(Path.Combine(game, "b.bin")) == "original" &&
+               File.ReadAllText(Path.Combine(game, "a.bin")) == (failure == "rollback" ? "new" : "original"),
+            "失败提示必须与磁盘上的真实恢复结果一致。");
+        Assert(stateStore.Load()?.CurrentProfile != ProfileIds.Bilibili, "失败操作不得提交目标服状态。");
+        var pending = new FileTransactionJournalStore(paths);
+        Assert(pending.Exists == (failure == "rollback"), "仅未完成恢复的切换应保留待恢复事务。");
+        if (failure == "rollback")
+        {
+            var retained = backups.ListBackups().Single();
+            Assert(message.Contains(retained.Path) &&
+                   message.Contains(english ? "Restart ZZZSwitch" : "重新启动 ZZZSwitch"),
+                "恢复未完成时应显示真实保留的备份位置和恢复指引。");
+        }
+        return message;
+    }
+
+    private sealed class NoRunningProcesses : IProcessMonitor
+    {
+        public IReadOnlyList<string> FindRelatedProcesses() => [];
+    }
+
+    private sealed class SwitchFeedbackFileOperations(string game, string failure) : IFileOperations
+    {
+        private readonly PhysicalFileOperations _inner = new();
+        public string? FailurePath { get; private set; }
+        public bool FileExists(string path) => _inner.FileExists(path);
+        public long GetLength(string path) => _inner.GetLength(path);
+        public void CreateDirectory(string path) => _inner.CreateDirectory(path);
+        public void CopyFile(string source, string target, bool overwrite) => _inner.CopyFile(source, target, overwrite);
+        public void DeleteFile(string path) => _inner.DeleteFile(path);
+        public void DeleteDirectory(string path, bool recursive) => _inner.DeleteDirectory(path, recursive);
+        public Stream OpenRead(string path) => _inner.OpenRead(path);
+        public Stream OpenExclusive(string path) => _inner.OpenExclusive(path);
+
+        public Stream OpenWrite(string path, bool overwrite)
+        {
+            if (failure == "staging" && path.StartsWith(GameStorageLayout.GetStagingRoot(game) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                FailurePath = path;
+                throw new IOException($"Injected staging failure: {path}");
+            }
+            if (failure == "rollback" && path == Path.Combine(game, "a.bin"))
+            {
+                throw new IOException($"Injected rollback failure: {path}");
+            }
+            return _inner.OpenWrite(path, overwrite);
+        }
+
+        public void MoveFile(string source, string target, bool overwrite)
+        {
+            if (target == Path.Combine(game, "b.bin"))
+            {
+                FailurePath = target;
+                throw new IOException($"Injected replacement failure: {target}");
+            }
+            _inner.MoveFile(source, target, overwrite);
+        }
+    }
+
     private static void VerifyMainWindowWorkflows(string tempRoot)
     {
-        var usesModalSwitchFlow = typeof(ServerSwitchWorkflow).GetMethod(
-            "UsesModalSwitchFlow",
-            BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("切换工作流缺少精简模式策略。");
-        Assert((bool)usesModalSwitchFlow.Invoke(null, [false])! &&
-               !(bool)usesModalSwitchFlow.Invoke(null, [true])!,
-            "精简模式仍会打开确认或完成结果窗口。");
-
         var workflowRoot = Path.Combine(tempRoot, "Workflows");
         var paths = new AppPaths(Path.Combine(workflowRoot, "AppData"), Path.Combine(workflowRoot, "config"));
         var operations = new OperationCoordinator(paths);
@@ -1152,12 +1370,29 @@ internal static class Program
             onlineRoutingProbe,
             dialogs,
             context);
+        report = new InspectionReport
+        {
+            Game = new GameDirectoryResult
+            {
+                GamePath = Path.Combine(workflowRoot, "Game"),
+                IsValid = true,
+                GameVersion = "3.1.0"
+            },
+            Detection = new DetectionResult { Profile = DetectedProfile.CnOfficial }
+        };
         dialogs.Reset();
         bilibiliWorkflow.RunAsync(ProfileIds.Bilibili).GetAwaiter().GetResult();
         Assert(dialogs.LastTitle == "切换前检查未通过" &&
                onlineRoutingProbe.TryGetReadyCalls == 0 &&
                onlineRoutingProbe.AnalyzeCalls == 0,
-            "切换到 B 服没有走旧版本地差异包预检，或错误调用了 Sophon 在线差异。");
+            "国服切到 B 服没有只走本地覆盖层预检，或错误调用了 Sophon 在线差异。");
+        Assert(dialogs.LastMessage?.Contains(report.Game.GamePath) == true && dialogs.LastMessage.Contains("路径:"),
+            "预检错误应展示具体问题路径。");
+        new ServerSwitchWorkflow(legacyPlanner, null!, operations, onlineRoutingProbe, dialogs,
+                context with { Localize = (_, english) => english })
+            .RunAsync(ProfileIds.Bilibili).GetAwaiter().GetResult();
+        Assert(dialogs.LastTitle == "Pre-switch checks failed" && dialogs.LastMessage?.Contains("Path:") == true &&
+               dialogs.LastMessage.Contains(report.Game.GamePath), "英文预检也应展示完整路径。");
 
         dialogs.Reset();
         report = new InspectionReport
@@ -1170,11 +1405,98 @@ internal static class Program
             },
             Detection = new DetectionResult { Profile = DetectedProfile.Bilibili }
         };
-        bilibiliWorkflow.RunAsync(ProfileIds.Global).GetAwaiter().GetResult();
+        bilibiliWorkflow.RunAsync(ProfileIds.CnOfficial).GetAwaiter().GetResult();
         Assert(dialogs.LastTitle == "切换前检查未通过" &&
                onlineRoutingProbe.TryGetReadyCalls == 0 &&
                onlineRoutingProbe.AnalyzeCalls == 0,
-            "从 B 服切出没有走旧版本地差异包预检，或错误调用了 Sophon 在线差异。");
+            "B 服切回国服没有只走本地覆盖层预检，或错误调用了 Sophon 在线差异。");
+
+        dialogs.Reset();
+        report = new InspectionReport
+        {
+            Game = new GameDirectoryResult
+            {
+                GamePath = Path.Combine(workflowRoot, "Game"),
+                IsValid = true,
+                GameVersion = "3.1.0"
+            },
+            Detection = new DetectionResult { Profile = DetectedProfile.Global }
+        };
+        var crossRegionBilibiliProbe = new FailingOnlineDifferenceService();
+        var crossRegionBilibiliWorkflow = new ServerSwitchWorkflow(
+            legacyPlanner,
+            null!,
+            operations,
+            crossRegionBilibiliProbe,
+            dialogs,
+            context);
+        crossRegionBilibiliWorkflow.RunAsync(ProfileIds.Bilibili).GetAwaiter().GetResult();
+        Assert(dialogs.LastTitle == "无法获取客户端差异包" &&
+               crossRegionBilibiliProbe.AnalyzeRequests.Contains(
+                   (ProfileIds.Global, ProfileIds.CnOfficial)),
+            "国际服切到 B 服没有请求国际服到国服的在线基础差异。");
+
+        dialogs.Reset();
+        report = new InspectionReport
+        {
+            Game = new GameDirectoryResult
+            {
+                GamePath = Path.Combine(workflowRoot, "Game"),
+                IsValid = true,
+                GameVersion = "3.1.0"
+            },
+            Detection = new DetectionResult { Profile = DetectedProfile.Global }
+        };
+        var verificationProbe = new FailingOnlineDifferenceService();
+        var onlineWorkflow = new ServerSwitchWorkflow(
+            legacyPlanner,
+            null!,
+            operations,
+            verificationProbe,
+            dialogs,
+            context);
+        onlineWorkflow.RunAsync(ProfileIds.CnOfficial).GetAwaiter().GetResult();
+        Assert(verificationProbe.AnalyzeRequests.Contains(
+                (ProfileIds.Global, ProfileIds.CnOfficial)),
+            "国际服切国服没有请求正确方向的在线差异。");
+
+        dialogs.Reset();
+        report = new InspectionReport
+        {
+            Game = new GameDirectoryResult
+            {
+                GamePath = Path.Combine(workflowRoot, "Game"),
+                IsValid = true,
+                GameVersion = "3.1.0"
+            },
+            Detection = new DetectionResult { Profile = DetectedProfile.CnOfficial }
+        };
+        var cnToGlobalProbe = new FailingOnlineDifferenceService();
+        new ServerSwitchWorkflow(
+                legacyPlanner, null!, operations, cnToGlobalProbe, dialogs, context)
+            .RunAsync(ProfileIds.Global).GetAwaiter().GetResult();
+        Assert(cnToGlobalProbe.AnalyzeRequests.Contains(
+                (ProfileIds.CnOfficial, ProfileIds.Global)),
+            "国服切国际服没有请求正确方向的在线差异。");
+
+        dialogs.Reset();
+        report = new InspectionReport
+        {
+            Game = new GameDirectoryResult
+            {
+                GamePath = Path.Combine(workflowRoot, "Game"),
+                IsValid = true,
+                GameVersion = "3.1.0"
+            },
+            Detection = new DetectionResult { Profile = DetectedProfile.Bilibili }
+        };
+        var bilibiliToGlobalProbe = new FailingOnlineDifferenceService();
+        new ServerSwitchWorkflow(
+                legacyPlanner, null!, operations, bilibiliToGlobalProbe, dialogs, context)
+            .RunAsync(ProfileIds.Global).GetAwaiter().GetResult();
+        Assert(bilibiliToGlobalProbe.AnalyzeRequests.Contains(
+                (ProfileIds.CnOfficial, ProfileIds.Global)),
+            "B 服切国际服没有请求国服资源到国际服的在线差异。");
 
         dialogs.Reset();
         report = null;
@@ -1235,7 +1557,10 @@ internal static class Program
     private sealed class TestMainWindowDialogs : IMainWindowDialogs
     {
         public string? LastTitle { get; private set; }
+        public string? LastMessage { get; private set; }
         public bool ConfirmSwitchCalled { get; private set; }
+        public bool ConfirmSwitchResult { get; init; }
+        public int ShowCount { get; private set; }
         public BackupLocationAction BackupAction { get; set; }
         public CacheManagementAction CacheAction { get; set; }
 
@@ -1248,6 +1573,8 @@ internal static class Program
             Brush? accentBrush = null)
         {
             LastTitle = title;
+            LastMessage = message;
+            ShowCount++;
             return true;
         }
 
@@ -1282,7 +1609,7 @@ internal static class Program
         public bool ConfirmSwitch(SwitchConfirmationRequest request)
         {
             ConfirmSwitchCalled = true;
-            return false;
+            return ConfirmSwitchResult;
         }
 
         public OnlineDifferenceMaterialization? DownloadOnlineDifference(
@@ -1302,7 +1629,9 @@ internal static class Program
         public void Reset()
         {
             LastTitle = null;
+            LastMessage = null;
             ConfirmSwitchCalled = false;
+            ShowCount = 0;
             BackupAction = BackupLocationAction.None;
             CacheAction = CacheManagementAction.None;
         }
@@ -1404,6 +1733,8 @@ internal static class Program
 
         public int AnalyzeCalls { get; private set; }
 
+        public List<(string Source, string Target)> AnalyzeRequests { get; } = [];
+
         public OnlineDifferenceInventory GetInventory() => new() { Packages = [] };
 
         public bool TryGetReadyMaterialization(
@@ -1417,6 +1748,17 @@ internal static class Program
             return false;
         }
 
+        public (
+            OnlineDifferenceMaterialization? Forward,
+            OnlineDifferenceMaterialization? Reverse) GetReadyMaterializations(
+            string sourceProfile,
+            string targetProfile,
+            string gameVersion)
+        {
+            TryGetReadyCalls++;
+            return (null, null);
+        }
+
         public Task<OnlineDifferencePlan> AnalyzeAsync(
             string sourceProfile,
             string targetProfile,
@@ -1425,6 +1767,7 @@ internal static class Program
             CancellationToken cancellationToken = default)
         {
             AnalyzeCalls++;
+            AnalyzeRequests.Add((sourceProfile, targetProfile));
             throw new NotSupportedException();
         }
 

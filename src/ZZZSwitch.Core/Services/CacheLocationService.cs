@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using ZZZSwitch.Core.Models;
 
 namespace ZZZSwitch.Core.Services;
 
@@ -56,8 +57,25 @@ public sealed class CacheLocationService : ICacheRootResolver
         var versionDirectories = Directory.Exists(gameCacheRoot)
             ? Directory.GetDirectories(gameCacheRoot)
             : [];
-        var all = MeasureDirectories(versionDirectories);
+        var snapshotVersionDirectories = GetSnapshotVersionDirectories(gamePath).ToArray();
+        var manifestVersionDirectories = GetManifestVersionDirectories(gamePath).ToArray();
+        var all = MeasureDirectories(versionDirectories
+            .Concat(snapshotVersionDirectories)
+            .Concat(manifestVersionDirectories)
+            .Distinct(StringComparer.OrdinalIgnoreCase));
         var obsoleteDirectories = versionDirectories
+            .Where(path => !string.Equals(
+                Path.GetFileName(path),
+                currentGameVersion,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var obsoleteSnapshotDirectories = snapshotVersionDirectories
+            .Where(path => !string.Equals(
+                Path.GetFileName(path),
+                currentGameVersion,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var obsoleteManifestDirectories = manifestVersionDirectories
             .Where(path => !string.Equals(
                 Path.GetFileName(path),
                 currentGameVersion,
@@ -65,11 +83,15 @@ public sealed class CacheLocationService : ICacheRootResolver
             .ToArray();
         var obsoleteVersions = obsoleteDirectories
             .Select(path => Path.GetFileName(path)!)
-            .Concat(GetManifestVersions(gamePath))
+            .Concat(obsoleteManifestDirectories.Select(path => Path.GetFileName(path)!))
+            .Concat(obsoleteSnapshotDirectories.Select(path => Path.GetFileName(path)!))
             .Where(version => !string.Equals(version, currentGameVersion, StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        var obsolete = MeasureDirectories(obsoleteDirectories);
+        var obsolete = MeasureDirectories(obsoleteDirectories
+            .Concat(obsoleteSnapshotDirectories)
+            .Concat(obsoleteManifestDirectories)
+            .Distinct(StringComparer.OrdinalIgnoreCase));
         return new(
             cacheRoot,
             all.FileCount,
@@ -92,13 +114,29 @@ public sealed class CacheLocationService : ICacheRootResolver
                 StringComparison.OrdinalIgnoreCase))
             .ToArray()
             : [];
+        var obsoleteSnapshotDirectories = GetSnapshotVersionDirectories(gamePath)
+            .Where(path => !string.Equals(
+                Path.GetFileName(path),
+                currentGameVersion,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var obsoleteManifestDirectories = GetManifestVersionDirectories(gamePath)
+            .Where(path => !string.Equals(
+                Path.GetFileName(path),
+                currentGameVersion,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
         var obsoleteVersions = obsoleteDirectories
             .Select(path => Path.GetFileName(path)!)
-            .Concat(GetManifestVersions(gamePath))
+            .Concat(obsoleteManifestDirectories.Select(path => Path.GetFileName(path)!))
+            .Concat(obsoleteSnapshotDirectories.Select(path => Path.GetFileName(path)!))
             .Where(version => !string.Equals(version, currentGameVersion, StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        var measured = MeasureDirectories(obsoleteDirectories);
+        var measured = MeasureDirectories(obsoleteDirectories
+            .Concat(obsoleteSnapshotDirectories)
+            .Concat(obsoleteManifestDirectories)
+            .Distinct(StringComparer.OrdinalIgnoreCase));
         foreach (var directory in obsoleteDirectories)
         {
             EnsureChildPath(gameCacheRoot, directory);
@@ -108,6 +146,10 @@ public sealed class CacheLocationService : ICacheRootResolver
         foreach (var version in obsoleteVersions)
         {
             DeleteManifestVersion(gamePath, version);
+        }
+        foreach (var directory in obsoleteSnapshotDirectories.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            DeleteSnapshotVersionDirectory(directory);
         }
 
         if (Directory.Exists(gameCacheRoot))
@@ -259,12 +301,13 @@ public sealed class CacheLocationService : ICacheRootResolver
             throw new InvalidOperationException("缓存目录不能放在游戏目录内部。");
         }
 
-        var packagesRoot = Path.GetFullPath(GameStorageLayout.GetPackagesRoot(gamePath))
+        var storageRoot = Path.GetFullPath(GameStorageLayout.GetRoot(gamePath))
             .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        if (normalizedCache.StartsWith(packagesRoot, StringComparison.OrdinalIgnoreCase) ||
-            packagesRoot.StartsWith(normalizedCache, StringComparison.OrdinalIgnoreCase))
+        if (!SamePath(cacheRoot, GameStorageLayout.GetCacheRoot(gamePath)) &&
+            (normalizedCache.StartsWith(storageRoot, StringComparison.OrdinalIgnoreCase) ||
+             storageRoot.StartsWith(normalizedCache, StringComparison.OrdinalIgnoreCase)))
         {
-            throw new InvalidOperationException("缓存目录不能与差异包目录重叠。");
+            throw new InvalidOperationException("缓存目录不能与 .zzzswitch 存储目录重叠。");
         }
     }
 
@@ -312,16 +355,147 @@ public sealed class CacheLocationService : ICacheRootResolver
             DeleteDirectoryRobust(versionPath);
             DeleteIfEmpty(identityRoot);
         }
+
+        foreach (var profile in ProfileIds.HotUpdateProfiles)
+        {
+            var legacyProfileRoot = Path.Combine(_paths.HotUpdateManifestsRoot, profile);
+            var legacyVersionPath = Path.Combine(legacyProfileRoot, version);
+            if (LegacyHotUpdateVersionBelongsToGame(legacyVersionPath, gamePath))
+            {
+                EnsureChildPath(legacyProfileRoot, legacyVersionPath);
+                DeleteDirectoryRobust(legacyVersionPath);
+                DeleteIfEmpty(legacyProfileRoot);
+            }
+        }
     }
 
-    private IEnumerable<string> GetManifestVersions(string gamePath)
+    private IEnumerable<string> GetManifestVersionDirectories(string gamePath)
     {
         var identityRoot = Path.Combine(
             _paths.HotUpdateManifestsRoot,
             GameStorageLayout.GetGameIdentity(gamePath));
-        return Directory.Exists(identityRoot)
-            ? Directory.GetDirectories(identityRoot).Select(path => Path.GetFileName(path)!).ToArray()
+        var directories = Directory.Exists(identityRoot)
+            ? Directory.GetDirectories(identityRoot).ToList()
             : [];
+        foreach (var profile in ProfileIds.HotUpdateProfiles)
+        {
+            var legacyProfileRoot = Path.Combine(_paths.HotUpdateManifestsRoot, profile);
+            if (!Directory.Exists(legacyProfileRoot))
+            {
+                continue;
+            }
+
+            directories.AddRange(Directory.GetDirectories(legacyProfileRoot)
+                .Where(path => LegacyHotUpdateVersionBelongsToGame(path, gamePath)));
+        }
+
+        return directories.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private IEnumerable<string> GetSnapshotVersionDirectories(string gamePath)
+    {
+        var identityRoot = Path.Combine(
+            _paths.ProfileSnapshotsRoot,
+            GameStorageLayout.GetGameIdentity(gamePath));
+        if (Directory.Exists(identityRoot))
+        {
+            foreach (var versionDirectory in Directory.GetDirectories(identityRoot))
+            {
+                yield return versionDirectory;
+            }
+        }
+
+        foreach (var profile in ProfileIds.HotUpdateProfiles)
+        {
+            var legacyProfileRoot = Path.Combine(_paths.ProfileSnapshotsRoot, profile);
+            if (!Directory.Exists(legacyProfileRoot))
+            {
+                continue;
+            }
+
+            foreach (var versionDirectory in Directory.GetDirectories(legacyProfileRoot))
+            {
+                if (LegacySnapshotVersionBelongsToGame(versionDirectory, gamePath))
+                {
+                    yield return versionDirectory;
+                }
+            }
+        }
+    }
+
+    private static bool LegacyHotUpdateVersionBelongsToGame(string versionPath, string gamePath)
+    {
+        if (!Directory.Exists(versionPath))
+        {
+            return false;
+        }
+
+        foreach (var path in Directory.EnumerateFiles(versionPath, "cache.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                using var stream = File.OpenRead(path);
+                var manifest = JsonSerializer.Deserialize<HotUpdateCacheManifest>(
+                    stream,
+                    JsonSupport.Options);
+                if (manifest is not null && SamePath(manifest.GamePath, gamePath))
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex) when (
+                ex is JsonException or IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                // Damaged legacy manifests are preserved because ownership is unknown.
+            }
+        }
+
+        return false;
+    }
+
+    private static bool LegacySnapshotVersionBelongsToGame(string versionPath, string gamePath)
+    {
+        foreach (var path in Directory.EnumerateFiles(versionPath, "snapshot.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                using var stream = File.OpenRead(path);
+                var manifest = JsonSerializer.Deserialize<ProfileSnapshotManifest>(
+                    stream,
+                    JsonSupport.Options);
+                if (manifest is not null && SamePath(manifest.GamePath, gamePath))
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex) when (
+                ex is JsonException or IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                // Damaged legacy snapshots are preserved because ownership is unknown.
+            }
+        }
+
+        return false;
+    }
+
+    private void DeleteSnapshotVersionDirectory(string directory)
+    {
+        var root = Path.GetFullPath(_paths.ProfileSnapshotsRoot)
+            .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var candidate = Path.GetFullPath(directory)
+            .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!candidate.StartsWith(root, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(candidate, root, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("快照清理路径超出应用数据目录。");
+        }
+
+        DeleteDirectoryRobust(directory);
+        var parent = Path.GetDirectoryName(directory);
+        if (parent is not null)
+        {
+            DeleteIfEmpty(parent);
+        }
     }
 
     private static void DeleteDirectoryRobust(string path)

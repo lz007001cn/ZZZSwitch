@@ -121,8 +121,6 @@ public sealed class ConfigurationRepository
                     !ProfileIds.All.Contains(transition.TargetProfile, StringComparer.Ordinal) ||
                     string.Equals(transition.SourceProfile, transition.TargetProfile, StringComparison.Ordinal) ||
                     !IsSafeDirectoryName(transition.GameVersion) ||
-                    transition.ExpectedReplaceCount < 0 ||
-                    transition.ExpectedDeleteCount < 0 ||
                     transition.ReplaceFiles is null ||
                     transition.IniPatches is null ||
                     transition.DeleteFiles is null ||

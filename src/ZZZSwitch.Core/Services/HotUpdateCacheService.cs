@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ZZZSwitch.Core.Models;
@@ -37,7 +35,7 @@ public sealed partial class HotUpdateCacheService
 
         var normalizedGamePath = Path.GetFullPath(gamePath);
         var activeBlocks = PathSafety.ResolveOrThrow(normalizedGamePath, BlocksRelativePath);
-        EnsureBlocksReady(activeBlocks);
+        var inventory = EnsureBlocksReady(activeBlocks);
 
         var storedBlocks = GetStoredBlocksPath(normalizedGamePath, gameVersion, profile);
         if (Directory.Exists(storedBlocks) &&
@@ -45,14 +43,6 @@ public sealed partial class HotUpdateCacheService
         {
             throw new InvalidOperationException(
                 "当前服同时存在活动 Blocks 和已存储 Blocks。为避免覆盖有效缓存，请先处理未完成的切换事务。");
-        }
-
-        var first = CaptureInventory(activeBlocks);
-        Thread.Sleep(250);
-        var second = CaptureInventory(activeBlocks);
-        if (!InventoriesEqual(first, second))
-        {
-            throw new InvalidOperationException("Blocks 目录仍在变化，资源下载可能尚未结束。请稍后重新检查。");
         }
 
         var manifest = new HotUpdateCacheManifest
@@ -63,9 +53,8 @@ public sealed partial class HotUpdateCacheService
             GameVersion = gameVersion,
             GamePath = normalizedGamePath,
             StoredBlocksPath = storedBlocks,
-            FileCount = second.FileCount,
-            TotalBytes = second.TotalBytes,
-            InventorySha256 = second.InventorySha256
+            FileCount = inventory.FileCount,
+            TotalBytes = inventory.TotalBytes
         };
         SaveManifest(manifest);
         return manifest;
@@ -101,12 +90,12 @@ public sealed partial class HotUpdateCacheService
                     : "已存储 Blocks 目录不存在。");
             }
 
-            if (FindTemporaryFiles(actualPath).Count > 0)
+            var inventory = CaptureInventory(actualPath, out var temporaryFiles);
+            if (temporaryFiles.Count > 0)
             {
                 return InvalidStatus(profile, manifest, "存在未完成下载的 .tmp 文件。");
             }
 
-            var inventory = CaptureInventory(actualPath);
             var exact = InventoryMatches(manifest, inventory);
             if (isActive && !exact)
             {
@@ -202,10 +191,11 @@ public sealed partial class HotUpdateCacheService
             return null;
         }
 
+        Inventory activeInventory;
         IReadOnlyList<string> temporaryFiles;
         try
         {
-            temporaryFiles = FindTemporaryFiles(activeBlocks);
+            activeInventory = CaptureInventory(activeBlocks, out temporaryFiles);
         }
         catch (Exception ex) when (IsExpectedMetadataException(ex))
         {
@@ -228,21 +218,6 @@ public sealed partial class HotUpdateCacheService
 
         if (source is null)
         {
-            Inventory inventory;
-            try
-            {
-                inventory = CaptureInventory(activeBlocks);
-            }
-            catch (Exception ex) when (IsExpectedMetadataException(ex))
-            {
-                issues.Add(new(
-                    IssueSeverity.Error,
-                    "hot-cache.source.unreadable",
-                    $"无法读取当前服务器 Blocks：{ex.Message}",
-                    activeBlocks));
-                return null;
-            }
-
             source = new HotUpdateCacheManifest
             {
                 CacheId = Guid.NewGuid().ToString("N"),
@@ -251,9 +226,8 @@ public sealed partial class HotUpdateCacheService
                 GameVersion = gameVersion,
                 GamePath = Path.GetFullPath(gamePath),
                 StoredBlocksPath = GetStoredBlocksPath(gamePath, gameVersion, sourceProfile),
-                FileCount = inventory.FileCount,
-                TotalBytes = inventory.TotalBytes,
-                InventorySha256 = inventory.InventorySha256
+                FileCount = activeInventory.FileCount,
+                TotalBytes = activeInventory.TotalBytes
             };
             issues.Add(new(
                 IssueSeverity.Information,
@@ -347,9 +321,7 @@ public sealed partial class HotUpdateCacheService
     {
         EnsureNoRelatedProcesses();
         var activeBlocks = PathSafety.ResolveOrThrow(plan.GamePath, BlocksRelativePath);
-        EnsureBlocksReady(activeBlocks);
-
-        var sourceInventory = CaptureInventory(activeBlocks);
+        var sourceInventory = EnsureBlocksReady(activeBlocks);
         var refreshedSource = new HotUpdateCacheManifest
         {
             CacheId = plan.SourceManifest.CacheId,
@@ -359,8 +331,7 @@ public sealed partial class HotUpdateCacheService
             GamePath = Path.GetFullPath(plan.GamePath),
             StoredBlocksPath = plan.SourceManifest.StoredBlocksPath,
             FileCount = sourceInventory.FileCount,
-            TotalBytes = sourceInventory.TotalBytes,
-            InventorySha256 = sourceInventory.InventorySha256
+            TotalBytes = sourceInventory.TotalBytes
         };
         SaveManifest(refreshedSource);
 
@@ -649,8 +620,7 @@ public sealed partial class HotUpdateCacheService
             GamePath = manifest.GamePath,
             StoredBlocksPath = expected,
             FileCount = manifest.FileCount,
-            TotalBytes = manifest.TotalBytes,
-            InventorySha256 = manifest.InventorySha256
+            TotalBytes = manifest.TotalBytes
         };
     }
 
@@ -677,8 +647,7 @@ public sealed partial class HotUpdateCacheService
              string.IsNullOrWhiteSpace(manifest.StoredBlocksPath) ||
              !Path.IsPathFullyQualified(manifest.StoredBlocksPath) ||
              manifest.FileCount < 0 ||
-             manifest.TotalBytes < 0 ||
-             !FileIntegrityService.IsValidSha256(manifest.InventorySha256)))
+             manifest.TotalBytes < 0))
         {
             throw new InvalidDataException($"Blocks 缓存记录缺少必要字段或包含无效值：{path}");
         }
@@ -876,59 +845,60 @@ public sealed partial class HotUpdateCacheService
         }
     }
 
-    private static void EnsureBlocksReady(string blocksPath)
+    private static Inventory EnsureBlocksReady(string blocksPath)
     {
         if (!Directory.Exists(blocksPath))
         {
             throw new DirectoryNotFoundException($"Blocks 目录不存在：{blocksPath}");
         }
 
-        var temporaryFiles = FindTemporaryFiles(blocksPath);
+        var inventory = CaptureInventory(blocksPath, out var temporaryFiles);
         if (temporaryFiles.Count > 0)
         {
             throw new InvalidOperationException(
                 $"Blocks 中仍有 {temporaryFiles.Count} 个 .tmp 文件，资源下载尚未完成。");
         }
 
-        if (!Directory.EnumerateFiles(blocksPath, "*", SearchOption.AllDirectories).Any())
+        if (inventory.FileCount == 0)
         {
             throw new InvalidOperationException("Blocks 目录为空，不能初始化热更新缓存。");
         }
-    }
 
-    private static IReadOnlyList<string> FindTemporaryFiles(string blocksPath) =>
-        Directory.Exists(blocksPath)
-            ? Directory.EnumerateFiles(blocksPath, "*.tmp", SearchOption.AllDirectories).Take(20).ToArray()
-            : [];
+        return inventory;
+    }
 
     private static Inventory CaptureInventory(string path)
     {
-        using var incremental = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        return CaptureInventory(path, out _);
+    }
+
+    private static Inventory CaptureInventory(string path, out IReadOnlyList<string> temporaryFiles)
+    {
         var count = 0;
         var total = 0L;
-        foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)
-                     .OrderBy(x => Path.GetRelativePath(path, x), StringComparer.OrdinalIgnoreCase))
+        var temporary = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
         {
             var info = new FileInfo(file);
-            var relative = Path.GetRelativePath(path, file).Replace('/', '\\');
-            var line = Encoding.UTF8.GetBytes($"{relative}\0{info.Length}\n");
-            incremental.AppendData(line);
             count++;
             total += info.Length;
+            if (temporary.Count < 20 && file.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+            {
+                temporary.Add(file);
+            }
         }
 
-        return new(count, total, Convert.ToHexString(incremental.GetHashAndReset()));
+        temporaryFiles = temporary;
+        return new(count, total);
     }
 
     private static bool InventoryMatches(HotUpdateCacheManifest manifest, Inventory inventory) =>
         manifest.FileCount == inventory.FileCount &&
-        manifest.TotalBytes == inventory.TotalBytes &&
-        string.Equals(manifest.InventorySha256, inventory.InventorySha256, StringComparison.OrdinalIgnoreCase);
+        manifest.TotalBytes == inventory.TotalBytes;
 
     private static bool InventoriesEqual(Inventory first, Inventory second) =>
         first.FileCount == second.FileCount &&
-        first.TotalBytes == second.TotalBytes &&
-        string.Equals(first.InventorySha256, second.InventorySha256, StringComparison.OrdinalIgnoreCase);
+        first.TotalBytes == second.TotalBytes;
 
     private static bool ManifestIdentityMatches(
         HotUpdateCacheManifest manifest,
@@ -1050,7 +1020,7 @@ public sealed partial class HotUpdateCacheService
         }
     }
 
-    private sealed record Inventory(int FileCount, long TotalBytes, string InventorySha256);
+    private sealed record Inventory(int FileCount, long TotalBytes);
 
     [GeneratedRegex(@"^\d+\.\d+\.\d+$", RegexOptions.CultureInvariant)]
     private static partial Regex GameVersionRegex();

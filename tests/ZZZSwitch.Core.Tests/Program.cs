@@ -27,23 +27,28 @@ internal static class Program
         ("磁盘容量使用可读单位", ReadableByteSizes),
         ("验证游戏目录与版本", GameDirectoryValidation),
         ("自动检测忽略无效路径并返回有效安装", GameDirectoryDiscovery),
-        ("替换数量不符时停止", () => PlannerFailure("count")),
+        ("清单声明数量不影响实际文件列表", ManifestCountsAreInformational),
         ("差异包缺少源文件时停止", () => PlannerFailure("source")),
         ("游戏版本不匹配时停止", () => PlannerFailure("version")),
         ("游戏进程运行时停止", () => PlannerFailure("process")),
         ("文件被占用时停止", () => PlannerFailure("lock")),
         ("必需删除文件缺失时停止", () => PlannerFailure("delete")),
         ("存在未完成文件事务时停止", () => PlannerFailure("transaction")),
+        ("同盘预检合并暂存与备份空间", () => PlannerDiskSpace(false)),
+        ("跨盘预检分别检查暂存与备份空间", () => PlannerDiskSpace(true)),
         ("在线差异自动排除 Streaming Blocks 与待观察文件", OnlineDifferenceSelection),
         ("在线切换按 Manifest 复用本地文件并保存反向差异包", OnlineDifferenceReusesLocalFilesAndCapturesReversePackage),
         ("已完成在线差异自动登记为版本差异包", OnlineDifferencePackageCatalogRecognizesReadyPackage),
         ("未完成在线分块在版本资源中保留", OnlineDifferencePackageCatalogKeepsIncompletePackage),
         ("Manifest 浏览器按方向与资源类型建立索引", ManifestBrowserBuildsExtensibleIndex),
         ("在线切换计划不读取现有差异包", OnlinePlannerDoesNotReadExistingPackage),
+        ("国际服到B服组合计划只需要在线基础差异和内置覆盖层", GlobalToBilibiliCompositeUsesOnlineBase),
+        ("B服到国际服组合计划不需要本地国际服固定包", BilibiliToGlobalCompositeUsesOnlineBase),
         ("缓存快照只收集一级 version/revision 文件", SnapshotFiltersFiles),
-        ("损坏的缓存快照被拒绝", CorruptedSnapshotRejected),
+        ("缺失或长度异常的缓存快照被忽略", InvalidSnapshotIsIgnored),
+        ("缓存快照按安装隔离并只保留两份有效记录", SnapshotRetentionIsGameScoped),
         ("切换时恢复目标服缓存快照", SwitchRestoresTargetSnapshot),
-        ("快照覆盖差异包同路径文件后按快照校验", SnapshotOverrideUsesSnapshotIntegrity),
+        ("切换后快照覆盖差异包中的基础缓存文件", SnapshotOverridesPackageCacheFile),
         ("初始化当前服 Blocks 缓存", HotUpdateCacheInitialization),
         ("不同游戏目录的 Blocks 清单相互隔离", HotUpdateManifestsAreGameScoped),
         ("旧版 Blocks 清单按身份安全迁移", LegacyHotUpdateManifestMigrates),
@@ -54,10 +59,13 @@ internal static class Program
         ("目标服缓存仓库丢失时进入重建模式", LostTargetCacheUsesInitializationMode),
         ("文件替换失败时 Blocks 与文件共同回滚", HotUpdateEngineFailureRollback),
         ("事务切换数量正确且成功后写状态", SwitchSuccess),
+        ("准备阶段使用活动进度且替换阶段报告数量", SwitchProgressReportsPhases),
+        ("已满足目标内容的文件不会重复暂存或备份", UnchangedTargetsAreSkipped),
         ("跨差异包目录复用源文件", CrossPackageSourceReuse),
         ("INI按键修改保留其他配置", IniPatchPreservesUnrelatedSettings),
         ("INI修改后的后续故障完整回滚", IniPatchRollback),
         ("复制中途失败后回滚", CopyFailureRollback),
+        ("回滚失败不会误报未修改游戏或已恢复", IncompleteRollbackIsReported),
         ("备份创建失败会清理不完整目录", IncompleteBackupIsRemoved),
         ("新增文件在失败回滚时删除", NewFileRollback),
         ("已删除文件在失败回滚时恢复", DeletedFileRollback),
@@ -72,9 +80,13 @@ internal static class Program
         ("恢复服务无法绕过 Blocks 安全策略", RestoreServiceEnforcesLegacySafety),
         ("主页恢复只使用状态精确对应的最后切换备份", RestoreLatestUsesExactStateBackup),
         ("统一存储布局生成稳定安全路径", UnifiedStorageLayout),
+        ("C盘应用数据校验迁移到 .zzzswitch", ApplicationDataMigratesToGameStorage),
+        ("旧版 data/cache 目录原子迁移为明确命名", LegacyStorageNamesMigrateAtomically),
+        ("未完成事务阻止应用数据迁移", PendingTransactionBlocksApplicationDataMigration),
         ("自定义备份目录会校验迁移并持久化设置", CustomBackupLocationMigratesAndPersists),
         ("备份目录拒绝与游戏目录重叠", BackupLocationRejectsUnsafeTarget),
         ("自定义缓存目录会校验迁移并保留现有内容", CustomCacheLocationMigratesContent),
+        ("缓存目录拒绝与切换暂存区重叠", CacheLocationRejectsStagingOverlap),
         ("缓存迁移后旧清单自动解析到新位置", MigratedCacheManifestUsesCustomLocation),
         ("旧游戏版本缓存可独立清理", ObsoleteCacheVersionsCanBeCleaned),
         ("只读旧缓存与残留清单均可清理", ReadOnlyCacheAndOrphanManifestCanBeCleaned),
@@ -95,14 +107,16 @@ internal static class Program
         ("修复仅重建标准目录结构", StorageLayoutRepair),
         ("单个服务器差异包缺失不误报为目录结构损坏", MissingProfilePackageIsNotStructuralDamage),
         ("在线模式不因本地差异包缺失阻止检查", MissingPackagesAreAggregated),
-        ("备份文件同长度损坏时拒绝恢复", BackupHashRejectsSameLengthCorruption),
+        ("事务备份保留实体文件并可恢复", PhysicalBackupRemainsRestorable),
+        ("旧版内容对象备份仍可恢复", LegacyContentObjectBackupRemainsRestorable),
         ("启动时恢复未完成的普通文件事务", PendingFileTransactionRecovery),
+        ("暂存前保存事务且中断后只清理对应暂存", PendingStagingRecovery),
+        ("暂存清理被占用时保留事务并可重试", LockedStagingRecoveryCanRetry),
         ("启动时共同恢复 Blocks 与普通文件事务", PendingCombinedTransactionRecovery),
         ("已提交事务仅清理遗留日志", CommittedTransactionJournalCleanup),
         ("损坏状态文件被安全忽略", CorruptStateIsSafelyIgnored),
         ("同长度差异文件篡改可被识别", PackageIntegrityRejectsSameLengthTamper),
-        ("切换预检阻止哈希不匹配的差异包", () => PlannerFailure("integrity")),
-        ("切换引擎拒绝被篡改的差异文件", EngineRejectsTamperedPackage),
+        ("暂存校验拒绝被篡改的差异文件", EngineRejectsTamperedPackage),
         ("详细检查标记哈希损坏的差异包", InspectionDetectsTamperedPackage),
         ("损坏配置不会中断详细检查", InspectionSurvivesCorruptConfiguration),
         ("结构无效的配置被隔离", StructurallyInvalidConfigurationIsRejected),
@@ -302,6 +316,49 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    private static Task ManifestCountsAreInformational()
+    {
+        using var fixture = new TempFixture();
+        fixture.CreateGameMarkers("3.0.0");
+        var package = GameStorageLayout.GetPackageDirectory(fixture.Game, "3.0.0", "target");
+        Directory.CreateDirectory(package);
+        File.WriteAllText(Path.Combine(package, "source.bin"), "new");
+        File.WriteAllText(Path.Combine(fixture.Game, "target.bin"), "old");
+        fixture.WriteConfiguration(new TransitionManifest
+        {
+            SourceProfile = ProfileIds.Global,
+            TargetProfile = ProfileIds.CnOfficial,
+            GameVersion = "3.0.0",
+            ExpectedReplaceCount = 999,
+            ExpectedDeleteCount = 999,
+            ReplaceFiles =
+            [
+                new ReplaceFileEntry
+                {
+                    Source = "source.bin",
+                    Target = "target.bin",
+                    Length = 3,
+                    Sha256 = Sha256Text("new")
+                }
+            ]
+        });
+        var files = new PhysicalFileOperations();
+        var planner = new SwitchPlanner(
+            new ConfigurationRepository(fixture.Paths),
+            new GameDirectoryService(),
+            new FakeProcessMonitor(),
+            files,
+            fixture.Paths,
+            new ProfileSnapshotService(fixture.Paths, files));
+
+        var plan = planner.CreatePlan(fixture.Game, ProfileIds.Global, ProfileIds.CnOfficial);
+
+        True(plan.CanExecute, string.Join(" | ", plan.Issues.Select(issue => issue.Message)));
+        Equal(1, plan.Manifest.PlannedReplaceCount);
+        Equal(0, plan.Manifest.PlannedDeleteCount);
+        return Task.CompletedTask;
+    }
+
     private static Task PlannerFailure(string mode)
     {
         using var fixture = new TempFixture();
@@ -326,7 +383,7 @@ internal static class Program
             SourceProfile = ProfileIds.Global,
             TargetProfile = ProfileIds.CnOfficial,
             GameVersion = "3.0.0",
-            ExpectedReplaceCount = mode == "count" ? 2 : 1,
+            ExpectedReplaceCount = 1,
             ExpectedDeleteCount = 1,
             ReplaceFiles =
             [
@@ -335,7 +392,7 @@ internal static class Program
                     Source = "source.bin",
                     Target = "target.bin",
                     Length = 3,
-                    Sha256 = mode == "integrity" ? new string('0', 64) : expectedSourceHash
+                    Sha256 = expectedSourceHash
                 }
             ],
             DeleteFiles = [new DeleteFileEntry { Target = "delete.bin" }]
@@ -375,14 +432,67 @@ internal static class Program
             {
                 True(plan.Issues.Any(x => x.Code == "transaction.file.pending"), "预检应明确报告未完成文件事务。");
             }
-            else if (mode == "integrity")
-            {
-                True(plan.Issues.Any(x => x.Code == "package.integrity.failed"), "预检应明确报告差异包完整性失败。");
-            }
         }
         finally
         {
             locked?.Dispose();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static Task PlannerDiskSpace(bool separateBackupDrive)
+    {
+        using var fixture = new TempFixture();
+        fixture.CreateGameMarkers("3.0.0");
+        var source = new string('n', 20);
+        File.WriteAllText(Path.Combine(fixture.Package, "a.bin"), source);
+        File.WriteAllText(Path.Combine(fixture.Game, "a.bin"), new string('o', 50));
+        var gameDrive = Path.GetPathRoot(fixture.Game)!;
+        var backupDrive = separateBackupDrive
+            ? (string.Equals(gameDrive, @"Z:\", StringComparison.OrdinalIgnoreCase) ? @"Y:\" : @"Z:\")
+            : gameDrive;
+        if (separateBackupDrive)
+        {
+            // Only the isolated settings file is written. No directory on the
+            // hypothetical backup drive is accessed; its free space is injected.
+            Directory.CreateDirectory(fixture.Data);
+            File.WriteAllText(fixture.Paths.BackupLocationFile, JsonSerializer.Serialize(
+                new BackupLocationSettings { BackupRootPath = Path.Combine(backupDrive, "ZZZSwitch.Tests", "Backups") },
+                JsonSupport.Options));
+        }
+
+        var paths = new AppPaths(fixture.Data, fixture.Config);
+        var files = new PhysicalFileOperations();
+        const long margin = 64L * 1024 * 1024;
+        var cases = separateBackupDrive
+            ? new[] { (20L, 50L, true), (20L, 49L, false), (19L, 50L, false) }
+            : new[] { (70L, 0L, true), (69L, 0L, false) };
+        foreach (var (gameFree, backupFree, allowed) in cases)
+        {
+            var queriedDrives = new List<string>();
+            var planner = new SwitchPlanner(
+                new ConfigurationRepository(paths), new GameDirectoryService(), new FakeProcessMonitor(),
+                files, paths, new ProfileSnapshotService(paths, files),
+                getAvailableFreeSpace: root =>
+                {
+                    queriedDrives.Add(root);
+                    return margin + (string.Equals(root, gameDrive, StringComparison.OrdinalIgnoreCase)
+                        ? gameFree : backupFree);
+                });
+            var plan = planner.CreateOnlinePlan(fixture.Game,
+                Materialization(fixture.Package, ProfileIds.Global, ProfileIds.CnOfficial, "a.bin", source));
+            Equal(allowed, plan.CanExecute);
+            Equal(separateBackupDrive ? 2 : 1, queriedDrives.Count);
+            True(queriedDrives.Contains(gameDrive, StringComparer.OrdinalIgnoreCase), "应检查游戏盘。");
+            True(queriedDrives.Contains(backupDrive, StringComparer.OrdinalIgnoreCase), "应检查实际备份盘。");
+            Equal(allowed ? 0 : 1, plan.Issues.Count(issue => issue.Code == "disk.space"));
+            True(plan.Issues.All(issue => issue.Code != "disk.check.failed"), "空间模拟不应触碰不存在的磁盘。");
+            if (separateBackupDrive && backupFree < 50)
+            {
+                True(plan.Issues.Any(issue => issue.Code == "disk.space" && issue.Message.Contains("备份磁盘")),
+                    "备份盘不足应明确归因于备份盘。");
+            }
         }
 
         return Task.CompletedTask;
@@ -530,7 +640,7 @@ internal static class Program
     {
         using var fixture = new TempFixture();
         fixture.CreateGameMarkers("3.0.0");
-        var onlineRoot = Path.Combine(fixture.Data, "OnlineDifferenceFiles", "test", "content");
+        var onlineRoot = Path.Combine(fixture.Paths.OnlineDifferenceFilesRoot, "test", "content");
         Directory.CreateDirectory(onlineRoot);
         File.WriteAllText(Path.Combine(onlineRoot, "target.bin"), "new");
         File.WriteAllText(Path.Combine(fixture.Game, "target.bin"), "old");
@@ -584,6 +694,212 @@ internal static class Program
              plan.Issues.Any(issue => issue.Code == "hot-cache.source.auto-capture"),
             "在线计划应在无手动初始化清单时自动准备保存当前服 Blocks。");
         return Task.CompletedTask;
+    }
+
+    private static async Task GlobalToBilibiliCompositeUsesOnlineBase()
+    {
+        using var fixture = new TempFixture();
+        fixture.CreateGameMarkers("3.0.0");
+        WriteCompositeProfiles(fixture);
+        var direct = new TransitionManifest
+        {
+            SourceProfile = ProfileIds.Global,
+            TargetProfile = ProfileIds.Bilibili,
+            GameVersion = "3.0.0",
+            ExpectedReplaceCount = 3,
+            ExpectedDeleteCount = 0,
+            ReplaceFiles =
+            [
+                new ReplaceFileEntry
+                {
+                    Source = "base.bin",
+                    Target = "base.bin",
+                    SourcePackageDirectoryName = ProfileIds.CnOfficial,
+                    Length = 15,
+                    Sha256 = Sha256Text("unused-cn-base")
+                },
+                new ReplaceFileEntry
+                {
+                    Source = "overlay.bin",
+                    Target = "overlay.bin",
+                    Length = 9,
+                    Sha256 = Sha256Text("b-overlay")
+                }
+            ],
+            IniPatches = [ProfilePatch("bilibili")]
+        };
+        File.WriteAllText(
+            Path.Combine(fixture.Config, "transitions", "global-to-bilibili.json"),
+            JsonSerializer.Serialize(direct, JsonSupport.Options));
+        var bilibiliRoot = GameStorageLayout.GetPackageDirectory(
+            fixture.Game,
+            "3.0.0",
+            ProfileIds.Bilibili);
+        Directory.CreateDirectory(bilibiliRoot);
+        File.WriteAllText(Path.Combine(bilibiliRoot, "overlay.bin"), "b-overlay");
+        var onlineRoot = Path.Combine(fixture.Root, "online-global-to-cn");
+        Directory.CreateDirectory(onlineRoot);
+        File.WriteAllText(Path.Combine(onlineRoot, "base.bin"), "online-cn-base");
+        File.WriteAllText(Path.Combine(fixture.Game, "base.bin"), "global-old");
+        File.WriteAllText(Path.Combine(fixture.Game, "overlay.bin"), "overlay-old");
+        File.WriteAllText(Path.Combine(fixture.Game, "config.ini"), "[General]\ncps=global\n");
+        var materialization = Materialization(
+            onlineRoot,
+            ProfileIds.Global,
+            ProfileIds.CnOfficial,
+            "base.bin",
+            "online-cn-base");
+        var planner = CreatePlanner(fixture);
+
+        var plan = planner.CreateBilibiliCompositePlan(
+            fixture.Game,
+            ProfileIds.Global,
+            ProfileIds.Bilibili,
+            materialization);
+
+        True(plan.CanExecute, string.Join(" | ", plan.Issues.Select(item => item.Message)));
+        Equal(2, plan.Manifest.ReplaceFiles.Count);
+        True(!Directory.Exists(GameStorageLayout.GetPackageDirectory(
+                fixture.Game,
+                "3.0.0",
+                ProfileIds.CnOfficial)),
+            "干净环境不应要求本地国服固定包目录。");
+        var result = await fixture.CreateEngine().ExecuteAsync(plan);
+        True(result.Success, result.Error ?? "国际服到 B 服组合切换应成功。");
+        Equal("online-cn-base", File.ReadAllText(Path.Combine(fixture.Game, "base.bin")));
+        Equal("b-overlay", File.ReadAllText(Path.Combine(fixture.Game, "overlay.bin")));
+        True(File.ReadAllText(Path.Combine(fixture.Game, "config.ini")).Contains("cps=bilibili", StringComparison.Ordinal),
+            "最终配置应使用 B 服渠道值。");
+    }
+
+    private static async Task BilibiliToGlobalCompositeUsesOnlineBase()
+    {
+        using var fixture = new TempFixture();
+        fixture.CreateGameMarkers("3.0.0");
+        WriteCompositeProfiles(fixture);
+        var direct = new TransitionManifest
+        {
+            SourceProfile = ProfileIds.Bilibili,
+            TargetProfile = ProfileIds.Global,
+            GameVersion = "3.0.0",
+            ExpectedReplaceCount = 2,
+            ExpectedDeleteCount = 0,
+            ReplaceFiles =
+            [
+                new ReplaceFileEntry
+                {
+                    Source = "base.bin",
+                    Target = "base.bin",
+                    Length = 18,
+                    Sha256 = Sha256Text("unused-global-base")
+                }
+            ],
+            IniPatches = [ProfilePatch("global")],
+            OptionalDeleteFiles = [new DeleteFileEntry { Target = "overlay.bin" }]
+        };
+        File.WriteAllText(
+            Path.Combine(fixture.Config, "transitions", "bilibili-to-global.json"),
+            JsonSerializer.Serialize(direct, JsonSupport.Options));
+        var onlineRoot = Path.Combine(fixture.Root, "online-cn-to-global");
+        Directory.CreateDirectory(onlineRoot);
+        File.WriteAllText(Path.Combine(onlineRoot, "base.bin"), "online-global-base");
+        File.WriteAllText(Path.Combine(fixture.Game, "base.bin"), "cn-old");
+        File.WriteAllText(Path.Combine(fixture.Game, "overlay.bin"), "b-overlay");
+        File.WriteAllText(Path.Combine(fixture.Game, "config.ini"), "[General]\ncps=bilibili\n");
+        var materialization = Materialization(
+            onlineRoot,
+            ProfileIds.CnOfficial,
+            ProfileIds.Global,
+            "base.bin",
+            "online-global-base");
+        var planner = CreatePlanner(fixture);
+
+        var plan = planner.CreateBilibiliCompositePlan(
+            fixture.Game,
+            ProfileIds.Bilibili,
+            ProfileIds.Global,
+            materialization);
+
+        True(plan.CanExecute, string.Join(" | ", plan.Issues.Select(item => item.Message)));
+        True(!Directory.Exists(GameStorageLayout.GetPackageDirectory(
+                fixture.Game,
+                "3.0.0",
+                ProfileIds.Global)),
+            "干净环境不应要求本地国际服固定包目录。");
+        var result = await fixture.CreateEngine().ExecuteAsync(plan);
+        True(result.Success, result.Error ?? "B 服到国际服组合切换应成功。");
+        Equal("online-global-base", File.ReadAllText(Path.Combine(fixture.Game, "base.bin")));
+        True(!File.Exists(Path.Combine(fixture.Game, "overlay.bin")), "B 服覆盖层应按清单移除。");
+        True(File.ReadAllText(Path.Combine(fixture.Game, "config.ini")).Contains("cps=global", StringComparison.Ordinal),
+            "最终配置应使用国际服渠道值。");
+    }
+
+    private static SwitchPlanner CreatePlanner(TempFixture fixture)
+    {
+        var files = new PhysicalFileOperations();
+        return new SwitchPlanner(
+            new ConfigurationRepository(fixture.Paths),
+            new GameDirectoryService(),
+            new FakeProcessMonitor(),
+            files,
+            fixture.Paths,
+            new ProfileSnapshotService(fixture.Paths, files));
+    }
+
+    private static OnlineDifferenceMaterialization Materialization(
+        string root,
+        string sourceProfile,
+        string targetProfile,
+        string path,
+        string content) => new()
+    {
+        PackageRoot = root,
+        PackageDirectory = root,
+        Manifest = new TransitionManifest
+        {
+            SourceProfile = sourceProfile,
+            TargetProfile = targetProfile,
+            GameVersion = "3.0.0",
+            ExpectedReplaceCount = 1,
+            ExpectedDeleteCount = 0,
+            ReplaceFiles =
+            [
+                new ReplaceFileEntry
+                {
+                    Source = path,
+                    Target = path,
+                    Length = content.Length,
+                    Sha256 = Sha256Text(content)
+                }
+            ]
+        },
+        DownloadedFiles = 1
+    };
+
+    private static IniFilePatch ProfilePatch(string cps) => new()
+    {
+        Target = "config.ini",
+        Section = "General",
+        Values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["cps"] = cps
+        }
+    };
+
+    private static void WriteCompositeProfiles(TempFixture fixture)
+    {
+        foreach (var profile in ProfileIds.All)
+        {
+            var definition = new ProfileDefinition
+            {
+                Id = profile,
+                DisplayName = profile,
+                PackageDirectoryName = profile
+            };
+            File.WriteAllText(
+                Path.Combine(fixture.Config, "profiles", profile + ".json"),
+                JsonSerializer.Serialize(definition, JsonSupport.Options));
+        }
     }
 
     private static Task OnlineDifferencePackageCatalogRecognizesReadyPackage()
@@ -662,12 +978,12 @@ internal static class Program
         }
 
         True(rejected, "差异包管理的手动校验必须识别同长度 SHA-256 损坏。");
-        True(!catalog.TryGetReadyMaterialization(
+        True(catalog.TryGetReadyMaterialization(
                 ProfileIds.Global,
                 ProfileIds.CnOfficial,
                 "3.1.0",
                 out _),
-            "同长度损坏的差异包不得进入本地快速切换路径。");
+            "就绪查询只负责确认文件存在和长度；实际切换计划会按清单校验内容哈希。");
         return Task.CompletedTask;
     }
 
@@ -748,14 +1064,15 @@ internal static class Program
         Equal("manifest-os", browser.CnToGlobal.TargetManifest.ManifestId);
     }
 
-    private static Task CorruptedSnapshotRejected()
+    private static Task InvalidSnapshotIsIgnored()
     {
         using var fixture = new TempFixture();
         var snapshots = new ProfileSnapshotService(fixture.Paths, new PhysicalFileOperations());
         var snapshot = snapshots.Capture(ProfileIds.Global, "3.0.0", fixture.Game);
         var first = snapshot.Files[0];
         File.AppendAllText(Path.Combine(snapshot.SnapshotPath, "files", first.RelativePath), "corrupt");
-        True(snapshots.FindLatestValid(ProfileIds.Global, "3.0.0", fixture.Game) is null, "哈希损坏的快照不应可用。");
+        True(snapshots.FindLatestValid(ProfileIds.Global, "3.0.0", fixture.Game) is null,
+            "长度异常的快照不应可用。");
         return Task.CompletedTask;
     }
 
@@ -1082,7 +1399,7 @@ internal static class Program
         Equal(targetSnapshot.Files.Count, result.SuccessfulCacheRestore);
     }
 
-    private static async Task SnapshotOverrideUsesSnapshotIntegrity()
+    private static async Task SnapshotOverridesPackageCacheFile()
     {
         using var fixture = new TempFixture();
         var files = new PhysicalFileOperations();
@@ -1129,6 +1446,91 @@ internal static class Program
         Equal(ProfileIds.CnOfficial, new StateStore(fixture.Paths).Load()?.CurrentProfile);
         Equal(1, result.SuccessfulReplace);
         Equal(1, result.SuccessfulDelete);
+        var stagingRoot = GameStorageLayout.GetStagingRoot(fixture.Game);
+        True(!Directory.Exists(stagingRoot) ||
+             !Directory.EnumerateFileSystemEntries(stagingRoot).Any(),
+            "切换成功后不应遗留游戏同盘暂存内容。");
+        var logPath = Directory.GetFiles(fixture.Paths.LogsRoot, "*.jsonl").Single();
+        var log = JsonSerializer.Deserialize<OperationLogEntry>(
+                      File.ReadLines(logPath).Single(),
+                      JsonSupport.Options)
+                  ?? throw new InvalidDataException("切换性能日志无法解析。");
+        Equal(11L, log.StagedBytes);
+        Equal(9L, log.BackupBytes);
+        True(log.StageDurationsMilliseconds.ContainsKey("stageSources") &&
+             log.StageDurationsMilliseconds.ContainsKey("createBackup") &&
+             log.StageDurationsMilliseconds.ContainsKey("applyFiles") &&
+             log.StageDurationsMilliseconds.ContainsKey("finalValidation"),
+             "切换日志缺少分阶段耗时。");
+    }
+
+    private static async Task UnchangedTargetsAreSkipped()
+    {
+        using var fixture = new TempFixture();
+        var unchanged = new ReplaceFileEntry
+        {
+            Source = "unchanged.bin",
+            Target = "unchanged.bin",
+            Length = 7,
+            Sha256 = Sha256Text("current")
+        };
+        var changed = new ReplaceFileEntry
+        {
+            Source = "changed.bin",
+            Target = "changed.bin",
+            Length = 3,
+            Sha256 = Sha256Text("new")
+        };
+        File.WriteAllText(Path.Combine(fixture.Game, unchanged.Target), "current");
+        File.WriteAllText(Path.Combine(fixture.Package, unchanged.Source), "current");
+        File.WriteAllText(Path.Combine(fixture.Game, changed.Target), "old-value");
+        File.WriteAllText(Path.Combine(fixture.Package, changed.Source), "new");
+        var iniTarget = Path.Combine(fixture.Game, "config.ini");
+        File.WriteAllText(iniTarget, "[General]\r\nchannel=14\r\n");
+        var optionalMissing = new DeleteFileEntry { Target = "missing-overlay.bin" };
+        var manifest = new TransitionManifest
+        {
+            SourceProfile = ProfileIds.Global,
+            TargetProfile = ProfileIds.CnOfficial,
+            GameVersion = "3.0.0",
+            ReplaceFiles = [unchanged, changed],
+            IniPatches =
+            [
+                new IniFilePatch
+                {
+                    Target = "config.ini",
+                    Section = "General",
+                    Values = new() { ["channel"] = "14" }
+                }
+            ],
+            OptionalDeleteFiles = [optionalMissing]
+        };
+        var plan = fixture.CreatePlan([unchanged, changed], [], [optionalMissing], manifest);
+
+        var result = await fixture.CreateEngine().ExecuteAsync(plan);
+
+        True(result.Success, result.Error ?? "仅处理实际变化文件的切换应成功。");
+        Equal(1, result.PlannedReplace);
+        Equal(1, result.SuccessfulReplace);
+        Equal("current", File.ReadAllText(Path.Combine(fixture.Game, unchanged.Target)));
+        Equal("new", File.ReadAllText(Path.Combine(fixture.Game, changed.Target)));
+        True(!File.Exists(Path.Combine(plan.BackupPath, "files", unchanged.Target)),
+            "内容已经满足目标清单的文件不应进入事务备份。");
+        True(!File.Exists(Path.Combine(plan.BackupPath, "files", "config.ini")),
+            "已经满足目标值的 INI 不应进入事务备份。");
+        Equal("old-value", File.ReadAllText(Path.Combine(plan.BackupPath, "files", changed.Target)));
+        var backup = new BackupService(new PhysicalFileOperations(), fixture.Paths).LoadRecord(plan.BackupPath);
+        True(!backup.OriginallyMissingFiles.Contains(optionalMissing.Target, StringComparer.OrdinalIgnoreCase),
+            "不存在的可选删除文件不应写入本次事务记录。");
+        var logPath = Directory.GetFiles(fixture.Paths.LogsRoot, "*.jsonl").Single();
+        var log = JsonSerializer.Deserialize<OperationLogEntry>(
+                      File.ReadLines(logPath).Single(),
+                      JsonSupport.Options)
+                  ?? throw new InvalidDataException("切换性能日志无法解析。");
+        Equal(3L, log.StagedBytes);
+        Equal(9L, log.BackupBytes);
+        True(log.StageDurationsMilliseconds.ContainsKey("detectChanges"),
+            "切换日志应记录实际变更检测耗时。");
     }
 
     private static async Task CrossPackageSourceReuse()
@@ -1248,6 +1650,24 @@ internal static class Program
         Equal("overlay", File.ReadAllText(overlayPath));
     }
 
+    private static async Task SwitchProgressReportsPhases()
+    {
+        using var fixture = new TempFixture();
+        File.WriteAllText(Path.Combine(fixture.Game, "a.bin"), "original");
+        File.WriteAllText(Path.Combine(fixture.Package, "a.bin"), "replacement");
+        var progress = new OperationProgressRecorder();
+        var result = await fixture.CreateEngine().ExecuteAsync(fixture.CreatePlan([Entry("a.bin")], []), progress);
+        True(result.Success, result.Error ?? "切换应成功。");
+        var firstReplacement = progress.FindIndex(item => item.Step == "正在替换目标文件");
+        True(firstReplacement > 0 && progress.Take(firstReplacement).All(item => item.IsIndeterminate),
+            "检测、暂存、快照和备份阶段不能显示停在零的确定进度。");
+        True(progress.Any(item => !item.IsIndeterminate && item.SuccessfulReplace == 1),
+            "实际替换后应按已完成文件数推进进度。");
+        True(progress.Any(item => item.Step == "正在执行最终数量与文件状态校验" && item.IsIndeterminate),
+            "最终校验仍在工作时应显示活动进度。");
+        True(!progress[^1].IsIndeterminate, "切换结束后应停止活动进度。");
+    }
+
     private static async Task CopyFailureRollback()
     {
         using var fixture = new TempFixture();
@@ -1256,9 +1676,36 @@ internal static class Program
         File.WriteAllText(target, "original");
         File.WriteAllText(Path.Combine(fixture.Package, "a.bin"), "replacement");
         var faulty = new FaultingFileOperations(new PhysicalFileOperations(), copyTargetToFailOnce: target);
-        var result = await fixture.CreateEngine(faulty).ExecuteAsync(plan);
-        True(!result.Success && result.RolledBack, "复制失败后应回滚成功。");
+        var progress = new OperationProgressRecorder();
+        var result = await fixture.CreateEngine(faulty).ExecuteAsync(plan, progress);
+        True(!result.Success && result.RolledBack && !result.GameFilesUnchanged, "复制失败后应报告已恢复，而非未修改游戏。");
+        True(progress.Any(item => item.IsRollingBack && item.IsIndeterminate), "回滚时应显示活动进度。");
         Equal("original", File.ReadAllText(target));
+    }
+
+    private static async Task IncompleteRollbackIsReported()
+    {
+        using var fixture = new TempFixture();
+        var target = Path.Combine(fixture.Game, "a.bin");
+        File.WriteAllText(target, "original");
+        File.WriteAllText(Path.Combine(fixture.Game, "b.bin"), "original-b");
+        File.WriteAllText(Path.Combine(fixture.Package, "a.bin"), "replacement");
+        File.WriteAllText(Path.Combine(fixture.Package, "b.bin"), "replacement-b");
+        var files = new FaultingFileOperations(new PhysicalFileOperations(),
+            copyTargetToFailOnce: Path.Combine(fixture.Game, "b.bin"),
+            beforeWrite: path =>
+            {
+                if (string.Equals(path, target, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new IOException("测试注入：恢复写入失败。");
+                }
+            });
+        var result = await fixture.CreateEngine(files).ExecuteAsync(fixture.CreatePlan([Entry("a.bin"), Entry("b.bin")], []));
+        True(!result.Success && !result.RolledBack && !result.GameFilesUnchanged,
+            "恢复未完成时不能标记未修改游戏或恢复成功。");
+        Equal("replacement", File.ReadAllText(target));
+        True(new FileTransactionJournalStore(fixture.Paths).Exists && Directory.Exists(result.BackupPath),
+            "未完成恢复的事务和备份应继续保留。");
     }
 
     private static async Task IncompleteBackupIsRemoved()
@@ -1269,13 +1716,15 @@ internal static class Program
         var package = Path.Combine(fixture.Package, "a.bin");
         File.WriteAllText(target, "original");
         File.WriteAllText(package, "replacement");
-        var backupTarget = Path.Combine(plan.BackupPath, "files", "a.bin");
         var faulty = new FaultingFileOperations(
             new PhysicalFileOperations(),
-            copyTargetToFailOnce: backupTarget);
+            copyTargetPrefixToFailOnce: Path.Combine(
+                plan.BackupPath,
+                "files"));
 
         var result = await fixture.CreateEngine(faulty).ExecuteAsync(plan);
         True(!result.Success && !result.RolledBack, "备份阶段失败时不应触碰游戏文件或伪报回滚。");
+        True(result.GameFilesUnchanged, "备份失败应明确报告本次未修改游戏。");
         Equal("original", File.ReadAllText(target));
         True(!Directory.Exists(plan.BackupPath), "不完整事务备份目录应自动清理。");
     }
@@ -1548,9 +1997,9 @@ internal static class Program
             ProfileIds.CnOfficial);
         True(
             blocks.StartsWith(
-                Path.Combine(root, "cache") + Path.DirectorySeparatorChar,
+                Path.Combine(root, GameStorageLayout.BlocksCacheDirectoryName) + Path.DirectorySeparatorChar,
                 StringComparison.OrdinalIgnoreCase),
-            "Blocks 仓库必须位于统一根目录的 cache 下。");
+            "Blocks 仓库必须位于统一根目录的 blocks-cache 下。");
         True(
             blocks.EndsWith(
                 Path.Combine("3.0.0", ProfileIds.CnOfficial, "Blocks"),
@@ -1591,8 +2040,10 @@ internal static class Program
     {
         using var fixture = new TempFixture();
         var backups = new BackupService(new PhysicalFileOperations(), fixture.Paths);
-        var plan = fixture.CreatePlan([], []);
-        backups.CreateBackup(plan);
+        var target = Path.Combine(fixture.Game, "a.bin");
+        File.WriteAllText(target, "before");
+        var plan = fixture.CreatePlan([Entry("a.bin")], []);
+        var record = backups.CreateBackup(plan);
         var backupDirectoryName = Path.GetFileName(plan.BackupPath);
         var defaultRoot = fixture.Paths.DefaultBackupsRoot;
         var customRoot = Path.Combine(fixture.Root, "CustomBackups");
@@ -1610,6 +2061,12 @@ internal static class Program
 
         var reloadedPaths = new AppPaths(fixture.Data, fixture.Config);
         Equal(Path.GetFullPath(customRoot), reloadedPaths.BackupsRoot);
+        File.WriteAllText(target, "after");
+        var migratedBackupPath = Path.Combine(customRoot, backupDirectoryName);
+        True(new BackupService(new PhysicalFileOperations(), reloadedPaths)
+            .Rollback(migratedBackupPath, record, out _),
+            "自定义目录中的备份索引应继续解析 .zzzswitch 内容对象。");
+        Equal("before", File.ReadAllText(target));
 
         var restored = new BackupLocationService(reloadedPaths).RestoreDefaultLocation(fixture.Game);
         True(restored.ContentMoved && restored.SourceRemoved, "恢复默认位置时也应校验迁移现有备份。");
@@ -1689,20 +2146,52 @@ internal static class Program
             "cache.json");
         Directory.CreateDirectory(Path.GetDirectoryName(orphanManifest)!);
         File.WriteAllText(orphanManifest, "{}");
+        var legacyManifest = Path.Combine(
+            fixture.Paths.HotUpdateManifestsRoot,
+            ProfileIds.Global,
+            "2.8.0",
+            "cache.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(legacyManifest)!);
+        File.WriteAllText(
+            legacyManifest,
+            JsonSerializer.Serialize(new HotUpdateCacheManifest
+            {
+                CacheId = "legacy",
+                CreatedAt = DateTimeOffset.Now,
+                Profile = ProfileIds.Global,
+                GameVersion = "2.8.0",
+                GamePath = fixture.Game,
+                StoredBlocksPath = oldBlocks,
+                FileCount = 1,
+                TotalBytes = 3
+            }, JsonSupport.Options));
+        var snapshots = new ProfileSnapshotService(fixture.Paths, new PhysicalFileOperations());
+        var oldSnapshot = snapshots.Capture(ProfileIds.Global, "2.7.0", fixture.Game);
+        var legacySnapshotRoot = Path.Combine(
+            fixture.Paths.ProfileSnapshotsRoot,
+            ProfileIds.Global,
+            "2.7.0");
+        Directory.CreateDirectory(legacySnapshotRoot);
+        var legacySnapshot = Path.Combine(legacySnapshotRoot, oldSnapshot.SnapshotId);
+        Directory.Move(oldSnapshot.SnapshotPath, legacySnapshot);
 
         var usage = locations.GetUsage(fixture.Game, "3.1.0");
         var result = locations.DeleteObsoleteVersions(fixture.Game, "3.1.0");
 
-        Equal(2, usage.ObsoleteVersionCount);
-        Equal(2, result.RemovedVersionCount);
+        Equal(4, usage.ObsoleteVersionCount);
+        Equal(4, result.RemovedVersionCount);
         True(!Directory.Exists(Path.Combine(
             fixture.Paths.HotUpdateManifestsRoot,
             GameStorageLayout.GetGameIdentity(fixture.Game),
             "2.9.0")), "仅残留清单的旧版本也应删除。");
         True(!Directory.Exists(Path.Combine(
             locations.GetCacheRoot(fixture.Game),
-            GameStorageLayout.GetGameIdentity(fixture.Game),
-            "3.0.0")), "含只读文件的旧缓存目录应删除。");
+             GameStorageLayout.GetGameIdentity(fixture.Game),
+             "3.0.0")), "含只读文件的旧缓存目录应删除。");
+        True(!Directory.Exists(Path.GetDirectoryName(legacyManifest)!),
+            "属于当前安装的旧式 Blocks 清单应被清理。");
+        True(!Directory.Exists(legacySnapshotRoot),
+            "属于当前安装的旧版本快照应随缓存清理。");
         return Task.CompletedTask;
     }
 
@@ -1890,6 +2379,288 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    private static Task SnapshotRetentionIsGameScoped()
+    {
+        using var fixture = new TempFixture();
+        var secondGame = Path.Combine(fixture.Root, "Second Game");
+        var secondPersistent = Path.Combine(secondGame, "ZenlessZoneZero_Data", "Persistent");
+        var secondStreaming = Path.Combine(secondGame, "ZenlessZoneZero_Data", "StreamingAssets");
+        Directory.CreateDirectory(secondPersistent);
+        Directory.CreateDirectory(secondStreaming);
+        File.WriteAllText(Path.Combine(secondPersistent, "data_version_persist"), "second-version");
+        File.WriteAllText(Path.Combine(secondStreaming, "data_revision"), "second-revision");
+        var snapshots = new ProfileSnapshotService(fixture.Paths, new PhysicalFileOperations());
+
+        snapshots.Capture(ProfileIds.Global, "3.0.0", fixture.Game);
+        snapshots.Capture(ProfileIds.Global, "3.0.0", fixture.Game);
+        snapshots.Capture(ProfileIds.Global, "3.0.0", fixture.Game);
+        snapshots.Capture(ProfileIds.Global, "3.0.0", secondGame);
+
+        var firstRoot = Path.Combine(
+            fixture.Paths.ProfileSnapshotsRoot,
+            GameStorageLayout.GetGameIdentity(fixture.Game),
+            "3.0.0",
+            ProfileIds.Global);
+        var secondRoot = Path.Combine(
+            fixture.Paths.ProfileSnapshotsRoot,
+            GameStorageLayout.GetGameIdentity(secondGame),
+            "3.0.0",
+            ProfileIds.Global);
+        Equal(2, Directory.GetDirectories(firstRoot).Length);
+        Equal(1, Directory.GetDirectories(secondRoot).Length);
+        True(snapshots.FindLatestValid(ProfileIds.Global, "3.0.0", fixture.Game) is not null,
+            "轮换后当前安装应保留有效快照。");
+        True(snapshots.FindLatestValid(ProfileIds.Global, "3.0.0", secondGame) is not null,
+            "第二份安装的快照不应被第一份安装轮换删除。");
+        return Task.CompletedTask;
+    }
+
+    private static Task ApplicationDataMigratesToGameStorage()
+    {
+        using var fixture = new TempFixture();
+        fixture.Paths.EnsureWritableDirectories();
+        var snapshots = new ProfileSnapshotService(fixture.Paths, new PhysicalFileOperations());
+        var snapshot = snapshots.Capture(ProfileIds.Global, "3.1.0", fixture.Game);
+        var backup = Path.Combine(fixture.Paths.BackupsRoot, "operation", "files", "a.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(backup)!);
+        File.WriteAllText(backup, "backup-content");
+        var online = Path.Combine(fixture.Paths.OnlineDifferenceFilesRoot, "3.1.0", "content", "b.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(online)!);
+        File.WriteAllText(online, "online-content");
+        File.WriteAllText(fixture.Paths.UiSettingsFile, "{}");
+        new StateStore(fixture.Paths).Save(new AppState
+        {
+            GamePath = fixture.Game,
+            GameVersion = "3.1.0",
+            CurrentProfile = ProfileIds.Global,
+            LastBackupPath = Path.GetDirectoryName(Path.GetDirectoryName(backup)!)
+        });
+        var backupRecord = new BackupRecord
+        {
+            OperationId = "operation",
+            OperationTime = DateTimeOffset.Now,
+            SourceProfile = ProfileIds.Global,
+            TargetProfile = ProfileIds.CnOfficial,
+            GameVersion = "3.1.0",
+            GamePath = fixture.Game,
+            BackedUpFiles = ["a.bin"],
+            SourceSnapshotPath = snapshot.SnapshotPath,
+            TargetSnapshotPath = snapshot.SnapshotPath,
+            OperationResult = "success"
+        };
+        File.WriteAllText(
+            Path.Combine(fixture.Paths.BackupsRoot, "operation", "backup.json"),
+            JsonSerializer.Serialize(backupRecord, JsonSupport.Options));
+
+        var result = new ApplicationDataPlacementService(fixture.Paths)
+            .ActivateGameStorage(fixture.Game);
+        var targetRoot = GameStorageLayout.GetAppDataRoot(fixture.Game);
+
+        True(result.ContentMoved && result.SourceRemoved, "应用数据应完整迁移并删除旧副本。");
+        Equal(Path.GetFullPath(targetRoot), Path.GetFullPath(fixture.Paths.StorageRoot));
+        True(Directory.Exists(Path.Combine(
+                targetRoot,
+                GameStorageLayout.BackupRecordsDirectoryName,
+                "operation",
+                "files")),
+            "事务实体备份应随应用数据一起迁移。");
+        Equal("online-content", File.ReadAllText(Path.Combine(
+            targetRoot,
+            GameStorageLayout.DownloadsDirectoryName,
+            "3.1.0",
+            "content",
+            "b.bin")));
+        True(File.Exists(fixture.Paths.UiSettingsFile) && File.Exists(fixture.Paths.StateFile),
+            "配置和状态文件必须保留在 AppData。");
+        True(!Directory.Exists(Path.Combine(
+                 fixture.Data,
+                 GameStorageLayout.BackupRecordsDirectoryName)) &&
+             !Directory.Exists(Path.Combine(
+                 fixture.Data,
+                 GameStorageLayout.DownloadsDirectoryName)),
+            "AppData 不应继续保留已迁移的大体积数据。");
+
+        var state = new StateStore(fixture.Paths).Load()!;
+        Equal(
+            Path.Combine(targetRoot, GameStorageLayout.BackupRecordsDirectoryName, "operation"),
+            state.LastBackupPath);
+        var migratedSnapshot = new ProfileSnapshotService(fixture.Paths, new PhysicalFileOperations())
+            .FindLatestValid(ProfileIds.Global, "3.1.0", fixture.Game);
+        True(migratedSnapshot is not null, "迁移后快照应继续可用。");
+        True(migratedSnapshot!.SnapshotPath.StartsWith(targetRoot, StringComparison.OrdinalIgnoreCase),
+            "迁移后的快照路径应重新绑定到 .zzzswitch 数据根。");
+        var migratedRecord = JsonSerializer.Deserialize<BackupRecord>(
+                                 File.ReadAllText(Path.Combine(
+                                     targetRoot,
+                                     GameStorageLayout.BackupRecordsDirectoryName,
+                                     "operation",
+                                     "backup.json")),
+                                 JsonSupport.Options)
+                             ?? throw new InvalidDataException("迁移后的备份记录无法读取。");
+        Equal(migratedSnapshot.SnapshotPath, migratedRecord.SourceSnapshotPath);
+        Equal(migratedSnapshot.SnapshotPath, migratedRecord.TargetSnapshotPath);
+        Equal("backup-content", File.ReadAllText(Path.Combine(
+            targetRoot,
+            GameStorageLayout.BackupRecordsDirectoryName,
+            "operation",
+            "files",
+            "a.bin")));
+
+        var backupLocations = new BackupLocationService(fixture.Paths);
+        backupLocations.ChangeLocation(Path.Combine(fixture.Root, "CustomBackups"), fixture.Game);
+        var restoredBackups = backupLocations.RestoreDefaultLocation(fixture.Game);
+        True(restoredBackups.ContentMoved && restoredBackups.SourceRemoved,
+            "数据迁移后应允许备份恢复到 .zzzswitch 默认位置。");
+
+        var cacheLocations = new CacheLocationService(fixture.Paths);
+        cacheLocations.ChangeLocation(fixture.Game, Path.Combine(fixture.Root, "CustomCache"));
+        var restoredCache = cacheLocations.RestoreDefaultLocation(fixture.Game);
+        True(restoredCache.SourceRemoved,
+            "数据迁移后应允许 Blocks 缓存恢复到 .zzzswitch 默认位置。");
+
+        var reloaded = new AppPaths(fixture.Data, fixture.Config);
+        Equal(Path.GetFullPath(targetRoot), Path.GetFullPath(reloaded.StorageRoot));
+        Equal(Path.GetFullPath(fixture.Game), Path.GetFullPath(reloaded.StorageGamePath!));
+        return Task.CompletedTask;
+    }
+
+    private static Task LegacyStorageNamesMigrateAtomically()
+    {
+        using var fixture = new TempFixture();
+        var legacyData = GameStorageLayout.GetLegacyDataRoot(fixture.Game);
+        var legacyCache = GameStorageLayout.GetLegacyCacheRoot(fixture.Game);
+        var oldBackups = Path.Combine(legacyData, "Backups", "operation");
+        var oldDownloads = Path.Combine(legacyData, "OnlineDifferenceFiles", "3.1.0", "content");
+        var oldManifestDirectory = Path.Combine(
+            legacyData,
+            "HotUpdateCaches",
+            GameStorageLayout.GetGameIdentity(fixture.Game),
+            "3.1.0",
+            ProfileIds.Global);
+        var oldBlocks = GameStorageLayout.GetStoredBlocksPath(
+            fixture.Game,
+            "3.1.0",
+            ProfileIds.Global,
+            legacyCache);
+        Directory.CreateDirectory(oldBackups);
+        Directory.CreateDirectory(oldDownloads);
+        Directory.CreateDirectory(oldManifestDirectory);
+        Directory.CreateDirectory(oldBlocks);
+        File.WriteAllText(Path.Combine(oldBackups, "backup.json"), "{}");
+        File.WriteAllText(Path.Combine(oldDownloads, "payload.bin"), "download");
+        File.WriteAllText(Path.Combine(oldBlocks, "block.bin"), "block");
+        var oldManifestPath = Path.Combine(oldManifestDirectory, "cache.json");
+        File.WriteAllText(oldManifestPath, JsonSerializer.Serialize(new HotUpdateCacheManifest
+        {
+            CacheId = "legacy-cache",
+            CreatedAt = DateTimeOffset.UtcNow,
+            Profile = ProfileIds.Global,
+            GameVersion = "3.1.0",
+            GamePath = fixture.Game,
+            StoredBlocksPath = oldBlocks,
+            FileCount = 1,
+            TotalBytes = 5
+        }, JsonSupport.Options));
+        Directory.CreateDirectory(fixture.Data);
+        File.WriteAllText(fixture.Paths.StateFile, JsonSerializer.Serialize(new AppState
+        {
+            GamePath = fixture.Game,
+            GameVersion = "3.1.0",
+            CurrentProfile = ProfileIds.Global,
+            LastBackupPath = oldBackups
+        }, JsonSupport.Options));
+        File.WriteAllText(
+            fixture.Paths.StorageLocationFile,
+            JsonSerializer.Serialize(
+                new StorageLocationSettings { GamePath = fixture.Game },
+                JsonSupport.Options));
+
+        var paths = new AppPaths(fixture.Data, fixture.Config);
+        var result = new ApplicationDataPlacementService(paths).ActivateGameStorage(fixture.Game);
+        var appData = GameStorageLayout.GetAppDataRoot(fixture.Game);
+        var blocksCache = GameStorageLayout.GetCacheRoot(fixture.Game);
+
+        True(result.ContentMoved && result.SourceRemoved && result.LayoutRenamed,
+            "旧版目录应通过同卷移动完成命名升级。");
+        True(!Directory.Exists(legacyData) && !Directory.Exists(legacyCache),
+            "升级完成后不应残留 data 或 cache 旧目录。");
+        Equal("download", File.ReadAllText(Path.Combine(
+            appData,
+            GameStorageLayout.DownloadsDirectoryName,
+            "3.1.0",
+            "content",
+            "payload.bin")));
+        Equal("block", File.ReadAllText(Path.Combine(
+            blocksCache,
+            GameStorageLayout.GetGameIdentity(fixture.Game),
+            "3.1.0",
+            ProfileIds.Global,
+            "Blocks",
+            "block.bin")));
+        var state = new StateStore(paths).Load()!;
+        Equal(
+            Path.Combine(appData, GameStorageLayout.BackupRecordsDirectoryName, "operation"),
+            state.LastBackupPath);
+        var migratedManifestPath = Path.Combine(
+            appData,
+            GameStorageLayout.BlocksManifestsDirectoryName,
+            GameStorageLayout.GetGameIdentity(fixture.Game),
+            "3.1.0",
+            ProfileIds.Global,
+            "cache.json");
+        var migratedManifest = JsonSerializer.Deserialize<HotUpdateCacheManifest>(
+                                   File.ReadAllText(migratedManifestPath),
+                                   JsonSupport.Options)
+                               ?? throw new InvalidDataException("迁移后的 Blocks 清单无法读取。");
+        Equal(
+            GameStorageLayout.GetStoredBlocksPath(
+                fixture.Game,
+                "3.1.0",
+                ProfileIds.Global,
+                blocksCache),
+            migratedManifest.StoredBlocksPath);
+        return Task.CompletedTask;
+    }
+
+    private static Task PendingTransactionBlocksApplicationDataMigration()
+    {
+        using var fixture = new TempFixture();
+        fixture.Paths.EnsureWritableDirectories();
+        File.WriteAllText(fixture.Paths.FileTransactionJournalFile, "pending");
+        var rejected = false;
+        try
+        {
+            new ApplicationDataPlacementService(fixture.Paths).ActivateGameStorage(fixture.Game);
+        }
+        catch (InvalidOperationException)
+        {
+            rejected = true;
+        }
+
+        True(rejected, "未完成事务存在时不得迁移备份与恢复数据。");
+        True(fixture.Paths.UsesLegacyDataRoot, "拒绝迁移后应继续使用原数据根。");
+        True(!File.Exists(fixture.Paths.StorageLocationFile), "拒绝迁移时不应提交新数据位置。");
+        return Task.CompletedTask;
+    }
+
+    private static Task CacheLocationRejectsStagingOverlap()
+    {
+        using var fixture = new TempFixture();
+        var locations = new CacheLocationService(fixture.Paths);
+        var rejected = false;
+        try
+        {
+            locations.ChangeLocation(fixture.Game, GameStorageLayout.GetStagingRoot(fixture.Game));
+        }
+        catch (InvalidOperationException)
+        {
+            rejected = true;
+        }
+
+        True(rejected, "自定义缓存目录不得与同盘切换暂存区重叠。");
+        return Task.CompletedTask;
+    }
+
     private static Task BundledBilibiliPackageInstallsOnFirstRun()
     {
         using var fixture = new TempFixture();
@@ -1908,6 +2679,8 @@ internal static class Program
         True(File.Exists(Path.Combine(installed.PackageDirectory, ".bundled-package.json")),
             "完整校验并提交后应写入内置包标记。");
 
+        var payload = Path.Combine(installed.PackageDirectory, "payload.bin");
+        using var locked = new FileStream(payload, FileMode.Open, FileAccess.Read, FileShare.None);
         var reused = service.EnsureInstalled(fixture.Game, "3.1.0");
         Equal(BundledBilibiliPackageStatus.AlreadyInstalled, reused.Status);
         return Task.CompletedTask;
@@ -1928,7 +2701,10 @@ internal static class Program
         var payload = Path.Combine(installed.PackageDirectory, "payload.bin");
         File.WriteAllText(payload, "tampered-component");
 
-        var repaired = service.EnsureInstalled(fixture.Game, "3.1.0");
+        var repaired = service.EnsureInstalled(
+            fixture.Game,
+            "3.1.0",
+            requireFullVerification: true);
         Equal(BundledBilibiliPackageStatus.Repaired, repaired.Status);
         Equal(content, File.ReadAllText(payload));
         True(!Directory.GetDirectories(
@@ -2109,8 +2885,11 @@ internal static class Program
         True(result.After.RootExists, "修复后根目录应存在。");
         True(result.After.PackagesRootExists, "修复后 packages 目录应存在。");
         True(result.After.PackageVersionExists, "修复后版本目录应存在。");
-        True(result.After.CacheRootExists, "修复后 cache 目录应存在。");
-        Equal(0, result.After.MissingProfileDirectories.Count);
+        True(result.After.CacheRootExists, "修复后 blocks-cache 目录应存在。");
+        Equal(2, result.After.MissingProfileDirectories.Count);
+        True(
+            result.After.MissingProfileDirectories.All(path => !Directory.Exists(path)),
+            "目录修复不得伪造 global/cn_official 离线包目录。");
         Equal(
             0,
             Directory.EnumerateFiles(
@@ -2132,11 +2911,14 @@ internal static class Program
         var profiles = StorageProfiles();
         var service = new StorageLayoutService();
         service.Repair(fixture.Game, "3.1.0", profiles);
+        Directory.CreateDirectory(GameStorageLayout.GetPackageDirectory(
+            fixture.Game,
+            "3.1.0",
+            profiles[0].PackageDirectoryName));
         var missing = GameStorageLayout.GetPackageDirectory(
             fixture.Game,
             "3.1.0",
             profiles[1].PackageDirectoryName);
-        Directory.Delete(missing);
 
         var status = service.Inspect(fixture.Game, "3.1.0", profiles);
 
@@ -2220,22 +3002,72 @@ internal static class Program
         return Task.CompletedTask;
     }
 
-    private static Task BackupHashRejectsSameLengthCorruption()
+    private static Task PhysicalBackupRemainsRestorable()
     {
         using var fixture = new TempFixture();
         var target = Path.Combine(fixture.Game, "a.bin");
-        File.WriteAllText(target, "old");
+        File.WriteAllText(target, "old-value");
         var plan = fixture.CreatePlan([Entry("a.bin")], []);
-        var backups = new BackupService(new PhysicalFileOperations(), fixture.Paths);
-        var record = backups.CreateBackup(plan);
+        var service = new BackupService(new PhysicalFileOperations(), fixture.Paths);
+        var record = service.CreateBackup(plan);
+        var physicalBackup = Path.Combine(plan.BackupPath, "files", "a.bin");
+        True(File.Exists(physicalBackup), "新备份应把受影响文件保存在当前事务的 files 目录中。");
+        True(record.LegacyContentObjects is null && record.LegacyContentLengths is null,
+            "新备份不应写入旧版内容对象元数据。");
+        True(!Directory.Exists(Path.Combine(
+                GameStorageLayout.GetAppDataRoot(fixture.Game),
+                GameStorageLayout.BackupContentDirectoryName)),
+            "新备份不应创建旧版内容寻址目录。");
+        File.WriteAllText(target, "new-value");
 
-        var backupFile = Path.Combine(plan.BackupPath, "files", "a.bin");
-        File.WriteAllText(backupFile, "bad");
-        File.WriteAllText(target, "new");
+        var restored = service.Rollback(plan.BackupPath, record, out var detail);
 
-        True(!backups.Rollback(plan.BackupPath, record, out var detail), "同长度损坏的备份不应被恢复。");
-        True(detail.Contains("完整性", StringComparison.Ordinal), "恢复失败原因应包含完整性校验信息。");
-        Equal("new", File.ReadAllText(target));
+        True(restored, detail);
+        Equal("old-value", File.ReadAllText(target));
+        return Task.CompletedTask;
+    }
+
+    private static Task LegacyContentObjectBackupRemainsRestorable()
+    {
+        using var fixture = new TempFixture();
+        var target = Path.Combine(fixture.Game, "legacy.bin");
+        File.WriteAllText(target, "new-value");
+        var objectId = new string('A', 64);
+        var legacyObject = Path.Combine(
+            GameStorageLayout.GetAppDataRoot(fixture.Game),
+            GameStorageLayout.BackupContentDirectoryName,
+            "sha256",
+            objectId[..2],
+            objectId + ".blob");
+        Directory.CreateDirectory(Path.GetDirectoryName(legacyObject)!);
+        File.WriteAllText(legacyObject, "old-value");
+        var backupPath = Path.Combine(fixture.Paths.BackupsRoot, "legacy-object");
+        Directory.CreateDirectory(backupPath);
+        var record = new BackupRecord
+        {
+            OperationId = "legacy-object",
+            OperationTime = DateTimeOffset.Now,
+            SourceProfile = ProfileIds.Global,
+            TargetProfile = ProfileIds.CnOfficial,
+            GameVersion = "3.0.0",
+            GamePath = fixture.Game,
+            BackedUpFiles = ["legacy.bin"],
+            LegacyContentObjects = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["legacy.bin"] = objectId
+            },
+            LegacyContentLengths = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["legacy.bin"] = new FileInfo(legacyObject).Length
+            },
+            OperationResult = "success"
+        };
+
+        var restored = new BackupService(new PhysicalFileOperations(), fixture.Paths)
+            .Rollback(backupPath, record, out var detail);
+
+        True(restored, detail);
+        Equal("old-value", File.ReadAllText(target));
         return Task.CompletedTask;
     }
 
@@ -2387,6 +3219,70 @@ internal static class Program
             OperationResult = operationResult
         };
 
+    private static async Task PendingStagingRecovery()
+    {
+        using var fixture = new TempFixture();
+        var target = Path.Combine(fixture.Game, "a.bin");
+        File.WriteAllText(target, "old");
+        File.WriteAllText(Path.Combine(fixture.Package, "a.bin"), "new");
+        var plan = fixture.CreatePlan([Entry("a.bin")], []);
+        var staging = GameStorageLayout.GetOperationStagingDirectory(fixture.Game, plan.OperationId);
+        var journals = new FileTransactionJournalStore(fixture.Paths);
+        FileTransactionJournal? journalAtFirstWrite = null;
+        var files = new FaultingFileOperations(new PhysicalFileOperations(),
+            copyTargetPrefixToFailOnce: staging,
+            beforeWrite: _ => journalAtFirstWrite = journals.Load());
+        var result = await fixture.CreateEngine(files).ExecuteAsync(plan);
+        True(!result.Success && !result.RolledBack, "暂存失败不应执行游戏回滚。");
+        True(journalAtFirstWrite is { Stage: FileTransactionStage.Staging }, "写首个暂存文件前必须已有可恢复记录。");
+        True(!journals.Exists && !Directory.Exists(staging), "正常失败收尾应清理暂存及其记录。");
+
+        // Recreate the disk state at interruption using the journal actually
+        // observed at the first payload write, without terminating a real process.
+        journals.Save(journalAtFirstWrite!);
+        Directory.CreateDirectory(staging);
+        File.WriteAllText(Path.Combine(staging, "partial.bin"), "partial");
+        var unrelated = GameStorageLayout.GetOperationStagingDirectory(fixture.Game, "unrelated");
+        Directory.CreateDirectory(unrelated);
+        File.WriteAllText(Path.Combine(unrelated, "keep.bin"), "keep");
+        Directory.CreateDirectory(plan.BackupPath);
+        File.WriteAllText(Path.Combine(plan.BackupPath, "partial-backup.bin"), "keep for inspection");
+        var backups = new BackupService(new PhysicalFileOperations(), fixture.Paths);
+        var recovery = CreateRecoveryService(fixture, backups, journals).RecoverPending();
+        True(recovery.Found && recovery.Success, recovery.Message);
+        True(!journals.Exists && !Directory.Exists(staging), "启动恢复应清理对应暂存和事务记录。");
+        Equal("old", File.ReadAllText(target));
+        True(!File.Exists(fixture.Paths.StateFile), "暂存清理不应提交游戏状态。");
+        Equal("keep", File.ReadAllText(Path.Combine(unrelated, "keep.bin")));
+        True(File.Exists(Path.Combine(plan.BackupPath, "partial-backup.bin")), "中断时的未完成备份保留供检查。");
+    }
+
+    private static Task LockedStagingRecoveryCanRetry()
+    {
+        using var fixture = new TempFixture();
+        var plan = fixture.CreatePlan([], []);
+        var staging = GameStorageLayout.GetOperationStagingDirectory(fixture.Game, plan.OperationId);
+        var journals = new FileTransactionJournalStore(fixture.Paths);
+        journals.Save(CreateFileJournal(plan, FileTransactionStage.Staging));
+        Directory.CreateDirectory(staging);
+        var payload = Path.Combine(staging, "locked.bin");
+        File.WriteAllText(payload, "partial");
+        var backups = new BackupService(new PhysicalFileOperations(), fixture.Paths);
+        var service = CreateRecoveryService(fixture, backups, journals);
+        using (var locked = new FileStream(payload, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var blocked = service.RecoverPending();
+            True(blocked.Found && !blocked.Success, "被占用时应报告未完成清理。");
+            True(journals.Exists, "清理失败必须保留记录用于下次重试。");
+        }
+
+        var retried = service.RecoverPending();
+        True(retried.Found && retried.Success, retried.Message);
+        True(!journals.Exists && !Directory.Exists(staging), "解除占用后应完成清理。");
+        True(!service.RecoverPending().Found, "清理成功后再次启动不应重复恢复。");
+        return Task.CompletedTask;
+    }
+
     private static Task PendingFileTransactionRecovery()
     {
         using var fixture = new TempFixture();
@@ -2400,6 +3296,9 @@ internal static class Program
 
         var journals = new FileTransactionJournalStore(fixture.Paths);
         journals.Save(CreateFileJournal(plan, FileTransactionStage.FilesApplied));
+        var staging = GameStorageLayout.GetOperationStagingDirectory(fixture.Game, plan.OperationId);
+        Directory.CreateDirectory(staging);
+        File.WriteAllText(Path.Combine(staging, "residue.bin"), "temporary");
         new StateStore(fixture.Paths).Save(new AppState
         {
             GamePath = fixture.Game,
@@ -2411,6 +3310,7 @@ internal static class Program
         True(recovery.Found && recovery.Success, recovery.Message);
         Equal("old", File.ReadAllText(target));
         True(!journals.Exists, "恢复成功后应清理普通文件事务日志。");
+        True(!Directory.Exists(staging), "恢复成功后应清理该事务的暂存残留。");
         var updated = backups.LoadRecord(plan.BackupPath);
         Equal("interrupted", updated.OperationResult);
         Equal("startup_recovery_success", updated.RollbackResult);
@@ -2485,6 +3385,9 @@ internal static class Program
         var plan = fixture.CreatePlan([], []);
         var journals = new FileTransactionJournalStore(fixture.Paths);
         journals.Save(CreateFileJournal(plan, FileTransactionStage.MetadataRestored));
+        var staging = GameStorageLayout.GetOperationStagingDirectory(fixture.Game, plan.OperationId);
+        Directory.CreateDirectory(staging);
+        File.WriteAllText(Path.Combine(staging, "residue.bin"), "temporary");
         new StateStore(fixture.Paths).Save(new AppState
         {
             GamePath = fixture.Game,
@@ -2497,6 +3400,7 @@ internal static class Program
         var recovery = CreateRecoveryService(fixture, backups, journals).RecoverPending();
         True(recovery.Found && recovery.Success, recovery.Message);
         True(!journals.Exists, "已提交事务的遗留日志应被清理。");
+        True(!Directory.Exists(staging), "已提交事务的暂存残留应被清理。");
         True(!Directory.Exists(plan.BackupPath), "清理遗留日志不应尝试读取或创建备份。");
         return Task.CompletedTask;
     }
@@ -2544,9 +3448,11 @@ internal static class Program
         var plan = fixture.CreatePlan([entry], []);
 
         var result = await fixture.CreateEngine().ExecuteAsync(plan);
-        True(!result.Success && result.RolledBack, "哈希不匹配时切换应失败并完成回滚。");
+        True(!result.Success && !result.RolledBack, "差异源损坏时应在创建备份和修改游戏文件前停止。");
+        True(result.GameFilesUnchanged, "暂存校验失败应明确报告本次未修改游戏。");
         Equal("old", File.ReadAllText(target));
-        True(!new FileTransactionJournalStore(fixture.Paths).Exists, "回滚完成后不应遗留文件事务日志。");
+        True(!Directory.Exists(plan.BackupPath), "暂存校验失败不应建立无用事务备份。");
+        True(!new FileTransactionJournalStore(fixture.Paths).Exists, "暂存校验失败收尾后不应遗留文件事务日志。");
     }
 
     private static Task InspectionDetectsTamperedPackage()
@@ -2795,8 +3701,7 @@ internal static class Program
                 gamePath = fixture.Game,
                 storedBlocksPath = GameStorageLayout.GetStoredBlocksPath(fixture.Game, "3.1.0", ProfileIds.Global),
                 fileCount = 1,
-                totalBytes = 6,
-                inventorySha256 = new string('0', 64)
+                totalBytes = 6
             }));
         var issues = new List<ValidationIssue>();
 
@@ -3263,19 +4168,33 @@ internal static class Program
         public IReadOnlyList<GameDirectoryCandidate> Locate() => candidates;
     }
 
+    private sealed class OperationProgressRecorder : List<OperationProgress>, IProgress<OperationProgress>
+    {
+        public void Report(OperationProgress value) => Add(value);
+    }
+
     private sealed class FaultingFileOperations : IFileOperations
     {
         private readonly IFileOperations _inner;
         private readonly string? _copyTarget;
         private readonly string? _deleteTarget;
+        private readonly string? _copyTargetPrefix;
+        private readonly Action<string>? _beforeWrite;
         private bool _copyFailed;
         private bool _deleteFailed;
 
-        public FaultingFileOperations(IFileOperations inner, string? copyTargetToFailOnce = null, string? deleteTargetToFailOnce = null)
+        public FaultingFileOperations(
+            IFileOperations inner,
+            string? copyTargetToFailOnce = null,
+            string? deleteTargetToFailOnce = null,
+            string? copyTargetPrefixToFailOnce = null,
+            Action<string>? beforeWrite = null)
         {
             _inner = inner;
             _copyTarget = copyTargetToFailOnce;
             _deleteTarget = deleteTargetToFailOnce;
+            _copyTargetPrefix = copyTargetPrefixToFailOnce;
+            _beforeWrite = beforeWrite;
         }
 
         public bool FileExists(string path) => _inner.FileExists(path);
@@ -3283,17 +4202,24 @@ internal static class Program
         public void CreateDirectory(string path) => _inner.CreateDirectory(path);
         public void DeleteDirectory(string path, bool recursive) => _inner.DeleteDirectory(path, recursive);
         public Stream OpenRead(string path) => _inner.OpenRead(path);
+        public Stream OpenWrite(string path, bool overwrite)
+        {
+            _beforeWrite?.Invoke(path);
+            ThrowIfCopyTarget(path);
+            return _inner.OpenWrite(path, overwrite);
+        }
         public Stream OpenExclusive(string path) => _inner.OpenExclusive(path);
 
         public void CopyFile(string source, string target, bool overwrite)
         {
-            if (!_copyFailed && _copyTarget is not null && string.Equals(Path.GetFullPath(target), Path.GetFullPath(_copyTarget), StringComparison.OrdinalIgnoreCase))
-            {
-                _copyFailed = true;
-                throw new IOException("测试注入：复制失败。");
-            }
-
+            ThrowIfCopyTarget(target);
             _inner.CopyFile(source, target, overwrite);
+        }
+
+        public void MoveFile(string source, string target, bool overwrite)
+        {
+            ThrowIfCopyTarget(target);
+            _inner.MoveFile(source, target, overwrite);
         }
 
         public void DeleteFile(string path)
@@ -3306,5 +4232,25 @@ internal static class Program
 
             _inner.DeleteFile(path);
         }
+
+        private void ThrowIfCopyTarget(string target)
+        {
+            if (!_copyFailed &&
+                ((_copyTarget is not null &&
+                  string.Equals(
+                      Path.GetFullPath(target),
+                      Path.GetFullPath(_copyTarget),
+                      StringComparison.OrdinalIgnoreCase)) ||
+                 (_copyTargetPrefix is not null &&
+                  Path.GetFullPath(target).StartsWith(
+                      Path.GetFullPath(_copyTargetPrefix).TrimEnd(Path.DirectorySeparatorChar) +
+                      Path.DirectorySeparatorChar,
+                      StringComparison.OrdinalIgnoreCase))))
+            {
+                _copyFailed = true;
+                throw new IOException("测试注入：复制失败。");
+            }
+        }
     }
+
 }

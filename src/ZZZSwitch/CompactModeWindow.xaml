@@ -4,11 +4,9 @@
         xmlns:controls="clr-namespace:ZZZSwitch.Controls"
         Title="ZZZSwitch"
         Width="620"
-        Height="180"
         MinWidth="620"
-        MinHeight="180"
         MaxWidth="620"
-        MaxHeight="180"
+        SizeToContent="Height"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         Icon="Assets/ZZZSwitch-Icon.png"
@@ -20,7 +18,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="68" />
             <RowDefinition Height="14" />
-            <RowDefinition Height="36" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid>
@@ -73,7 +71,9 @@
                 </Grid.RowDefinitions>
                 <TextBlock x:Name="CompactStatusText"
                            Text="{Binding BusyStatus}"
+                           ToolTip="{Binding BusyStatus}"
                            FontSize="11"
+                           MaxHeight="16"
                            Foreground="{DynamicResource MutedTextBrush}"
                            TextTrimming="CharacterEllipsis" />
                 <ProgressBar Grid.Row="1"

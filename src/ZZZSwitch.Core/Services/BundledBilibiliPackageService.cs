@@ -43,7 +43,8 @@ public sealed class BundledBilibiliPackageService
 
     public BundledBilibiliPackageResult EnsureInstalled(
         string gamePath,
-        string currentGameVersion)
+        string currentGameVersion,
+        bool requireFullVerification = false)
     {
         if (!string.Equals(currentGameVersion, _supportedGameVersion, StringComparison.Ordinal))
         {
@@ -65,14 +66,14 @@ public sealed class BundledBilibiliPackageService
         EnsureNotReparsePoint(packageRoot);
         EnsureNotReparsePoint(target);
 
-        if (Directory.Exists(target) && IsInstalled(target, expected))
+        if (Directory.Exists(target) && IsInstalled(target, expected, requireFullVerification))
         {
             return Result(BundledBilibiliPackageStatus.AlreadyInstalled, target, expected);
         }
 
         Directory.CreateDirectory(packageRoot);
         RecoverInterruptedInstall(packageRoot, target);
-        if (Directory.Exists(target) && IsInstalled(target, expected))
+        if (Directory.Exists(target) && IsInstalled(target, expected, requireFullVerification))
         {
             return Result(BundledBilibiliPackageStatus.AlreadyInstalled, target, expected);
         }
@@ -109,7 +110,7 @@ public sealed class BundledBilibiliPackageService
             }
 
             ValidateAllFiles(staging, expected);
-            WriteMarker(staging, expected.Count);
+            WriteMarker(staging, expected);
             if (Directory.Exists(target))
             {
                 EnsureNotReparsePoint(target);
@@ -212,12 +213,14 @@ public sealed class BundledBilibiliPackageService
         return expected;
     }
 
-    private bool IsInstalled(string target, IReadOnlyDictionary<string, ExpectedFile> expected)
+    private bool IsInstalled(
+        string target,
+        IReadOnlyDictionary<string, ExpectedFile> expected,
+        bool requireFullVerification)
     {
         var markerPath = Path.Combine(target, MarkerFileName);
         try
         {
-            ValidateAllFiles(target, expected);
             var markerMatches = false;
             if (File.Exists(markerPath))
             {
@@ -226,18 +229,23 @@ public sealed class BundledBilibiliPackageService
                 markerMatches = marker is not null &&
                     string.Equals(marker.BundleId, _bundleId, StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(marker.GameVersion, _supportedGameVersion, StringComparison.Ordinal) &&
-                    marker.FileCount == expected.Count;
+                    marker.FileCount == expected.Count &&
+                    MarkerFilesMatch(target, marker, expected);
             }
 
-            if (!markerMatches)
+            if (requireFullVerification || !markerMatches)
             {
-                WriteMarker(target, expected.Count);
+                ValidateAllFiles(target, expected);
+                if (!markerMatches)
+                {
+                    WriteMarker(target, expected);
+                }
             }
 
             return true;
         }
         catch (Exception ex) when (
-            ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
+            ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or ArgumentException)
         {
             return false;
         }
@@ -316,7 +324,47 @@ public sealed class BundledBilibiliPackageService
         }
     }
 
-    private void WriteMarker(string target, int fileCount)
+    private static bool MarkerFilesMatch(
+        string target,
+        BundleMarker marker,
+        IReadOnlyDictionary<string, ExpectedFile> expected)
+    {
+        if (marker.Files.Count != expected.Count)
+        {
+            return false;
+        }
+
+        var recorded = marker.Files.ToDictionary(
+            item => item.RelativePath,
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var item in expected.Values)
+        {
+            if (!recorded.TryGetValue(item.RelativePath, out var markerFile))
+            {
+                return false;
+            }
+
+            var path = PathSafety.ResolveOrThrow(target, item.RelativePath);
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            var info = new FileInfo(path);
+            if (markerFile.Length != item.Length ||
+                info.Length != markerFile.Length ||
+                info.LastWriteTimeUtc.Ticks != markerFile.LastWriteUtcTicks)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void WriteMarker(
+        string target,
+        IReadOnlyDictionary<string, ExpectedFile> expected)
     {
         var path = Path.Combine(target, MarkerFileName);
         var temporary = path + ".tmp";
@@ -332,7 +380,18 @@ public sealed class BundledBilibiliPackageService
             {
                 BundleId = _bundleId,
                 GameVersion = _supportedGameVersion,
-                FileCount = fileCount
+                FileCount = expected.Count,
+                Files = expected.Values.Select(item =>
+                {
+                    var path = PathSafety.ResolveOrThrow(target, item.RelativePath);
+                    var info = new FileInfo(path);
+                    return new BundleMarkerFile
+                    {
+                        RelativePath = item.RelativePath,
+                        Length = info.Length,
+                        LastWriteUtcTicks = info.LastWriteTimeUtc.Ticks
+                    };
+                }).ToList()
             }, JsonSupport.Options);
             stream.Flush(flushToDisk: true);
         }
@@ -446,5 +505,13 @@ public sealed class BundledBilibiliPackageService
         public string? BundleId { get; init; }
         public string? GameVersion { get; init; }
         public int FileCount { get; init; }
+        public List<BundleMarkerFile> Files { get; init; } = [];
+    }
+
+    private sealed class BundleMarkerFile
+    {
+        public required string RelativePath { get; init; }
+        public long Length { get; init; }
+        public long LastWriteUtcTicks { get; init; }
     }
 }

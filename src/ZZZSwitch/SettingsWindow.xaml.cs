@@ -69,8 +69,8 @@ public partial class SettingsWindow : Window
         BackupUsageText.Text = data.BackupUsage is null
             ? data.BackupError ?? "—"
             : localization.Language == AppLanguage.English
-                ? $"{data.BackupUsage.BackupCount:N0} backups · {DisplayFormatting.FormatBytes(data.BackupUsage.TotalBytes)}"
-                : $"{data.BackupUsage.BackupCount:N0} 个备份 · {DisplayFormatting.FormatBytes(data.BackupUsage.TotalBytes)}";
+                ? $"{data.BackupUsage.BackupCount:N0} backups · {DisplayFormatting.FormatBytes(data.BackupUsage.TotalBytes + data.BackupUsage.LegacyContentBytes)}"
+                : $"{data.BackupUsage.BackupCount:N0} 个备份 · {DisplayFormatting.FormatBytes(data.BackupUsage.TotalBytes + data.BackupUsage.LegacyContentBytes)}";
 
         OriginalSettings = data.Settings;
     }

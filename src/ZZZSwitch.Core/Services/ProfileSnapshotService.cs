@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ZZZSwitch.Core.Models;
@@ -7,6 +6,7 @@ namespace ZZZSwitch.Core.Services;
 
 public sealed partial class ProfileSnapshotService
 {
+    private const int RetainedValidSnapshotsPerScope = 2;
     private static readonly string[] CacheDirectories =
     [
         @"ZenlessZoneZero_Data\Persistent",
@@ -33,7 +33,7 @@ public sealed partial class ProfileSnapshotService
 
         _paths.EnsureWritableDirectories();
         var snapshotId = $"{DateTimeOffset.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}";
-        var versionRoot = GetVersionRoot(profile, gameVersion);
+        var versionRoot = GetVersionRoot(profile, gameVersion, gamePath);
         var snapshotPath = Path.Combine(versionRoot, snapshotId);
         EnsureUnderSnapshotsRoot(snapshotPath);
         _files.CreateDirectory(snapshotPath);
@@ -52,10 +52,7 @@ public sealed partial class ProfileSnapshotService
             }
 
             _files.CopyFile(source, destination, false);
-            var sourceHash = ComputeSha256(source);
-            var destinationHash = ComputeSha256(destination);
-            if (_files.GetLength(source) != _files.GetLength(destination) ||
-                !string.Equals(sourceHash, destinationHash, StringComparison.OrdinalIgnoreCase))
+            if (_files.GetLength(source) != _files.GetLength(destination))
             {
                 throw new IOException($"缓存快照校验失败：{relative}");
             }
@@ -63,8 +60,7 @@ public sealed partial class ProfileSnapshotService
             records.Add(new SnapshotFileRecord
             {
                 RelativePath = relative,
-                Length = _files.GetLength(destination),
-                Sha256 = destinationHash
+                Length = _files.GetLength(destination)
             });
         }
 
@@ -79,30 +75,15 @@ public sealed partial class ProfileSnapshotService
             Files = records
         };
         AtomicJsonFile.Write(Path.Combine(snapshotPath, "snapshot.json"), manifest);
+        PruneRetainedSnapshots(profile, gameVersion, gamePath, RetainedValidSnapshotsPerScope);
         return manifest;
     }
 
     public ProfileSnapshotManifest? FindLatestValid(string profile, string gameVersion, string gamePath)
     {
         ValidateProfileAndVersion(profile, gameVersion);
-        var versionRoot = GetVersionRoot(profile, gameVersion);
-        if (!Directory.Exists(versionRoot))
-        {
-            return null;
-        }
-
-        string[] directories;
-        try
-        {
-            directories = Directory.GetDirectories(versionRoot);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-
         var candidates = new List<ProfileSnapshotManifest>();
-        foreach (var directory in directories)
+        foreach (var directory in EnumerateSnapshotDirectories(profile, gameVersion, gamePath))
         {
             var manifestPath = Path.Combine(directory, "snapshot.json");
             if (!File.Exists(manifestPath))
@@ -113,10 +94,14 @@ public sealed partial class ProfileSnapshotService
             try
             {
                 // 新快照损坏时继续回退到更早的有效快照，而不是让切换预检崩溃。
-                using var stream = File.OpenRead(manifestPath);
-                var manifest = JsonSerializer.Deserialize<ProfileSnapshotManifest>(stream, JsonSupport.Options);
+                ProfileSnapshotManifest? manifest;
+                using (var stream = File.OpenRead(manifestPath))
+                {
+                    manifest = JsonSerializer.Deserialize<ProfileSnapshotManifest>(stream, JsonSupport.Options);
+                }
                 if (manifest is not null && IsValid(manifest, directory, profile, gameVersion, gamePath))
                 {
+                    RebindManifestPath(manifestPath, manifest, directory);
                     candidates.Add(manifest);
                 }
             }
@@ -127,6 +112,63 @@ public sealed partial class ProfileSnapshotService
         }
 
         return candidates.OrderByDescending(x => x.CreatedAt).FirstOrDefault();
+    }
+
+    public int PruneRetainedSnapshots(
+        string profile,
+        string gameVersion,
+        string gamePath,
+        int retainedValidSnapshots = RetainedValidSnapshotsPerScope)
+    {
+        ValidateProfileAndVersion(profile, gameVersion);
+        if (retainedValidSnapshots < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(retainedValidSnapshots));
+        }
+
+        var valid = new List<(string Directory, ProfileSnapshotManifest Manifest)>();
+        foreach (var directory in EnumerateSnapshotDirectories(profile, gameVersion, gamePath))
+        {
+            var manifestPath = Path.Combine(directory, "snapshot.json");
+            try
+            {
+                ProfileSnapshotManifest? manifest;
+                using (var stream = File.OpenRead(manifestPath))
+                {
+                    manifest = JsonSerializer.Deserialize<ProfileSnapshotManifest>(stream, JsonSupport.Options);
+                }
+                if (manifest is not null && IsValid(manifest, directory, profile, gameVersion, gamePath))
+                {
+                    RebindManifestPath(manifestPath, manifest, directory);
+                    valid.Add((directory, manifest));
+                }
+            }
+            catch (Exception ex) when (
+                ex is JsonException or IOException or UnauthorizedAccessException or InvalidDataException)
+            {
+                // Corrupt or incomplete snapshots are preserved for manual inspection.
+            }
+        }
+
+        var removed = 0;
+        foreach (var candidate in valid
+                     .OrderByDescending(item => item.Manifest.CreatedAt)
+                     .ThenByDescending(item => item.Manifest.SnapshotId, StringComparer.Ordinal)
+                     .Skip(retainedValidSnapshots))
+        {
+            try
+            {
+                EnsureUnderSnapshotsRoot(candidate.Directory);
+                _files.DeleteDirectory(candidate.Directory, recursive: true);
+                removed++;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Retention is best effort and must not turn a safe switch into a failure.
+            }
+        }
+
+        return removed;
     }
 
     public int Restore(ProfileSnapshotManifest snapshot, string gamePath)
@@ -149,8 +191,7 @@ public sealed partial class ProfileSnapshotService
             }
 
             _files.CopyFile(source, target, true);
-            if (_files.GetLength(target) != record.Length ||
-                !string.Equals(ComputeSha256(target), record.Sha256, StringComparison.OrdinalIgnoreCase))
+            if (_files.GetLength(target) != record.Length)
             {
                 throw new IOException($"目标服缓存恢复校验失败：{record.RelativePath}");
             }
@@ -218,9 +259,8 @@ public sealed partial class ProfileSnapshotService
                 string.IsNullOrWhiteSpace(manifest.GamePath) ||
                 manifest.Files is null ||
                 manifest.Files.Cast<SnapshotFileRecord?>().Any(x =>
-                    x is null || string.IsNullOrWhiteSpace(x.RelativePath) ||
-                    string.IsNullOrWhiteSpace(x.Sha256) || x.Length < 0) ||
-                !string.Equals(Path.GetFullPath(manifest.SnapshotPath), Path.GetFullPath(actualSnapshotPath), StringComparison.OrdinalIgnoreCase) ||
+                    x is null || string.IsNullOrWhiteSpace(x.RelativePath) || x.Length < 0) ||
+                !string.Equals(manifest.SnapshotId, Path.GetFileName(actualSnapshotPath), StringComparison.Ordinal) ||
                 !string.Equals(manifest.Profile, expectedProfile, StringComparison.Ordinal) ||
                 !string.Equals(manifest.GameVersion, expectedVersion, StringComparison.Ordinal) ||
                 !string.Equals(Path.GetFullPath(manifest.GamePath), Path.GetFullPath(expectedGamePath), StringComparison.OrdinalIgnoreCase) ||
@@ -238,8 +278,7 @@ public sealed partial class ProfileSnapshotService
                 }
 
                 var path = PathSafety.ResolveOrThrow(filesRoot, record.RelativePath);
-                if (!_files.FileExists(path) || _files.GetLength(path) != record.Length ||
-                    !string.Equals(ComputeSha256(path), record.Sha256, StringComparison.OrdinalIgnoreCase))
+                if (!_files.FileExists(path) || _files.GetLength(path) != record.Length)
                 {
                     return false;
                 }
@@ -275,8 +314,79 @@ public sealed partial class ProfileSnapshotService
         return false;
     }
 
-    private string GetVersionRoot(string profile, string gameVersion) =>
+    private string GetVersionRoot(string profile, string gameVersion, string gamePath) =>
+        Path.Combine(
+            _paths.ProfileSnapshotsRoot,
+            GameStorageLayout.GetGameIdentity(gamePath),
+            gameVersion,
+            profile);
+
+    private string GetLegacyVersionRoot(string profile, string gameVersion) =>
         Path.Combine(_paths.ProfileSnapshotsRoot, profile, gameVersion);
+
+    private IEnumerable<string> EnumerateSnapshotDirectories(
+        string profile,
+        string gameVersion,
+        string gamePath)
+    {
+        var roots = new[]
+        {
+            GetVersionRoot(profile, gameVersion, gamePath),
+            GetLegacyVersionRoot(profile, gameVersion)
+        };
+        foreach (var root in roots.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!Directory.Exists(root))
+            {
+                continue;
+            }
+
+            string[] directories;
+            try
+            {
+                directories = Directory.GetDirectories(root);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            foreach (var directory in directories)
+            {
+                yield return directory;
+            }
+        }
+    }
+
+    private static void RebindManifestPath(
+        string manifestPath,
+        ProfileSnapshotManifest manifest,
+        string actualSnapshotPath)
+    {
+        var actual = Path.GetFullPath(actualSnapshotPath);
+        var alreadyBound = false;
+        try
+        {
+            alreadyBound = string.Equals(
+                Path.GetFullPath(manifest.SnapshotPath),
+                actual,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (
+            ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // A malformed historical path is replaced only after the actual
+            // snapshot directory and every payload hash have been validated.
+        }
+
+        if (alreadyBound)
+        {
+            return;
+        }
+
+        manifest.SnapshotPath = actual;
+        AtomicJsonFile.Write(manifestPath, manifest);
+    }
 
     private void EnsureUnderSnapshotsRoot(string path)
     {
@@ -294,12 +404,6 @@ public sealed partial class ProfileSnapshotService
         {
             throw new InvalidDataException("非法 profile 或游戏版本，拒绝创建缓存快照路径。");
         }
-    }
-
-    private static string ComputeSha256(string path)
-    {
-        using var stream = File.OpenRead(path);
-        return Convert.ToHexString(SHA256.HashData(stream));
     }
 
     [GeneratedRegex(@"^\d+\.\d+\.\d+$", RegexOptions.CultureInvariant)]

@@ -8,7 +8,7 @@
 - `gameVersion`
 - `enabled` 与禁用原因
 - `replaceFiles`、`deleteFiles`、`optionalDeleteFiles`
-- `expectedReplaceCount`、`expectedDeleteCount`
+- `expectedReplaceCount`、`expectedDeleteCount`（旧清单兼容字段，不参与执行判定）
 - `notes`
 
 `replaceFiles` 中每一项包含：
@@ -18,7 +18,7 @@
 - `length`：差异文件的精确字节数。
 - `sha256`：差异文件内容的 SHA-256。
 
-删除项相对于游戏根目录。路径经过只读检查和执行前预检；差异文件在详细检查、切换预检、临时复制后和最终写入后都会使用清单数据校验。旧清单缺少 `length`/`sha256` 时仍可解析，但会被报告为清单不完整并阻止切换。
+删除项相对于游戏根目录。路径经过只读检查和执行前预检；在线差异文件在计划阶段检查存在性、长度和完整性字段格式，在同卷临时复制时按清单 SHA-256 校验源文件和写入副本，落位后复核存在性和长度。内置 B 服覆盖层仍会在计划阶段完整校验，以支持自动修复。旧清单缺少 `length`/`sha256` 时仍可解析，但会被报告为清单不完整并阻止切换。实际替换和删除数量始终由文件列表计算，修改清单不需要同步维护固定数量。
 
 更新差异包后，使用以下工具确定性更新或核对清单：
 

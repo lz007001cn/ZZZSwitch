@@ -6,9 +6,11 @@ public interface IFileOperations
     long GetLength(string path);
     void CreateDirectory(string path);
     void CopyFile(string source, string target, bool overwrite);
+    void MoveFile(string source, string target, bool overwrite);
     void DeleteFile(string path);
     void DeleteDirectory(string path, bool recursive);
     Stream OpenRead(string path);
+    Stream OpenWrite(string path, bool overwrite);
     Stream OpenExclusive(string path);
 }
 
@@ -18,8 +20,17 @@ public sealed class PhysicalFileOperations : IFileOperations
     public long GetLength(string path) => new FileInfo(path).Length;
     public void CreateDirectory(string path) => Directory.CreateDirectory(path);
     public void CopyFile(string source, string target, bool overwrite) => File.Copy(source, target, overwrite);
+    public void MoveFile(string source, string target, bool overwrite) => File.Move(source, target, overwrite);
     public void DeleteFile(string path) => File.Delete(path);
     public void DeleteDirectory(string path, bool recursive) => Directory.Delete(path, recursive);
-    public Stream OpenRead(string path) => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+    public Stream OpenRead(string path) => new FileStream(
+        path, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024, FileOptions.SequentialScan);
+    public Stream OpenWrite(string path, bool overwrite) => new FileStream(
+        path,
+        overwrite ? FileMode.Create : FileMode.CreateNew,
+        FileAccess.Write,
+        FileShare.None,
+        1024 * 1024,
+        FileOptions.SequentialScan);
     public Stream OpenExclusive(string path) => new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 }

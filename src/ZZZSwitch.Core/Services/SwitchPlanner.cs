@@ -13,6 +13,7 @@ public sealed class SwitchPlanner
     private readonly HotUpdateCacheService? _hotUpdateCaches;
     private readonly FileTransactionJournalStore _fileTransactions;
     private readonly FileIntegrityService _integrity;
+    private readonly Func<string, long> _getAvailableFreeSpace;
 
     public SwitchPlanner(
         ConfigurationRepository configuration,
@@ -22,7 +23,8 @@ public sealed class SwitchPlanner
         AppPaths paths,
         ProfileSnapshotService snapshots,
         HotUpdateCacheService? hotUpdateCaches = null,
-        FileTransactionJournalStore? fileTransactions = null)
+        FileTransactionJournalStore? fileTransactions = null,
+        Func<string, long>? getAvailableFreeSpace = null)
     {
         _configuration = configuration;
         _gameDirectory = gameDirectory;
@@ -33,6 +35,7 @@ public sealed class SwitchPlanner
         _hotUpdateCaches = hotUpdateCaches;
         _fileTransactions = fileTransactions ?? new FileTransactionJournalStore(paths);
         _integrity = new FileIntegrityService(files);
+        _getAvailableFreeSpace = getAvailableFreeSpace ?? (root => new DriveInfo(root).AvailableFreeSpace);
     }
 
     public SwitchPlan CreatePlan(string gamePath, string sourceProfile, string targetProfile)
@@ -97,9 +100,9 @@ public sealed class SwitchPlanner
             ? _hotUpdateCaches.CreateTransitionPlan(
                 sourceResourceProfile,
                 targetResourceProfile,
-                manifest.GameVersion,
-                gamePath,
-                issues)
+                 manifest.GameVersion,
+                 gamePath,
+                 issues)
             : null;
         if (string.Equals(sourceProfile, targetProfile, StringComparison.OrdinalIgnoreCase))
         {
@@ -152,9 +155,9 @@ public sealed class SwitchPlanner
             ? _hotUpdateCaches.CreateTransitionPlan(
                 sourceResourceProfile,
                 targetResourceProfile,
-                manifest.GameVersion,
-                gamePath,
-                issues)
+                 manifest.GameVersion,
+                 gamePath,
+                 issues)
             : null;
 
         return new SwitchPlan
@@ -168,6 +171,207 @@ public sealed class SwitchPlanner
             TargetSnapshot = targetSnapshot,
             HotUpdateTransition = hotUpdateTransition,
             FileSourceDescription = "Sophon 在线差异缓存（已通过完整性校验）",
+            Issues = issues
+        };
+    }
+
+    public SwitchPlan CreateBilibiliCompositePlan(
+        string gamePath,
+        string sourceProfile,
+        string targetProfile,
+        OnlineDifferenceMaterialization baseMaterialization)
+    {
+        ArgumentNullException.ThrowIfNull(baseMaterialization);
+        var sourceResourceProfile = ProfileIds.ToResourceProfile(sourceProfile);
+        var targetResourceProfile = ProfileIds.ToResourceProfile(targetProfile);
+        if ((!string.Equals(sourceProfile, ProfileIds.Bilibili, StringComparison.Ordinal) &&
+             !string.Equals(targetProfile, ProfileIds.Bilibili, StringComparison.Ordinal)) ||
+            string.Equals(sourceResourceProfile, targetResourceProfile, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("组合 B 服计划只用于跨国服资源边界的 B 服切换。");
+        }
+
+        var operationId = $"{DateTimeOffset.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}";
+        var backupName =
+            $"{DateTimeOffset.Now:yyyy-MM-dd_HHmmss}_{sourceProfile}_to_{targetProfile}_{operationId[^8..]}";
+        var setupIssues = new List<ValidationIssue>();
+        var transitionLoad = _configuration.LoadTransitionsWithStatus();
+        var profileLoad = _configuration.LoadProfilesWithStatus();
+        AddConfigurationErrors("transition", transitionLoad.Errors, setupIssues);
+        AddConfigurationErrors("profile", profileLoad.Errors, setupIssues);
+
+        var directMatches = transitionLoad.Items.Where(item =>
+                string.Equals(item.SourceProfile, sourceProfile, StringComparison.Ordinal) &&
+                string.Equals(item.TargetProfile, targetProfile, StringComparison.Ordinal))
+            .Take(2)
+            .ToArray();
+        var direct = directMatches.Length == 1
+            ? directMatches[0]
+            : new TransitionManifest
+            {
+                SourceProfile = sourceProfile,
+                TargetProfile = targetProfile,
+                GameVersion = baseMaterialization.Manifest.GameVersion,
+                Enabled = false,
+                DisabledReason = "没有唯一可用的 B 服切换清单。"
+            };
+        if (directMatches.Length > 1)
+        {
+            setupIssues.Add(new(
+                IssueSeverity.Error,
+                "manifest.direction.duplicate",
+                $"存在重复的切换清单：{sourceProfile} -> {targetProfile}。"));
+        }
+
+        var baseManifest = baseMaterialization.Manifest;
+        if (!string.Equals(baseManifest.SourceProfile, sourceResourceProfile, StringComparison.Ordinal) ||
+            !string.Equals(baseManifest.TargetProfile, targetResourceProfile, StringComparison.Ordinal) ||
+            !string.Equals(baseManifest.GameVersion, direct.GameVersion, StringComparison.Ordinal))
+        {
+            setupIssues.Add(new(
+                IssueSeverity.Error,
+                "manifest.composite.direction",
+                "在线国服/国际服差异与 B 服组合方向或版本不一致。"));
+        }
+
+        var bilibiliDefinitions = profileLoad.Items.Where(item =>
+                string.Equals(item.Id, ProfileIds.Bilibili, StringComparison.Ordinal))
+            .Take(2)
+            .ToArray();
+        var targetDefinitions = profileLoad.Items.Where(item =>
+                string.Equals(item.Id, targetProfile, StringComparison.Ordinal))
+            .Take(2)
+            .ToArray();
+        var bilibiliDefinition = bilibiliDefinitions.Length == 1 ? bilibiliDefinitions[0] : null;
+        var targetDefinition = targetDefinitions.Length == 1 ? targetDefinitions[0] : null;
+        if (bilibiliDefinition is null || targetDefinition is null)
+        {
+            setupIssues.Add(new(
+                IssueSeverity.Error,
+                "profile.composite.missing",
+                "B 服组合切换缺少唯一的目标服或 B 服目录配置。"));
+        }
+
+        var packageRoot = GameStorageLayout.GetPackageRoot(gamePath, direct.GameVersion);
+        var directDefaultDirectory = targetDefinition is null
+            ? packageRoot
+            : Path.Combine(packageRoot, targetDefinition.PackageDirectoryName);
+        var replacements = new Dictionary<string, (ReplaceFileEntry Entry, string Source)>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in baseManifest.ReplaceFiles)
+        {
+            try
+            {
+                replacements[entry.Target] = (
+                    entry,
+                    PackageFileResolver.ResolveOrThrow(
+                        baseMaterialization.PackageRoot,
+                        baseMaterialization.PackageDirectory,
+                        entry));
+            }
+            catch (InvalidDataException ex)
+            {
+                setupIssues.Add(new(IssueSeverity.Error, "path.source.unsafe", ex.Message, entry.Source));
+            }
+        }
+
+        if (bilibiliDefinition is not null && targetDefinition is not null)
+        {
+            foreach (var entry in direct.ReplaceFiles.Where(entry =>
+                         string.Equals(
+                             PackageFileResolver.EffectiveDirectoryName(
+                                 targetDefinition.PackageDirectoryName,
+                                 entry),
+                             bilibiliDefinition.PackageDirectoryName,
+                             StringComparison.Ordinal)))
+            {
+                try
+                {
+                    replacements[entry.Target] = (
+                        entry,
+                        PackageFileResolver.ResolveOrThrow(packageRoot, directDefaultDirectory, entry));
+                }
+                catch (InvalidDataException ex)
+                {
+                    setupIssues.Add(new(IssueSeverity.Error, "path.source.unsafe", ex.Message, entry.Source));
+                }
+            }
+        }
+
+        var replacedTargets = replacements.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var requiredDeletes = baseManifest.DeleteFiles
+            .Concat(direct.DeleteFiles)
+            .Where(item => !replacedTargets.Contains(item.Target))
+            .GroupBy(item => item.Target, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+        var requiredDeleteTargets = requiredDeletes
+            .Select(item => item.Target)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var optionalDeletes = baseManifest.OptionalDeleteFiles
+            .Concat(direct.OptionalDeleteFiles)
+            .Where(item => !replacedTargets.Contains(item.Target) &&
+                           !requiredDeleteTargets.Contains(item.Target))
+            .GroupBy(item => item.Target, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+        var replacementEntries = replacements.Values.Select(item => item.Entry).ToList();
+        var composite = new TransitionManifest
+        {
+            SourceProfile = sourceProfile,
+            TargetProfile = targetProfile,
+            GameVersion = direct.GameVersion,
+            Enabled = direct.Enabled && baseManifest.Enabled,
+            DisabledReason = direct.DisabledReason ?? baseManifest.DisabledReason,
+            ExpectedReplaceCount = replacementEntries.Count + direct.IniPatches.Count,
+            ExpectedDeleteCount = requiredDeletes.Count,
+            ReplaceFiles = replacementEntries,
+            IniPatches = direct.IniPatches,
+            DeleteFiles = requiredDeletes,
+            OptionalDeleteFiles = optionalDeletes,
+            Notes = "组合切换：Sophon 国服/国际服基础差异 + 软件内置 B 服覆盖层。"
+        };
+        var targetSnapshot = composite.Enabled
+            ? _snapshots.FindLatestValid(targetResourceProfile, composite.GameVersion, gamePath)
+            : null;
+        var resolvedSources = replacements.ToDictionary(
+            item => item.Key,
+            item => item.Value.Source,
+            StringComparer.OrdinalIgnoreCase);
+        var issues = Validate(
+            gamePath,
+            composite,
+            baseMaterialization.PackageRoot,
+            baseMaterialization.PackageDirectory,
+            targetSnapshot,
+            resolvedSources);
+        issues.InsertRange(0, setupIssues);
+        var hotUpdateTransition = composite.Enabled &&
+                                  _hotUpdateCaches is not null &&
+                                  !string.Equals(
+                                      sourceResourceProfile,
+                                      targetResourceProfile,
+                                      StringComparison.Ordinal)
+            ? _hotUpdateCaches.CreateTransitionPlan(
+                sourceResourceProfile,
+                targetResourceProfile,
+                 composite.GameVersion,
+                 gamePath,
+                 issues)
+            : null;
+
+        return new SwitchPlan
+        {
+            OperationId = operationId,
+            GamePath = Path.GetFullPath(gamePath),
+            PackageRoot = baseMaterialization.PackageRoot,
+            PackageDirectory = baseMaterialization.PackageDirectory,
+            ResolvedSourceFiles = resolvedSources,
+            Manifest = composite,
+            BackupPath = Path.Combine(_paths.BackupsRoot, backupName),
+            TargetSnapshot = targetSnapshot,
+            HotUpdateTransition = hotUpdateTransition,
+            FileSourceDescription = "Sophon 在线区域差异 + 内置 B 服覆盖层（已校验）",
             Issues = issues
         };
     }
@@ -192,7 +396,8 @@ public sealed class SwitchPlanner
         TransitionManifest manifest,
         string packageRoot,
         string packageDirectory,
-        ProfileSnapshotManifest? targetSnapshot)
+        ProfileSnapshotManifest? targetSnapshot,
+        IReadOnlyDictionary<string, string>? resolvedSourceFiles = null)
     {
         var issues = new List<ValidationIssue>();
         var game = _gameDirectory.Validate(gamePath);
@@ -209,16 +414,6 @@ public sealed class SwitchPlanner
         if (!manifest.Enabled)
         {
             issues.Add(new(IssueSeverity.Error, "manifest.disabled", manifest.DisabledReason ?? "该切换方向已禁用。"));
-        }
-
-        if (manifest.PlannedReplaceCount != manifest.ExpectedReplaceCount)
-        {
-            issues.Add(new(IssueSeverity.Error, "manifest.replace.count", "计划替换数量与清单声明不一致。"));
-        }
-
-        if (manifest.DeleteFiles.Count != manifest.ExpectedDeleteCount)
-        {
-            issues.Add(new(IssueSeverity.Error, "manifest.delete.count", "计划删除数量与清单声明不一致。"));
         }
 
         if (game.GameVersion is not null && !string.Equals(game.GameVersion, manifest.GameVersion, StringComparison.Ordinal))
@@ -246,13 +441,21 @@ public sealed class SwitchPlanner
         }
 
         var targetPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var packageIntegrityFailures = new List<(string Path, string Reason)>();
+        var packageFileFailures = new List<(string Path, string Reason)>();
+        var bundledBilibiliDirectory = GameStorageLayout.GetPackageDirectory(
+            gamePath,
+            manifest.GameVersion,
+            ProfileIds.Bilibili);
         foreach (var entry in manifest.ReplaceFiles)
         {
             string source;
             try
             {
-                source = PackageFileResolver.ResolveOrThrow(packageRoot, packageDirectory, entry);
+                source = ResolveSource(
+                    packageRoot,
+                    packageDirectory,
+                    entry,
+                    resolvedSourceFiles);
             }
             catch (InvalidDataException ex)
             {
@@ -264,12 +467,22 @@ public sealed class SwitchPlanner
             {
                 issues.Add(new(IssueSeverity.Error, "package.source.missing", "切换源文件不存在。", source));
             }
-            else
+            else if (!entry.Length.HasValue ||
+                     entry.Length.Value < 0 ||
+                     !FileIntegrityService.IsValidSha256(entry.Sha256))
+            {
+                packageFileFailures.Add((source, "清单缺少有效的文件长度或 SHA-256。"));
+            }
+            else if (_files.GetLength(source) != entry.Length.Value)
+            {
+                packageFileFailures.Add((source, "文件长度与清单不匹配。"));
+            }
+            else if (IsUnderDirectory(bundledBilibiliDirectory, source))
             {
                 var integrity = _integrity.Validate(source, entry.Length, entry.Sha256);
                 if (!integrity.IsValid)
                 {
-                    packageIntegrityFailures.Add((source, integrity.Message));
+                    packageFileFailures.Add((source, integrity.Message));
                 }
             }
 
@@ -299,13 +512,13 @@ public sealed class SwitchPlanner
             }
         }
 
-        if (packageIntegrityFailures.Count > 0)
+        if (packageFileFailures.Count > 0)
         {
-            var first = packageIntegrityFailures[0];
+            var first = packageFileFailures[0];
             issues.Add(new(
                 IssueSeverity.Error,
                 "package.integrity.failed",
-                $"切换文件源有 {packageIntegrityFailures.Count} 个文件未通过完整性校验。首个问题：{first.Reason}",
+                $"切换文件源有 {packageFileFailures.Count} 个文件未通过基础检查。首个问题：{first.Reason}",
                 first.Path));
         }
 
@@ -366,7 +579,11 @@ public sealed class SwitchPlanner
         {
             var stagingBytes = manifest.ReplaceFiles.Sum(x =>
             {
-                var source = PackageFileResolver.ResolveOrThrow(packageRoot, packageDirectory, x);
+                var source = ResolveSource(
+                    packageRoot,
+                    packageDirectory,
+                    x,
+                    resolvedSourceFiles);
                 return _files.FileExists(source) ? _files.GetLength(source) : 0L;
             });
             var affectedTargets = manifest.ReplaceFiles.Select(x => x.Target)
@@ -380,28 +597,78 @@ public sealed class SwitchPlanner
                 var target = PathSafety.ResolveOrThrow(gamePath, x);
                 return _files.FileExists(target) ? _files.GetLength(target) : 0L;
             });
-            var requiredBytes = stagingBytes + backupBytes;
-            var root = Path.GetPathRoot(_paths.DataRoot);
-            if (!string.IsNullOrWhiteSpace(root))
+            var stagingDrive = Path.GetPathRoot(Path.GetFullPath(gamePath));
+            var backupDrive = Path.GetPathRoot(Path.GetFullPath(_paths.BackupsRoot));
+            if (!string.IsNullOrWhiteSpace(stagingDrive))
             {
-                var available = new DriveInfo(root).AvailableFreeSpace;
-                const long safetyMargin = 64L * 1024 * 1024;
-                var requiredWithMargin = checked(requiredBytes + safetyMargin);
-                if (available < requiredWithMargin)
-                {
-                    issues.Add(new(
-                        IssueSeverity.Error,
-                        "disk.space",
-                        $"应用数据盘空间不足。备份和临时预复制需要约 {ByteSizeFormatter.Format(requiredWithMargin)}（{requiredWithMargin:N0} 字节），" +
-                        $"当前可用 {ByteSizeFormatter.Format(available)}（{available:N0} 字节）。"));
-                }
+                AddDiskSpaceIssue(
+                    issues,
+                    stagingDrive,
+                    string.Equals(stagingDrive, backupDrive, StringComparison.OrdinalIgnoreCase)
+                        ? checked(stagingBytes + backupBytes)
+                        : stagingBytes,
+                    "游戏数据磁盘");
+            }
+
+            if (!string.IsNullOrWhiteSpace(backupDrive) &&
+                !string.Equals(stagingDrive, backupDrive, StringComparison.OrdinalIgnoreCase))
+            {
+                AddDiskSpaceIssue(issues, backupDrive, backupBytes, "备份磁盘");
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException)
         {
-            issues.Add(new(IssueSeverity.Error, "disk.check.failed", $"无法检查备份盘空间：{ex.Message}"));
+            issues.Add(new(IssueSeverity.Error, "disk.check.failed", $"无法检查游戏或备份盘空间：{ex.Message}"));
         }
 
         return issues;
+    }
+
+    private static bool IsUnderDirectory(string root, string path)
+    {
+        var normalizedRoot = Path.GetFullPath(root)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+                             Path.DirectorySeparatorChar;
+        var normalizedPath = Path.GetFullPath(path);
+        return normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolveSource(
+        string packageRoot,
+        string packageDirectory,
+        ReplaceFileEntry entry,
+        IReadOnlyDictionary<string, string>? resolvedSourceFiles)
+    {
+        if (resolvedSourceFiles is not null &&
+            resolvedSourceFiles.TryGetValue(entry.Target, out var resolved))
+        {
+            if (string.IsNullOrWhiteSpace(resolved) || !Path.IsPathFullyQualified(resolved))
+            {
+                throw new InvalidDataException($"组合切换源路径无效：{entry.Target}");
+            }
+
+            return Path.GetFullPath(resolved);
+        }
+
+        return PackageFileResolver.ResolveOrThrow(packageRoot, packageDirectory, entry);
+    }
+
+    private void AddDiskSpaceIssue(
+        ICollection<ValidationIssue> issues,
+        string driveRoot,
+        long requiredBytes,
+        string description)
+    {
+        const long safetyMargin = 64L * 1024 * 1024;
+        var available = _getAvailableFreeSpace(driveRoot);
+        var requiredWithMargin = checked(requiredBytes + safetyMargin);
+        if (available < requiredWithMargin)
+        {
+            issues.Add(new(
+                IssueSeverity.Error,
+                "disk.space",
+                $"{description}空间不足。需要约 {ByteSizeFormatter.Format(requiredWithMargin)}（{requiredWithMargin:N0} 字节），" +
+                $"当前可用 {ByteSizeFormatter.Format(available)}（{available:N0} 字节）。"));
+        }
     }
 }

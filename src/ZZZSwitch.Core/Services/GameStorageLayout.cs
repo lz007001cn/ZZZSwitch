@@ -6,18 +6,45 @@ namespace ZZZSwitch.Core.Services;
 public static class GameStorageLayout
 {
     public const string RootDirectoryName = ".zzzswitch";
-    public const string CacheDirectoryName = "cache";
+    public const string BlocksCacheDirectoryName = "blocks-cache";
+    public const string LegacyCacheDirectoryName = "cache";
     public const string PackagesDirectoryName = "packages";
     public const string SeedsDirectoryName = "seeds";
+    public const string StagingDirectoryName = "staging";
+    public const string AppDataDirectoryName = "app-data";
+    public const string LegacyDataDirectoryName = "data";
+    public const string BackupRecordsDirectoryName = "backup-records";
+    public const string BackupContentDirectoryName = "backup-content";
+    public const string DownloadsDirectoryName = "downloads";
+    public const string SnapshotsDirectoryName = "snapshots";
+    public const string SophonManifestsDirectoryName = "sophon-manifests";
+    public const string BlocksManifestsDirectoryName = "blocks-manifests";
+    public const string LogsDirectoryName = "operation-logs";
+    public const string TempDirectoryName = "temporary";
 
     public static string GetRoot(string gamePath) =>
         Path.Combine(GetGameParent(gamePath), RootDirectoryName);
 
     public static string GetCacheRoot(string gamePath) =>
-        Path.Combine(GetRoot(gamePath), CacheDirectoryName);
+        Path.Combine(GetRoot(gamePath), BlocksCacheDirectoryName);
+
+    public static string GetLegacyCacheRoot(string gamePath) =>
+        Path.Combine(GetRoot(gamePath), LegacyCacheDirectoryName);
 
     public static string GetPackagesRoot(string gamePath) =>
         Path.Combine(GetRoot(gamePath), PackagesDirectoryName);
+
+    public static string GetStagingRoot(string gamePath) =>
+        Path.Combine(GetRoot(gamePath), StagingDirectoryName);
+
+    public static string GetAppDataRoot(string gamePath) =>
+        Path.Combine(GetRoot(gamePath), AppDataDirectoryName);
+
+    public static string GetLegacyDataRoot(string gamePath) =>
+        Path.Combine(GetRoot(gamePath), LegacyDataDirectoryName);
+
+    public static string GetOperationStagingDirectory(string gamePath, string operationId) =>
+        Path.Combine(GetStagingRoot(gamePath), ValidateSegment(operationId, nameof(operationId)));
 
     public static string GetPackageRoot(string gamePath, string gameVersion) =>
         Path.Combine(GetPackagesRoot(gamePath), ValidateSegment(gameVersion, nameof(gameVersion)));

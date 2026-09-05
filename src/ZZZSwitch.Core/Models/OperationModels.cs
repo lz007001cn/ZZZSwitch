@@ -111,6 +111,8 @@ public sealed class SwitchPlan
     public required string GamePath { get; init; }
     public required string PackageRoot { get; init; }
     public required string PackageDirectory { get; init; }
+    public IReadOnlyDictionary<string, string> ResolvedSourceFiles { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     public required TransitionManifest Manifest { get; init; }
     public required string BackupPath { get; init; }
     public ProfileSnapshotManifest? TargetSnapshot { get; init; }
@@ -165,6 +167,7 @@ public sealed class OperationProgress
     public int SuccessfulCacheRestore { get; init; }
     public int FailedCacheRestore { get; init; }
     public bool IsRollingBack { get; init; }
+    public bool IsIndeterminate { get; init; }
 }
 
 public sealed class OperationResult
@@ -173,6 +176,8 @@ public sealed class OperationResult
     public bool Success { get; init; }
     public bool WasNoOp { get; init; }
     public bool RolledBack { get; init; }
+    // True only when this operation is known to have stopped before game mutation.
+    public bool GameFilesUnchanged { get; init; }
     public int PlannedReplace { get; init; }
     public int SuccessfulReplace { get; init; }
     public int FailedReplace { get; init; }
@@ -200,6 +205,11 @@ public sealed class OperationLogEntry
     public int SuccessfulDelete { get; init; }
     public int PlannedCacheRestore { get; init; }
     public int SuccessfulCacheRestore { get; init; }
+    public long StagedBytes { get; init; }
+    public long BackupBytes { get; init; }
+    public long TotalDurationMilliseconds { get; init; }
+    public Dictionary<string, long> StageDurationsMilliseconds { get; init; } =
+        new(StringComparer.Ordinal);
     public List<string> FailedFiles { get; init; } = [];
     public string? RollbackResult { get; init; }
     public string? Error { get; init; }

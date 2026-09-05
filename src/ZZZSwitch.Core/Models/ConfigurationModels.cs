@@ -55,6 +55,9 @@ public sealed class TransitionManifest
 
     [JsonIgnore]
     public int PlannedReplaceCount => ReplaceFiles.Count + IniPatches.Count;
+
+    [JsonIgnore]
+    public int PlannedDeleteCount => DeleteFiles.Count;
 }
 
 public sealed class ReplaceFileEntry
@@ -100,8 +103,14 @@ public sealed class BackupRecord
     public required string GameVersion { get; init; }
     public required string GamePath { get; init; }
     public List<string> BackedUpFiles { get; init; } = [];
-    public Dictionary<string, string> BackedUpFileSha256 { get; init; } =
-        new(StringComparer.OrdinalIgnoreCase);
+    // Read-only compatibility for backups created by the short-lived content-object layout.
+    // New backups keep their files directly under the transaction's files directory.
+    [JsonPropertyName("backedUpFileObjects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? LegacyContentObjects { get; init; }
+    [JsonPropertyName("backedUpFileLengths")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, long>? LegacyContentLengths { get; init; }
     public List<string> OriginallyMissingFiles { get; init; } = [];
     public List<string> FilesPlannedForDeletion { get; init; } = [];
     public int ReplaceCount { get; set; }
@@ -120,7 +129,8 @@ public enum FileTransactionStage
     Prepared,
     BlocksTransitioned,
     FilesApplied,
-    MetadataRestored
+    MetadataRestored,
+    Staging
 }
 
 public sealed class FileTransactionJournal
@@ -142,7 +152,10 @@ public sealed class ProfileSnapshotManifest
     public required string Profile { get; init; }
     public required string GameVersion { get; init; }
     public required string GamePath { get; init; }
-    public required string SnapshotPath { get; init; }
+    // The path is retained for compatibility with older manifests, but it is
+    // rebound to the directory that contains snapshot.json after verified data
+    // migrations. It must never be treated as an authority for locating files.
+    public required string SnapshotPath { get; set; }
     public List<SnapshotFileRecord> Files { get; init; } = [];
 }
 
@@ -150,7 +163,6 @@ public sealed class SnapshotFileRecord
 {
     public required string RelativePath { get; init; }
     public long Length { get; init; }
-    public required string Sha256 { get; init; }
 }
 
 public sealed class HotUpdateCacheManifest
@@ -160,10 +172,9 @@ public sealed class HotUpdateCacheManifest
     public required string Profile { get; init; }
     public required string GameVersion { get; init; }
     public required string GamePath { get; init; }
-    public required string StoredBlocksPath { get; init; }
+    public required string StoredBlocksPath { get; set; }
     public int FileCount { get; init; }
     public long TotalBytes { get; init; }
-    public required string InventorySha256 { get; init; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

@@ -18,8 +18,7 @@ public partial class MainWindow : Window
     private const string BundledBilibiliGameVersion = "3.1.0";
     private const string BundledBilibiliResourceName =
         "ZZZSwitch.BundledPackages.Bilibili.3.1.0.zip";
-    private const string BundledBilibiliBundleId =
-        "4D16EE071919DCEFAE0BF2CFD9F45D0944C544C1CCB56B378DA3E5E1FA009631";
+    private const string BundledBilibiliBundleId = "bilibili-3.1.0-v1";
     private readonly MainWindowViewModel _viewModel = new();
     private readonly AppPaths _paths = new();
     private readonly MainWindowDialogCoordinator _dialogs;
@@ -50,6 +49,7 @@ public partial class MainWindow : Window
     private readonly IProcessMonitor _processMonitor;
     private readonly LegacyRestoreSafetyPolicy _restoreSafetyPolicy;
     private readonly OperationCoordinator _operations;
+    private readonly ApplicationDataPlacementService _dataPlacement;
     private InspectionReport? _lastReport;
     private HotUpdateCacheStatus[] _lastCacheStatuses = [];
     private string? _lastHealthPromptKey;
@@ -96,6 +96,7 @@ public partial class MainWindow : Window
         var gameDirectory = new GameDirectoryService();
         _gameDirectoryDiscovery = new GameDirectoryDiscoveryService(gameDirectory);
         var files = new PhysicalFileOperations();
+        _dataPlacement = new ApplicationDataPlacementService(_paths, files);
         _processMonitor = new ProcessMonitor();
         _cacheLocations = new CacheLocationService(_paths);
         _storageLayout = new StorageLayoutService(_cacheLocations);
@@ -152,7 +153,8 @@ public partial class MainWindow : Window
             _operations,
             _onlineDifferences,
             _dialogs,
-            workflowContext);
+            workflowContext,
+            _bundledBilibiliPackage);
         _cacheManagementWorkflow = new CacheManagementWorkflow(
             _cacheLocations,
             _fileTransactions,
@@ -247,6 +249,12 @@ public partial class MainWindow : Window
                     MessageTone.Warning);
             }
 
+            if (!string.IsNullOrWhiteSpace(_viewModel.GamePath) &&
+                !await ActivateStorageForGameAsync(_viewModel.GamePath))
+            {
+                return;
+            }
+
             if (!inspectedDuringOnboarding)
             {
                 if (_uiSettings.AutoDetectGameDirectory)
@@ -284,6 +292,11 @@ public partial class MainWindow : Window
         _localization.SetLanguage(window.ResultSettings.Language);
         ApplyRuntimeSettings(window.ResultSettings);
         _viewModel.GamePath = window.SelectedGamePath;
+        if (!await ActivateStorageForGameAsync(window.SelectedGamePath))
+        {
+            return false;
+        }
+
         SaveSelectedPath(window.SelectedGamePath);
         await RefreshInspectionAsync(offerStorageRecovery: true);
         return true;
@@ -493,7 +506,7 @@ public partial class MainWindow : Window
         _viewModel.BusyStatus = progress.IsRollingBack
             ? _localization.Choose($"回滚中：{progress.Step}", $"Rolling back: {step}")
             : step;
-        _viewModel.IsProgressIndeterminate = false;
+        _viewModel.IsProgressIndeterminate = progress.IsIndeterminate || progress.IsRollingBack;
         _viewModel.ProgressMaximum = Math.Max(
             1,
             progress.PlannedReplace + progress.PlannedDelete + progress.PlannedCacheRestore);
@@ -595,6 +608,11 @@ public partial class MainWindow : Window
         }
 
         _viewModel.GamePath = selected.Path;
+        if (!await ActivateStorageForGameAsync(selected.Path))
+        {
+            return;
+        }
+
         SaveSelectedPath(selected.Path);
         await RefreshInspectionAsync(offerStorageRecovery: true);
     }
@@ -608,8 +626,56 @@ public partial class MainWindow : Window
         if (selectedPath is not null)
         {
             _viewModel.GamePath = selectedPath;
+            if (!await ActivateStorageForGameAsync(selectedPath))
+            {
+                return;
+            }
+
             SaveSelectedPath(selectedPath);
             await RefreshInspectionAsync(offerStorageRecovery: true);
+        }
+    }
+
+    private async Task<bool> ActivateStorageForGameAsync(string gamePath)
+    {
+        SetBusy(true, "正在准备 .zzzswitch 数据目录…");
+        try
+        {
+            var result = await Task.Run(() => _dataPlacement.ActivateGameStorage(gamePath));
+            if (result.ContentMoved)
+            {
+                _dialogs.Show(
+                    _localization.Choose(
+                        result.LayoutRenamed ? "存储结构升级完成" : "数据迁移完成",
+                        result.LayoutRenamed ? "Storage layout upgraded" : "Data migration complete"),
+                    result.LayoutRenamed
+                        ? _localization.Choose(
+                            $"已将旧版 data/cache 目录升级为 app-data/blocks-cache，共 {result.MigratedFileCount} 个文件（{ByteSizeFormatter.Format(result.MigratedBytes)}）。\n\n存储根目录：\n{Directory.GetParent(result.TargetRoot)?.FullName}" +
+                            (result.SourceRemoved ? string.Empty : "\n\n部分旧目录被占用，已保留在原位置。"),
+                            $"Upgraded legacy data/cache directories to app-data/blocks-cache: {result.MigratedFileCount} files ({ByteSizeFormatter.Format(result.MigratedBytes)}).\n\nStorage root:\n{Directory.GetParent(result.TargetRoot)?.FullName}" +
+                            (result.SourceRemoved ? string.Empty : "\n\nSome old directories were in use and remain in place."))
+                        : _localization.Choose(
+                            $"已将 {result.MigratedFileCount} 个数据文件（{ByteSizeFormatter.Format(result.MigratedBytes)}）迁移到：\n{result.TargetRoot}" +
+                            (result.SourceRemoved ? string.Empty : "\n\n部分旧文件被占用，已保留在原位置。"),
+                            $"Moved {result.MigratedFileCount} data files ({ByteSizeFormatter.Format(result.MigratedBytes)}) to:\n{result.TargetRoot}" +
+                            (result.SourceRemoved ? string.Empty : "\n\nSome old files were in use and remain in the previous location.")),
+                    result.SourceRemoved ? MessageTone.Success : MessageTone.Warning);
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (
+            ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException or ArgumentException)
+        {
+            _dialogs.Show(
+                _localization.Choose("数据目录准备失败", "Data directory preparation failed"),
+                ex.Message,
+                MessageTone.Error);
+            return false;
+        }
+        finally
+        {
+            SetBusy(false, "数据目录准备完成");
         }
     }
 

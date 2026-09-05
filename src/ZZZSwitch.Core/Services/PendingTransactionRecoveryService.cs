@@ -82,6 +82,23 @@ public sealed partial class PendingTransactionRecoveryService
             };
         }
 
+        if (journal.Stage == FileTransactionStage.Staging)
+        {
+            // A staging-only operation has no game changes to roll back. Keep any
+            // incomplete backup for inspection, and retain the journal if cleanup fails.
+            var cleaned = !File.Exists(_paths.HotUpdateJournalFile) &&
+                          TryDeleteOperationStaging(journal) &&
+                          _fileTransactions.TryDelete();
+            return new()
+            {
+                Found = true,
+                Success = cleaned,
+                Message = cleaned
+                    ? "已清理中断的切换暂存文件，游戏文件未发生修改。"
+                    : "切换暂存清理未完成，已保留事务记录。请关闭占用文件的程序并检查事务后重试。"
+            };
+        }
+
         if (IsCommitted(state, journal))
         {
             try
@@ -91,6 +108,8 @@ public sealed partial class PendingTransactionRecoveryService
                 {
                     throw new IOException("无法清理已完成的普通文件事务日志。");
                 }
+
+                TryDeleteOperationStaging(journal);
 
                 return new()
                 {
@@ -169,6 +188,11 @@ public sealed partial class PendingTransactionRecoveryService
             details.Add("恢复完成，但普通文件事务日志无法清理。下次启动将再次核对。");
         }
 
+        if (recovered)
+        {
+            TryDeleteOperationStaging(journal);
+        }
+
         return new()
         {
             Found = true,
@@ -228,6 +252,53 @@ public sealed partial class PendingTransactionRecoveryService
         string.Equals(state.CurrentProfile, journal.TargetProfile, StringComparison.Ordinal) &&
         string.Equals(state.GameVersion, journal.GameVersion, StringComparison.Ordinal) &&
         string.Equals(Path.GetFullPath(state.GamePath ?? string.Empty), Path.GetFullPath(journal.GamePath), StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryDeleteOperationStaging(FileTransactionJournal journal)
+    {
+        try
+        {
+            var stagingRoot = Path.GetFullPath(GameStorageLayout.GetStagingRoot(journal.GamePath));
+            var operationRoot = Path.GetFullPath(
+                GameStorageLayout.GetOperationStagingDirectory(journal.GamePath, journal.OperationId));
+            var normalizedRoot = stagingRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+                                 Path.DirectorySeparatorChar;
+            var normalizedOperation = operationRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+                                      Path.DirectorySeparatorChar;
+            if (!normalizedOperation.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalizedOperation, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            foreach (var path in new[] { GameStorageLayout.GetRoot(journal.GamePath), stagingRoot, operationRoot })
+            {
+                if (Directory.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                {
+                    return false;
+                }
+            }
+
+            if (Directory.Exists(operationRoot))
+            {
+                Directory.Delete(operationRoot, true);
+            }
+
+            if (Directory.Exists(stagingRoot) &&
+                (File.GetAttributes(stagingRoot) & FileAttributes.ReparsePoint) == 0 &&
+                !Directory.EnumerateFileSystemEntries(stagingRoot).Any())
+            {
+                Directory.Delete(stagingRoot);
+            }
+
+            return !Directory.Exists(operationRoot);
+        }
+        catch
+        {
+            // A staging-only journal must remain available for a cleanup retry.
+            // Existing post-switch recovery still treats staging cleanup as best effort.
+            return false;
+        }
+    }
 
     [GeneratedRegex(@"^\d+\.\d+\.\d+$", RegexOptions.CultureInvariant)]
     private static partial Regex GameVersionRegex();

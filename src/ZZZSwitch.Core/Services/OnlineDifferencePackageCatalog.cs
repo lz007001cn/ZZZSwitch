@@ -31,7 +31,6 @@ public sealed class OnlineDifferencePackageCatalog
                 }
             }
         }
-
         var manifestFiles = Directory.Exists(_paths.ManifestCacheRoot)
             ? Directory.EnumerateFiles(_paths.ManifestCacheRoot, "*", SearchOption.AllDirectories)
                 .Select(path => new FileInfo(path))
@@ -56,8 +55,34 @@ public sealed class OnlineDifferencePackageCatalog
         string gameVersion,
         out OnlineDifferenceMaterialization? materialization)
     {
-        materialization = null;
-        var candidates = GetInventory().Packages
+        materialization = FindReadyMaterialization(
+            GetInventory().Packages,
+            sourceProfile,
+            targetProfile,
+            gameVersion);
+        return materialization is not null;
+    }
+
+    public (
+        OnlineDifferenceMaterialization? Forward,
+        OnlineDifferenceMaterialization? Reverse) GetReadyMaterializations(
+        string sourceProfile,
+        string targetProfile,
+        string gameVersion)
+    {
+        var packages = GetInventory().Packages;
+        return (
+            FindReadyMaterialization(packages, sourceProfile, targetProfile, gameVersion),
+            FindReadyMaterialization(packages, targetProfile, sourceProfile, gameVersion));
+    }
+
+    private static OnlineDifferenceMaterialization? FindReadyMaterialization(
+        IEnumerable<OnlineDifferencePackageInfo> packages,
+        string sourceProfile,
+        string targetProfile,
+        string gameVersion)
+    {
+        var candidates = packages
             .Where(item => item.State == OnlineDifferencePackageState.Ready)
             .Where(item => string.Equals(item.GameVersion, gameVersion, StringComparison.Ordinal))
             .Where(item => string.Equals(item.SourceProfile, sourceProfile, StringComparison.OrdinalIgnoreCase))
@@ -71,17 +96,8 @@ public sealed class OnlineDifferencePackageCatalog
                 continue;
             }
 
-            try
-            {
-                VerifyPackage(candidate);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-            {
-                continue;
-            }
-
             var content = Path.Combine(candidate.WorkspacePath, "content");
-            materialization = new OnlineDifferenceMaterialization
+            return new OnlineDifferenceMaterialization
             {
                 PackageRoot = content,
                 PackageDirectory = content,
@@ -90,10 +106,9 @@ public sealed class OnlineDifferencePackageCatalog
                 ReusedFiles = manifest!.ReplaceFiles.Count,
                 ReusedReadyPackage = true
             };
-            return true;
         }
 
-        return false;
+        return null;
     }
 
     public void DeletePackage(string workspacePath)
@@ -194,6 +209,7 @@ public sealed class OnlineDifferencePackageCatalog
                 throw new InvalidDataException($"差异包文件完整性不匹配：{entry.Source}");
             }
         }
+
     }
 
     public int DeleteSupersededPackages(
@@ -289,10 +305,9 @@ public sealed class OnlineDifferencePackageCatalog
         problem = null;
         if (!manifest.Enabled ||
             !string.Equals(manifest.GameVersion, version, StringComparison.Ordinal) ||
-            !string.Equals(manifest.TargetProfile, targetProfile, StringComparison.OrdinalIgnoreCase) ||
-            manifest.ExpectedReplaceCount != manifest.ReplaceFiles.Count)
+            !string.Equals(manifest.TargetProfile, targetProfile, StringComparison.OrdinalIgnoreCase))
         {
-            problem = "动态切换清单与目录身份或文件数量不匹配。";
+            problem = "动态切换清单与目录身份不匹配。";
             return false;
         }
 

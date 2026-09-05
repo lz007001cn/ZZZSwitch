@@ -21,10 +21,15 @@ public partial class BackupLocationWindow : Window
         BackupPathTextBox.Text = usage.BackupRootPath;
         LocationModeText.Text = usage.IsCustomLocation
             ? app.Localization.Choose("自定义位置", "Custom location")
-            : app.Localization.Choose("默认位置（应用数据目录）", "Default location (application data)");
+            : app.Localization.Choose("默认位置（.zzzswitch 数据目录）", "Default location (.zzzswitch data)");
+        var legacyContent = usage.LegacyContentBytes > 0
+            ? app.Localization.Choose(
+                $" · 旧版备份内容 {FormatBytes(usage.LegacyContentBytes)}",
+                $" · legacy backup content {FormatBytes(usage.LegacyContentBytes)}")
+            : string.Empty;
         UsageText.Text = app.Localization.Choose(
-            $"{usage.BackupCount} 个备份 · {usage.FileCount} 个文件 · {FormatBytes(usage.TotalBytes)}",
-            $"{usage.BackupCount} backups · {usage.FileCount} files · {FormatBytes(usage.TotalBytes)}");
+            $"{usage.BackupCount} 个备份 · {FormatBytes(usage.TotalBytes)}{legacyContent}",
+            $"{usage.BackupCount} backups · {FormatBytes(usage.TotalBytes)}{legacyContent}");
         RestoreDefaultButton.IsEnabled = usage.IsCustomLocation;
     }
 
