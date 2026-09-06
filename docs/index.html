@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ZZZSwitch - 绝区零三服切换器｜国服 / 国际服 / B服</title>
+  <meta
+    name="description"
+    content="ZZZSwitch 是一款 Windows 绝区零三服切换器，支持国服官服、国际服和 B服切换，基于官方 Sophon Manifest 自动获取服务器差异文件。"
+  >
+  <meta name="robots" content="index,follow">
+  <meta name="theme-color" content="#111313">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2369d39f'/%3E%3Cpath d='M15 16h34v8L27 40h22v8H15v-8l22-16H15z' fill='%23101211'/%3E%3C/svg%3E">
+  <link rel="canonical" href="https://lz007001cn.github.io/ZZZSwitch/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:site_name" content="ZZZSwitch">
+  <meta property="og:title" content="ZZZSwitch - 绝区零三服切换器">
+  <meta property="og:description" content="在同一份 Windows PC 客户端上切换《绝区零》国服官服、国际服和 B服。">
+  <meta property="og:url" content="https://lz007001cn.github.io/ZZZSwitch/">
+  <meta property="og:image" content="https://lz007001cn.github.io/ZZZSwitch/images/zzzswitch-main-window.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ZZZSwitch",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Windows 10, Windows 11",
+    "softwareVersion": "1.3.5",
+    "description": "Windows 平台《绝区零》三服切换器，支持国服官服、国际服和 B服。",
+    "url": "https://lz007001cn.github.io/ZZZSwitch/",
+    "downloadUrl": "https://github.com/lz007001cn/ZZZSwitch/releases/latest",
+    "codeRepository": "https://github.com/lz007001cn/ZZZSwitch"
+  }
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f7f8f5;
+      --muted: #b9bfbb;
+      --line: #343a37;
+      --surface: #181b1a;
+      --surface-strong: #222625;
+      --green: #69d39f;
+      --yellow: #ffd85a;
+      --pink: #ff5d9e;
+      --blue: #73b6ff;
+      --page: #101211;
+      --max: 1120px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+      line-height: 1.7;
+      letter-spacing: 0;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    .skip-link {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 20;
+      padding: 8px 12px;
+      background: var(--ink);
+      color: var(--page);
+      transform: translateY(-160%);
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .site-header {
+      position: absolute;
+      inset: 0 0 auto;
+      z-index: 10;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    .nav {
+      width: min(calc(100% - 40px), var(--max));
+      height: 68px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      text-decoration: none;
+      font-size: 20px;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      color: var(--yellow);
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 14px;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .nav-links a:hover,
+    .nav-links a:focus-visible {
+      color: var(--ink);
+    }
+
+    .hero {
+      position: relative;
+      isolation: isolate;
+      min-height: min(740px, 82svh);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      background: #171a19 url("images/zzzswitch-main-window.png") center 35% / cover no-repeat;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero::before {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      content: "";
+      background: rgba(8, 10, 9, 0.76);
+    }
+
+    .hero-inner {
+      width: min(calc(100% - 40px), var(--max));
+      margin: 0 auto;
+      padding: 132px 0 74px;
+    }
+
+    .eyebrow {
+      margin: 0 0 14px;
+      color: var(--green);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 960px;
+      margin-bottom: 24px;
+      font-size: 58px;
+      line-height: 1.14;
+      letter-spacing: 0;
+    }
+
+    .hero-copy {
+      max-width: 760px;
+      margin-bottom: 30px;
+      color: #e2e5e2;
+      font-size: 19px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 38px;
+    }
+
+    .button {
+      min-height: 46px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border: 1px solid var(--ink);
+      border-radius: 6px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .button-primary {
+      background: var(--yellow);
+      border-color: var(--yellow);
+      color: #161713;
+    }
+
+    .button-secondary {
+      background: rgba(17, 19, 18, 0.74);
+    }
+
+    .button:hover,
+    .button:focus-visible {
+      outline: 3px solid rgba(255, 216, 90, 0.28);
+      outline-offset: 2px;
+    }
+
+    .hero-facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .hero-facts span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-facts span::before {
+      width: 7px;
+      height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .server-strip {
+      border-bottom: 1px solid var(--line);
+      background: #f2f4f0;
+      color: #171917;
+    }
+
+    .server-grid {
+      width: min(calc(100% - 40px), var(--max));
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .server {
+      min-height: 112px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 24px 28px;
+      border-right: 1px solid #cdd1cc;
+    }
+
+    .server:first-child {
+      border-left: 1px solid #cdd1cc;
+    }
+
+    .server-dot {
+      width: 12px;
+      height: 12px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+    }
+
+    .server:nth-child(1) .server-dot {
+      background: var(--blue);
+    }
+
+    .server:nth-child(2) .server-dot {
+      background: #ff7b52;
+    }
+
+    .server:nth-child(3) .server-dot {
+      background: var(--pink);
+    }
+
+    .server strong,
+    .server small {
+      display: block;
+    }
+
+    .server strong {
+      font-size: 18px;
+    }
+
+    .server small {
+      color: #5d625e;
+    }
+
+    .section {
+      padding: 88px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-inner {
+      width: min(calc(100% - 40px), var(--max));
+      margin: 0 auto;
+    }
+
+    .section-heading {
+      display: grid;
+      grid-template-columns: minmax(0, 0.75fr) minmax(280px, 1fr);
+      gap: 64px;
+      align-items: end;
+      margin-bottom: 52px;
+    }
+
+    h2 {
+      margin-bottom: 0;
+      font-size: 38px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .section-heading p {
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .feature {
+      min-height: 220px;
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .feature-number {
+      color: var(--yellow);
+      font: 700 14px/1.2 ui-monospace, "Cascadia Mono", monospace;
+    }
+
+    .feature h3 {
+      margin: 34px 0 12px;
+      font-size: 20px;
+    }
+
+    .feature p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .showcase {
+      background: #151817;
+    }
+
+    .product-shot {
+      margin: 0;
+    }
+
+    .product-shot img {
+      width: 100%;
+      border: 1px solid #3b403e;
+      border-radius: 8px;
+      background: #191b1b;
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+    }
+
+    .product-shot figcaption {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .step {
+      min-height: 210px;
+      padding: 26px 24px;
+      border-right: 1px solid var(--line);
+    }
+
+    .step:last-child {
+      border-right: 0;
+    }
+
+    .step b {
+      color: var(--green);
+      font: 700 14px/1.2 ui-monospace, "Cascadia Mono", monospace;
+    }
+
+    .step h3 {
+      margin: 28px 0 10px;
+      font-size: 18px;
+    }
+
+    .step p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .safety {
+      background: var(--yellow);
+      color: #171713;
+    }
+
+    .safety-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1fr);
+      gap: 72px;
+      align-items: start;
+    }
+
+    .safety h2 {
+      font-size: 34px;
+    }
+
+    .safety-list {
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    .safety-list li + li {
+      margin-top: 12px;
+    }
+
+    .faq-list {
+      border-top: 1px solid var(--line);
+    }
+
+    details {
+      border-bottom: 1px solid var(--line);
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 22px 4px;
+      font-weight: 700;
+    }
+
+    details p {
+      max-width: 820px;
+      padding: 0 4px 22px;
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .final-cta {
+      text-align: center;
+      background: #f2f4f0;
+      color: #171917;
+    }
+
+    .final-cta h2 {
+      margin-bottom: 18px;
+    }
+
+    .final-cta p {
+      max-width: 620px;
+      margin: 0 auto 28px;
+      color: #535854;
+    }
+
+    .final-cta .actions {
+      justify-content: center;
+      margin-bottom: 0;
+    }
+
+    .final-cta .button-secondary {
+      background: transparent;
+      border-color: #202320;
+    }
+
+    footer {
+      padding: 28px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footer-inner {
+      width: min(calc(100% - 40px), var(--max));
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .footer-inner p {
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 820px) {
+      .nav-links a:not(:last-child) {
+        display: none;
+      }
+
+      .hero {
+        min-height: 78svh;
+        background-position: 42% center;
+      }
+
+      h1 {
+        font-size: 42px;
+      }
+
+      .server-grid,
+      .feature-grid,
+      .workflow {
+        grid-template-columns: 1fr;
+      }
+
+      .server,
+      .server:first-child {
+        min-height: 82px;
+        border-right: 1px solid #cdd1cc;
+        border-left: 1px solid #cdd1cc;
+        border-bottom: 1px solid #cdd1cc;
+      }
+
+      .server:last-child {
+        border-bottom: 0;
+      }
+
+      .section-heading,
+      .safety-grid {
+        grid-template-columns: 1fr;
+        gap: 22px;
+      }
+
+      .step {
+        min-height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .step:last-child {
+        border-bottom: 0;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .nav,
+      .hero-inner,
+      .section-inner,
+      .server-grid,
+      .footer-inner {
+        width: min(calc(100% - 28px), var(--max));
+      }
+
+      .nav {
+        height: 60px;
+      }
+
+      .brand {
+        font-size: 18px;
+      }
+
+      .hero-inner {
+        padding: 106px 0 54px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      .hero-copy {
+        font-size: 16px;
+      }
+
+      .actions {
+        display: grid;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .section {
+        padding: 64px 0;
+      }
+
+      h2,
+      .safety h2 {
+        font-size: 29px;
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        gap: 8px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <nav class="nav" aria-label="主导航">
+      <a class="brand" href="#top" aria-label="ZZZSwitch 首页">
+        <span class="brand-mark" aria-hidden="true">ZZ</span>
+        ZZZSwitch
+      </a>
+      <div class="nav-links">
+        <a href="#features">功能</a>
+        <a href="#usage">使用说明</a>
+        <a href="https://github.com/lz007001cn/ZZZSwitch">GitHub</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-inner">
+        <p class="eyebrow">Windows PC · GitHub 项目</p>
+        <h1>ZZZSwitch — 绝区零三服切换器</h1>
+        <p class="hero-copy">
+          ZZZSwitch 是适用于 Windows PC 的《绝区零》服务器切换工具，支持国服官服、国际服与 B服。
+          它基于官方 Sophon Manifest 获取服务器差异文件，优先复用本地资源，并为每次切换保留可恢复备份。
+        </p>
+        <div class="actions">
+          <a class="button button-primary" href="https://github.com/lz007001cn/ZZZSwitch/releases/latest">下载最新版</a>
+          <a class="button button-secondary" href="https://github.com/lz007001cn/ZZZSwitch">查看源代码</a>
+          <a class="button button-secondary" href="#usage">使用说明</a>
+        </div>
+        <div class="hero-facts" aria-label="软件信息">
+          <span>Windows x64</span>
+          <span>当前版本 v1.3.5</span>
+          <span>源码公开</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="server-strip" aria-label="支持的服务器">
+      <div class="server-grid">
+        <div class="server">
+          <span class="server-dot" aria-hidden="true"></span>
+          <div><strong>国际服</strong><small>Global</small></div>
+        </div>
+        <div class="server">
+          <span class="server-dot" aria-hidden="true"></span>
+          <div><strong>国服官服</strong><small>CN Official</small></div>
+        </div>
+        <div class="server">
+          <span class="server-dot" aria-hidden="true"></span>
+          <div><strong>B服</strong><small>Bilibili</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="section-inner">
+        <div class="section-heading">
+          <h2>一份客户端，管理三种服务器资源</h2>
+          <p>跨服差异、热更新缓存和回滚备份由同一套流程管理，减少重复下载，也避免靠手工覆盖文件碰运气。</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <span class="feature-number">01 / MANIFEST</span>
+            <h3>官方差异来源</h3>
+            <p>国服官服与国际服切换读取当前游戏版本的官方 Sophon Manifest，只准备目标服真正需要的文件。</p>
+          </article>
+          <article class="feature">
+            <span class="feature-number">02 / REUSE</span>
+            <h3>优先复用本地文件</h3>
+            <p>已经存在且校验一致的文件不会重复下载；反向切换所需差异也会保留在本地。</p>
+          </article>
+          <article class="feature">
+            <span class="feature-number">03 / RECOVERY</span>
+            <h3>可恢复事务</h3>
+            <p>替换前建立备份，配合文件校验、事务日志和自动恢复，降低意外中断造成混合客户端的风险。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section showcase" aria-labelledby="interface-title">
+      <div class="section-inner">
+        <div class="section-heading">
+          <h2 id="interface-title">服务器状态一眼可见</h2>
+          <p>完整模式集中显示当前客户端、游戏版本、差异包、热更新缓存和备份入口，也提供适合日常快速切换的精简模式。</p>
+        </div>
+        <figure class="product-shot">
+          <img
+            src="images/zzzswitch-main-window.png"
+            width="1209"
+            height="943"
+            loading="lazy"
+            alt="ZZZSwitch 完整模式界面，显示游戏目录、当前客户端、三服切换入口与管理工具"
+          >
+          <figcaption>ZZZSwitch 完整模式。界面语言与主题均可在设置中调整。</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" id="usage">
+      <div class="section-inner">
+        <div class="section-heading">
+          <h2>从下载到切换，只需四步</h2>
+          <p>首次切换需要联网读取 Manifest；之后可以复用已校验的文件和缓存。切换期间必须保持游戏与 HoYoPlay 完全关闭。</p>
+        </div>
+        <div class="workflow">
+          <article class="step">
+            <b>STEP 01</b>
+            <h3>下载并解压</h3>
+            <p>从 GitHub Releases 获取最新版压缩包，解压后运行 ZZZSwitch.exe。</p>
+          </article>
+          <article class="step">
+            <b>STEP 02</b>
+            <h3>选择游戏目录</h3>
+            <p>使用自动检测，或手动选择包含 ZenlessZoneZero.exe 的目录。</p>
+          </article>
+          <article class="step">
+            <b>STEP 03</b>
+            <h3>检查并切换</h3>
+            <p>选择目标服务器，确认完整性检查与切换摘要后开始操作。</p>
+          </article>
+          <article class="step">
+            <b>STEP 04</b>
+            <h3>启动目标服</h3>
+            <p>切换完成后启动游戏，首次进入目标服时按提示完成游戏内资源下载。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section safety" aria-labelledby="safety-title">
+      <div class="section-inner safety-grid">
+        <h2 id="safety-title">切换前，请先关闭游戏和启动器</h2>
+        <ul class="safety-list">
+          <li>游戏或 HoYoPlay 运行时不要执行切换。</li>
+          <li>不要在非对应服务器状态下使用官方启动器的“修复”功能。</li>
+          <li>目标文件校验、磁盘空间或路径安全检查失败时，ZZZSwitch 会停止操作。</li>
+          <li>首次进入其他服务器，仍可能需要下载约 3–10 GB 游戏内资源。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="faq-title">
+      <div class="section-inner">
+        <div class="section-heading">
+          <h2 id="faq-title">常见问题</h2>
+          <p>更完整的安装、差异包、缓存和安全说明保存在 GitHub 仓库的中文 README 中。</p>
+        </div>
+        <div class="faq-list">
+          <details>
+            <summary>ZZZSwitch 会下载整个游戏吗？</summary>
+            <p>不会。程序比较目标服 Manifest 与现有客户端，优先复用已经存在且校验一致的文件，只下载本地缺少的目标差异。</p>
+          </details>
+          <details>
+            <summary>B服需要单独下载组件包吗？</summary>
+            <p>当前支持版本的 B服渠道组件已经包含在正式程序中。ZZZSwitch 会自动校验并准备这些组件。</p>
+          </details>
+          <details>
+            <summary>切服后为什么还会下载游戏内资源？</summary>
+            <p>启动文件差异与游戏内热更新资源是两套内容。ZZZSwitch 会分别保存各资源服的 Blocks 缓存，但第一次进入目标服仍需要完成一次资源下载。</p>
+          </details>
+          <details>
+            <summary>出现问题后可以恢复吗？</summary>
+            <p>每次实际替换前都会创建事务备份。可以在备份历史中恢复，也可以在意外中断后重新启动 ZZZSwitch，让程序依据事务记录继续恢复。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section final-cta" aria-labelledby="download-title">
+      <div class="section-inner">
+        <h2 id="download-title">开始使用 ZZZSwitch</h2>
+        <p>下载最新版，阅读中文使用说明，或在 GitHub 查看实现与版本记录。</p>
+        <div class="actions">
+          <a class="button button-primary" href="https://github.com/lz007001cn/ZZZSwitch/releases/latest">下载最新版</a>
+          <a class="button button-secondary" href="https://github.com/lz007001cn/ZZZSwitch/blob/main/README.zh-CN.md">阅读完整说明</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <p>ZZZSwitch 是社区项目，与 HoYoverse、米哈游或哔哩哔哩无隶属关系。</p>
+      <p><a href="https://github.com/lz007001cn/ZZZSwitch">GitHub Repository</a></p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -2,6 +2,8 @@
 
 English | [简体中文](README.zh-CN.md)
 
+🌐 [Chinese project website](https://lz007001cn.github.io/ZZZSwitch/) · [Download the latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest)
+
 ZZZSwitch is a Windows server switcher for **Zenless Zone Zero**, supporting **Global**, **CN Official**, and **Bilibili** clients.
 
 Global ↔ CN Official switching uses the official Sophon manifests for the installed game version. ZZZSwitch reuses files already available in the current client, downloads only missing target files, and preserves the source-region differences before replacement so the reverse switch can reuse local data instead of downloading the original client again. Bilibili remains a CN-based channel overlay; starting with 1.3.4, the channel components for the supported game version are included in the app.

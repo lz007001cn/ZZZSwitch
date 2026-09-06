@@ -2,6 +2,8 @@
 
 [English](README.md) | 简体中文
 
+🌐 [中文项目主页](https://lz007001cn.github.io/ZZZSwitch/) · [下载最新版](https://github.com/lz007001cn/ZZZSwitch/releases/latest)
+
 ZZZSwitch 是一款适用于 Windows 的《绝区零》服务器切换工具，支持**国际服、国服官服和 B服**客户端。
 
 国际服与国服官服之间的切换使用当前游戏版本对应的官方 Sophon Manifest。程序会优先复用当前客户端中符合目标 Manifest 的文件，仅下载缺少的目标文件，并在覆盖前保存来源服差异文件，因此反向切换可以继续使用本地数据，不需要重新下载原客户端。B服仍作为国服资源上的渠道组件叠加层；1.3.4 起，当前支持版本的 B服渠道组件已包含在软件本体中。
