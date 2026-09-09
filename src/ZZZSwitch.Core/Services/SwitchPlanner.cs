@@ -70,6 +70,8 @@ public sealed class SwitchPlanner
                 Enabled = false,
                 DisabledReason = "没有唯一可用的对应切换方向清单。"
             };
+        manifest = ConfigurationRepository.ResolveBilibiliVersion(manifest,
+            _gameDirectory.Validate(gamePath).GameVersion, profileLoad.Items, transitionLoad.Items);
         var targetDefinitions = profileLoad.Items
             .Where(x => string.Equals(x.Id, targetProfile, StringComparison.OrdinalIgnoreCase))
             .Take(2)
@@ -224,6 +226,8 @@ public sealed class SwitchPlanner
         }
 
         var baseManifest = baseMaterialization.Manifest;
+        direct = ConfigurationRepository.ResolveBilibiliVersion(direct, baseManifest.GameVersion,
+            profileLoad.Items, transitionLoad.Items, hasOnlineBase: true);
         if (!string.Equals(baseManifest.SourceProfile, sourceResourceProfile, StringComparison.Ordinal) ||
             !string.Equals(baseManifest.TargetProfile, targetResourceProfile, StringComparison.Ordinal) ||
             !string.Equals(baseManifest.GameVersion, direct.GameVersion, StringComparison.Ordinal))
@@ -421,7 +425,7 @@ public sealed class SwitchPlanner
             issues.Add(new(IssueSeverity.Error, "game.version.mismatch", $"游戏版本 {game.GameVersion} 与清单版本 {manifest.GameVersion} 不一致。"));
         }
 
-        if (!Directory.Exists(packageDirectory))
+        if (manifest.ReplaceFiles.Count > 0 && !Directory.Exists(packageDirectory))
         {
             issues.Add(new(IssueSeverity.Error, "package.directory.missing", "切换文件源目录不存在。", packageDirectory));
         }

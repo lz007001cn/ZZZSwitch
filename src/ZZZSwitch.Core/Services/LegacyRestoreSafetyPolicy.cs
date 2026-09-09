@@ -38,6 +38,11 @@ public sealed class LegacyRestoreSafetyPolicy
 
         try
         {
+            var currentVersion = new GameDirectoryService().Validate(normalizedCurrent).GameVersion;
+            if (currentVersion is not null && !string.Equals(currentVersion, record.GameVersion, StringComparison.Ordinal))
+            {
+                return new(false, $"游戏版本 {currentVersion} 与备份版本 {record.GameVersion} 不一致，不能跨版本恢复。请使用当前版本的切换文件。");
+            }
             var state = _stateStore.Load();
             var activeProfile =
                 state is not null &&

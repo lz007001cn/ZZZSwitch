@@ -119,7 +119,10 @@ public sealed class InspectionPresentationBuilder
         }
 
         text.AppendLine();
-        text.AppendLine(Text(language, "关键文件匹配：", "Key-file matches:"));
+        text.AppendLine(report.Detection.ReusedConfirmedState
+            ? Text(language, "客户端状态：沿用已确认结果，版本与关键文件属性未变化。",
+                "Client status: reusing the confirmed result; version and key-file metadata are unchanged.")
+            : Text(language, "关键文件匹配：", "Key-file matches:"));
         foreach (var match in report.Detection.Matches)
         {
             text.AppendLine(
@@ -169,8 +172,8 @@ public sealed class InspectionPresentationBuilder
             text.ToString(),
             !canSwitch || warnings > 0,
             report.Game.IsValid && report.Game.GameVersion is not null,
-            activeProfile is not null && report.Game.GameVersion is not null,
-            readOnlyBanner || errors > 0);
+            report.Game.IsValid && report.Game.GameVersion is not null,
+            readOnlyBanner || errors > 0 || activeProfile is null);
     }
 
     private OnlineDifferenceInventory? TryGetOnlineInventory()
@@ -211,9 +214,9 @@ public sealed class InspectionPresentationBuilder
         var oldSummary = oldVersions.Length == 0
             ? string.Empty
             : language == AppLanguage.English
-                ? " · older: " + string.Join(", ", oldVersions.Select(item =>
+                ? " · older packages: " + string.Join(", ", oldVersions.Select(item =>
                     $"{item.Version} {DisplayFormatting.FormatBytes(item.Bytes)}"))
-                : " · 旧版本：" + string.Join("；", oldVersions.Select(item =>
+                : " · 旧版差异包：" + string.Join("；", oldVersions.Select(item =>
                     $"{item.Version} {DisplayFormatting.FormatBytes(item.Bytes)}"));
         return language == AppLanguage.English
             ? $"{gameVersion}: Global {global} · CN {cn}{oldSummary}"
@@ -417,6 +420,10 @@ public sealed class InspectionPresentationBuilder
             "game.marker.missing" => "A required game marker file is missing.",
             "game.version.invalid" => "The game version could not be read.",
             "state.invalid" => "The saved local state is invalid and was ignored.",
+            "game.version.changed" => "The game version changed. Previous state is ignored; older packages and caches remain isolated from the current version.",
+            "detection.manifest.required" => "Identification needs the current game manifests. Open client package management and refresh Manifest to retry.",
+            "detection.manifest.failed" => issue.Message,
+            "detection.bilibili.unsupported" => "Bilibili components were found, but their detection manifest does not support this game version. Switching is unavailable for this client.",
             "transaction.file.pending" => "An unfinished file transaction must be recovered before switching.",
             "manifest.version.ambiguous" => "More than one enabled game version was found in the configuration.",
             "manifest.set.invalid" => "The transition-manifest set is incomplete or duplicated.",

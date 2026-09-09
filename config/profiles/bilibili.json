@@ -1,5 +1,7 @@
 {
     "id":  "bilibili",
+    "gameVersion": "3.1.0",
+    "reuseOverlayAcrossGameVersions": true,
     "displayName":  "绝区零B服",
     "packageDirectoryName":  "bilibili",
     "enabled":  true,

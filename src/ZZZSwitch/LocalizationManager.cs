@@ -362,7 +362,7 @@ public sealed class LocalizationManager
             ["L.Resources.Size"] = "Size",
             ["L.Resources.Content"] = "Contents",
             ["L.Resources.OpenDirectory"] = "Open package folder",
-            ["L.Resources.DeleteSelected"] = "Delete selected package",
+            ["L.Resources.DeleteSelected"] = "Delete selected",
             ["L.ManifestBrowser.Title"] = "Manifest resource browser",
             ["L.ManifestBrowser.Scope"] = "Resource scope",
             ["L.ManifestBrowser.Direction"] = "Target direction",

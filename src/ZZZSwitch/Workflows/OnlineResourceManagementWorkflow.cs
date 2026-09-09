@@ -76,8 +76,10 @@ public sealed class OnlineResourceManagementWorkflow
                 case OnlineResourceManagementAction.OpenDirectory when selection.Package is not null:
                     _context.OpenDirectory(selection.Package.WorkspacePath, true);
                     continue;
-                case OnlineResourceManagementAction.Delete when selection.Package is not null:
-                    await DeleteAsync(selection.Package);
+                case OnlineResourceManagementAction.Delete:
+                    await DeleteAsync(selection.Packages.Count > 0
+                        ? selection.Packages
+                        : selection.Package is not null ? [selection.Package] : []);
                     continue;
                 default:
                     return;
@@ -119,6 +121,7 @@ public sealed class OnlineResourceManagementWorkflow
         try
         {
             var result = await _onlineDifferences.RefreshManifestsAsync(currentVersion);
+            await _context.RefreshInspectionWhileBusy();
             _dialogs.Show(
                 T("Manifest 已更新", "Manifest updated"),
                 T(
@@ -249,16 +252,26 @@ public sealed class OnlineResourceManagementWorkflow
         }
     }
 
-    private async Task DeleteAsync(OnlineDifferencePackageInfo package)
+    private async Task DeleteAsync(IReadOnlyList<OnlineDifferencePackageInfo> selectedPackages)
     {
+        var packages = selectedPackages.DistinctBy(
+            package => Path.GetFullPath(package.WorkspacePath), StringComparer.OrdinalIgnoreCase).ToArray();
+        if (packages.Length == 0)
+        {
+            return;
+        }
+
+        var details = string.Join("\n", packages.Select(package =>
+            $"• {package.GameVersion} · {ProfileName(package.TargetProfile)} · {DisplayFormatting.FormatBytes(package.TotalBytes)}"));
+        var totalSize = DisplayFormatting.FormatBytes(packages.Sum(package => package.TotalBytes));
         if (_dialogs.Show(
-                T("删除客户端差异包", "Delete client package"),
+                T("删除客户端差异包", "Delete client packages"),
                 T(
-                    $"将永久删除以下自动差异包：\n\n版本：{package.GameVersion}\n目标客户端：{ProfileName(package.TargetProfile)}\n大小：{DisplayFormatting.FormatBytes(package.TotalBytes)}\n\n删除后，下次切换到该目标客户端时需要重新下载。此操作不能撤销。",
-                    $"The following automatic package will be permanently deleted:\n\nVersion: {package.GameVersion}\nTarget client: {ProfileName(package.TargetProfile)}\nSize: {DisplayFormatting.FormatBytes(package.TotalBytes)}\n\nThe package must be downloaded again next time you switch to this client. This cannot be undone."),
+                    $"将永久删除选中的 {packages.Length:N0} 个差异包，共 {totalSize}：\n\n{details}\n\n删除后，再次使用对应版本与客户端时需要重新下载。此操作不能撤销。",
+                    $"Permanently delete {packages.Length:N0} selected packages ({totalSize}):\n\n{details}\n\nThey must be downloaded again when needed for these versions and clients. This cannot be undone."),
                 MessageTone.Warning,
                 showCancel: true,
-                primaryText: T("确认删除", "Delete package")) != true)
+                primaryText: T("确认删除", "Delete selected")) != true)
         {
             return;
         }
@@ -273,17 +286,34 @@ public sealed class OnlineResourceManagementWorkflow
         _context.SetBusy(true, "正在删除选中的客户端差异包…");
         try
         {
-            await Task.Run(() => _catalog.DeletePackage(package.WorkspacePath));
+            var failures = new List<string>();
+            var deletedCount = 0;
+            await Task.Run(() =>
+            {
+                foreach (var package in packages)
+                {
+                    try
+                    {
+                        _catalog.DeletePackage(package.WorkspacePath);
+                        deletedCount++;
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                    {
+                        failures.Add($"{package.GameVersion} · {ProfileName(package.TargetProfile)}: {ex.Message}");
+                    }
+                }
+            });
             _dialogs.Show(
-                T("客户端差异包已删除", "Client package deleted"),
+                failures.Count == 0
+                    ? T("客户端差异包已删除", "Client packages deleted")
+                    : T("部分差异包未能删除", "Some packages could not be deleted"),
                 T(
-                    $"已删除 {package.GameVersion} {ProfileName(package.TargetProfile)}自动差异包。",
-                    $"Deleted the {package.GameVersion} {ProfileName(package.TargetProfile)} automatic package."),
-                MessageTone.Success);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-        {
-            _dialogs.Show(T("删除客户端差异包失败", "Failed to delete client package"), ex.Message, MessageTone.Error);
+                    $"已删除 {deletedCount:N0} 个差异包。",
+                    $"Deleted {deletedCount:N0} packages.") +
+                (failures.Count == 0 ? string.Empty : "\n\n" + T(
+                    "以下差异包删除失败，可能仍有文件残留，可重试：\n",
+                    "Deletion failed for the following packages; files may remain. You can retry:\n") + string.Join("\n", failures)),
+                failures.Count == 0 ? MessageTone.Success : MessageTone.Warning);
         }
         finally
         {

@@ -20,7 +20,10 @@ public enum OnlineResourceManagementAction
 
 public sealed record OnlineResourceManagementSelection(
     OnlineResourceManagementAction Action,
-    OnlineDifferencePackageInfo? Package);
+    OnlineDifferencePackageInfo? Package)
+{
+    public IReadOnlyList<OnlineDifferencePackageInfo> Packages { get; init; } = [];
+}
 
 public partial class OnlineResourceManagementWindow : Window
 {
@@ -49,30 +52,27 @@ public partial class OnlineResourceManagementWindow : Window
             StateName(package.State, localization),
             DisplayFormatting.FormatBytes(package.TotalBytes),
             Detail(package, localization))).ToArray();
-        if (PackageList.Items.Count > 0)
-        {
-            var currentIndex = inventory.Packages
-                .Select((package, index) => new { package, index })
-                .Where(item => string.Equals(item.package.GameVersion, currentGameVersion, StringComparison.Ordinal))
-                .OrderBy(item => item.package.State == OnlineDifferencePackageState.Ready ? 0 : 1)
-                .Select(item => item.index)
-                .FirstOrDefault();
-            PackageList.SelectedIndex = currentIndex;
-        }
+        UpdateSelection();
     }
 
     public OnlineResourceManagementSelection Selection { get; private set; } =
         new(OnlineResourceManagementAction.None, null);
 
     private void PackageList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => UpdateSelection();
+
+    private void UpdateSelection()
     {
-        var row = PackageList.SelectedItem as ResourceRow;
+        var count = PackageList.SelectedItems.Count;
+        var row = count == 1 ? PackageList.SelectedItem as ResourceRow : null;
         var selected = row is not null;
         OpenButton.IsEnabled = selected;
-        DeleteButton.IsEnabled = selected;
+        DeleteButton.IsEnabled = count > 0;
         PreviewButton.IsEnabled = selected;
         VerifyButton.IsEnabled = row?.Package.State == OnlineDifferencePackageState.Ready;
         UpdatePackageButton.IsEnabled = selected;
+        SelectedCountText.Text = ((App)System.Windows.Application.Current).Localization.Choose(
+            $"已选 {count:N0} 项", $"{count:N0} selected");
     }
 
     private void Refresh_Click(object sender, RoutedEventArgs e) =>
@@ -93,14 +93,6 @@ public partial class OnlineResourceManagementWindow : Window
     private void UpdatePackage_Click(object sender, RoutedEventArgs e) =>
         Complete(OnlineResourceManagementAction.UpdatePackage);
 
-    private void PackageList_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        if (PackageList.SelectedItem is ResourceRow)
-        {
-            Complete(OnlineResourceManagementAction.Preview);
-        }
-    }
-
     private void Open_Click(object sender, RoutedEventArgs e) =>
         Complete(OnlineResourceManagementAction.OpenDirectory);
 
@@ -109,13 +101,15 @@ public partial class OnlineResourceManagementWindow : Window
 
     private void Complete(OnlineResourceManagementAction action, bool requiresPackage = true)
     {
-        var package = (PackageList.SelectedItem as ResourceRow)?.Package;
-        if (requiresPackage && package is null)
+        var packages = PackageList.SelectedItems.Cast<ResourceRow>().Select(row => row.Package).ToArray();
+        var package = packages.Length == 1 ? packages[0] : null;
+        if (requiresPackage && (packages.Length == 0 ||
+                                (action != OnlineResourceManagementAction.Delete && package is null)))
         {
             return;
         }
 
-        Selection = new(action, package);
+        Selection = new(action, package) { Packages = packages };
         Close();
     }
 

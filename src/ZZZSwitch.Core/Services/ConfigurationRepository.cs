@@ -27,6 +27,68 @@ public sealed class ConfigurationRepository
         return matches.Length == 1 ? matches[0] : null;
     }
 
+    internal static TransitionManifest ResolveBilibiliVersion(
+        TransitionManifest direct, string? gameVersion,
+        IReadOnlyList<ProfileDefinition> profiles, IReadOnlyList<TransitionManifest> transitions,
+        bool hasOnlineBase = false)
+    {
+        if (gameVersion is null ||
+            (direct.SourceProfile != ProfileIds.Bilibili && direct.TargetProfile != ProfileIds.Bilibili) ||
+            (!hasOnlineBase && ProfileIds.ToResourceProfile(direct.SourceProfile) !=
+                               ProfileIds.ToResourceProfile(direct.TargetProfile))) return direct;
+
+        var overlay = direct;
+        if (direct.GameVersion != gameVersion)
+        {
+            var bilibiliProfiles = profiles.Where(profile => profile.Id == ProfileIds.Bilibili).Take(2).ToArray();
+            var bilibili = bilibiliProfiles.Length == 1 ? bilibiliProfiles[0] : null;
+            if (bilibili is null || bilibili.GameVersion != direct.GameVersion ||
+                !bilibili.SupportsOverlayVersion(gameVersion)) return direct;
+
+            // Reuse the CN/Bilibili overlay-only template, never an old regional core.
+            var toBilibili = direct.TargetProfile == ProfileIds.Bilibili;
+            var templates = transitions.Where(item =>
+                item.SourceProfile == (toBilibili ? ProfileIds.CnOfficial : ProfileIds.Bilibili) &&
+                item.TargetProfile == (toBilibili ? ProfileIds.Bilibili : ProfileIds.CnOfficial) &&
+                item.GameVersion == direct.GameVersion).Take(2).ToArray();
+            if (templates.Length != 1) return direct;
+            overlay = templates[0];
+        }
+        var patches = direct.IniPatches;
+        if (direct.TargetProfile == ProfileIds.Bilibili)
+        {
+            patches = direct.IniPatches.Select(patch => new IniFilePatch
+            {
+                Target = patch.Target, Section = patch.Section,
+                Values = new Dictionary<string, string>(patch.Values, StringComparer.OrdinalIgnoreCase)
+            }).ToList();
+            var general = patches.FirstOrDefault(patch =>
+                string.Equals(patch.Target, "config.ini", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(patch.Section, "General", StringComparison.OrdinalIgnoreCase));
+            if (general is null)
+            {
+                general = new IniFilePatch { Target = "config.ini", Section = "General" };
+                patches.Add(general);
+            }
+            general.Values["game_version"] = gameVersion;
+        }
+        return new TransitionManifest
+        {
+            SourceProfile = direct.SourceProfile,
+            TargetProfile = direct.TargetProfile,
+            GameVersion = gameVersion,
+            Enabled = direct.Enabled && overlay.Enabled,
+            DisabledReason = direct.DisabledReason ?? overlay.DisabledReason,
+            ReplaceFiles = overlay.ReplaceFiles,
+            IniPatches = patches,
+            DeleteFiles = overlay.DeleteFiles,
+            OptionalDeleteFiles = overlay.OptionalDeleteFiles,
+            ExpectedReplaceCount = overlay.ReplaceFiles.Count + patches.Count,
+            ExpectedDeleteCount = overlay.DeleteFiles.Count,
+            Notes = direct.Notes
+        };
+    }
+
     private static ConfigurationLoadResult<T> LoadDirectory<T>(string directory)
     {
         // 配置随软件本体分发，覆盖升级或不完整解压可能只损坏其中一个文件。
@@ -108,6 +170,8 @@ public sealed class ConfigurationRepository
                 if (!ProfileIds.All.Contains(profile.Id, StringComparer.Ordinal) ||
                     string.IsNullOrWhiteSpace(profile.DisplayName) ||
                     !IsSafeDirectoryName(profile.PackageDirectoryName) ||
+                    profile.OverlayCompatibleGameVersions is null ||
+                    profile.OverlayCompatibleGameVersions.Any(version => !IsSafeDirectoryName(version)) ||
                     profile.KeyFiles is null ||
                     profile.KeyFiles.Cast<FileSignature?>().Any(x =>
                         x is null || string.IsNullOrWhiteSpace(x.Path) || x.Length < 0))

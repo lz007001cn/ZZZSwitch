@@ -28,6 +28,9 @@ public sealed class ProfileMatch
 
 public sealed class DetectionResult
 {
+    public bool ReusedConfirmedState { get; init; }
+    public bool NeedsManifestRefresh { get; init; }
+    public List<ValidationIssue> Issues { get; init; } = [];
     public DetectedProfile Profile { get; init; }
     public string? StateHint { get; init; }
     public List<ProfileMatch> Matches { get; init; } = [];

@@ -104,8 +104,8 @@
                  Padding="1,0,2,0"
                  Background="Transparent"
                  BorderThickness="0"
+                 SelectionMode="Multiple"
                  SelectionChanged="PackageList_SelectionChanged"
-                 MouseDoubleClick="PackageList_MouseDoubleClick"
                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.ItemContainerStyle>
@@ -133,7 +133,7 @@
                                     <Trigger Property="IsSelected" Value="True">
                                         <Setter TargetName="SelectionBorder"
                                                 Property="BorderBrush"
-                                                Value="{DynamicResource StrongBorderBrush}" />
+                                                Value="{DynamicResource PrimaryBrush}" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -146,29 +146,35 @@
                     <Border Style="{StaticResource CardStyle}" Padding="14,12">
                         <Grid>
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32" />
                                 <ColumnDefinition Width="130" />
                                 <ColumnDefinition Width="130" />
                                 <ColumnDefinition Width="100" />
                                 <ColumnDefinition Width="100" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel>
+                            <CheckBox x:Name="PackageCheckBox"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Mode=TwoWay}"
+                                      AutomationProperties.Name="{Binding Version}"
+                                      AutomationProperties.HelpText="{Binding Target}" />
+                            <StackPanel Grid.Column="1">
                                 <TextBlock Text="{DynamicResource L.Resources.Version}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding Version}" Margin="0,4,0,0" FontWeight="SemiBold" />
                             </StackPanel>
-                            <StackPanel Grid.Column="1">
+                            <StackPanel Grid.Column="2">
                                 <TextBlock Text="{DynamicResource L.Resources.TargetClient}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding Target}" Margin="0,4,0,0" />
                             </StackPanel>
-                            <StackPanel Grid.Column="2">
+                            <StackPanel Grid.Column="3">
                                 <TextBlock Text="{DynamicResource L.Resources.State}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding State}" Margin="0,4,0,0" />
                             </StackPanel>
-                            <StackPanel Grid.Column="3">
+                            <StackPanel Grid.Column="4">
                                 <TextBlock Text="{DynamicResource L.Resources.Size}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding Size}" Margin="0,4,0,0" />
                             </StackPanel>
-                            <StackPanel Grid.Column="4">
+                            <StackPanel Grid.Column="5">
                                 <TextBlock Text="{DynamicResource L.Resources.Content}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                 <TextBlock Text="{Binding Detail}"
                                            Margin="0,4,0,0"
@@ -202,6 +208,9 @@
                     IsEnabled="False"
                     Click="Delete_Click"
                     Style="{StaticResource SecondaryButtonStyle}" />
+            <TextBlock Grid.Column="2" x:Name="SelectedCountText"
+                       Margin="12,0,12,0" VerticalAlignment="Center"
+                       Foreground="{DynamicResource MutedTextBrush}" />
             <Button Grid.Column="3"
                     Content="{DynamicResource L.Common.Close}"
                     Width="92"

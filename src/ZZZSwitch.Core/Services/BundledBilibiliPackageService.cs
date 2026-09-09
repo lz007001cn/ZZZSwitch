@@ -29,6 +29,16 @@ public sealed class BundledBilibiliPackageService
     private readonly string _bundleId;
     private readonly FileIntegrityService _integrity = new(new PhysicalFileOperations());
 
+    public bool SupportsVersion(string gameVersion)
+    {
+        if (string.Equals(gameVersion, _supportedGameVersion, StringComparison.Ordinal)) return true;
+        var profiles = _configuration.LoadProfilesWithStatus();
+        var bilibili = profiles.Items.Where(profile => profile.Id == ProfileIds.Bilibili).Take(2).ToArray();
+        return profiles.Errors.Count == 0 && bilibili.Length == 1 &&
+               bilibili[0].GameVersion == _supportedGameVersion &&
+               bilibili[0].SupportsOverlayVersion(gameVersion);
+    }
+
     public BundledBilibiliPackageService(
         ConfigurationRepository configuration,
         Func<Stream> openArchive,
@@ -46,7 +56,7 @@ public sealed class BundledBilibiliPackageService
         string currentGameVersion,
         bool requireFullVerification = false)
     {
-        if (!string.Equals(currentGameVersion, _supportedGameVersion, StringComparison.Ordinal))
+        if (!SupportsVersion(currentGameVersion))
         {
             return new(
                 BundledBilibiliPackageStatus.UnsupportedVersion,
@@ -55,7 +65,7 @@ public sealed class BundledBilibiliPackageService
                 0);
         }
 
-        var expected = LoadExpectedFiles(currentGameVersion);
+        var expected = LoadExpectedFiles(_supportedGameVersion);
         var normalizedGamePath = Path.GetFullPath(gamePath);
         var packageRoot = GameStorageLayout.GetPackageRoot(normalizedGamePath, currentGameVersion);
         var target = GameStorageLayout.GetPackageDirectory(
@@ -66,14 +76,14 @@ public sealed class BundledBilibiliPackageService
         EnsureNotReparsePoint(packageRoot);
         EnsureNotReparsePoint(target);
 
-        if (Directory.Exists(target) && IsInstalled(target, expected, requireFullVerification))
+        if (Directory.Exists(target) && IsInstalled(target, currentGameVersion, expected, requireFullVerification))
         {
             return Result(BundledBilibiliPackageStatus.AlreadyInstalled, target, expected);
         }
 
         Directory.CreateDirectory(packageRoot);
         RecoverInterruptedInstall(packageRoot, target);
-        if (Directory.Exists(target) && IsInstalled(target, expected, requireFullVerification))
+        if (Directory.Exists(target) && IsInstalled(target, currentGameVersion, expected, requireFullVerification))
         {
             return Result(BundledBilibiliPackageStatus.AlreadyInstalled, target, expected);
         }
@@ -88,7 +98,7 @@ public sealed class BundledBilibiliPackageService
             Directory.CreateDirectory(staging);
             using var stream = _openArchive();
             using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
-            var files = InspectArchive(archive, currentGameVersion, expected);
+            var files = InspectArchive(archive, _supportedGameVersion, expected);
             EnsureAvailableSpace(packageRoot, files.Sum(item => item.Entry.Length));
             foreach (var item in files)
             {
@@ -110,7 +120,7 @@ public sealed class BundledBilibiliPackageService
             }
 
             ValidateAllFiles(staging, expected);
-            WriteMarker(staging, expected);
+            WriteMarker(staging, currentGameVersion, expected);
             if (Directory.Exists(target))
             {
                 EnsureNotReparsePoint(target);
@@ -215,6 +225,7 @@ public sealed class BundledBilibiliPackageService
 
     private bool IsInstalled(
         string target,
+        string gameVersion,
         IReadOnlyDictionary<string, ExpectedFile> expected,
         bool requireFullVerification)
     {
@@ -228,7 +239,7 @@ public sealed class BundledBilibiliPackageService
                 var marker = JsonSerializer.Deserialize<BundleMarker>(markerStream, JsonSupport.Options);
                 markerMatches = marker is not null &&
                     string.Equals(marker.BundleId, _bundleId, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(marker.GameVersion, _supportedGameVersion, StringComparison.Ordinal) &&
+                    string.Equals(marker.GameVersion, gameVersion, StringComparison.Ordinal) &&
                     marker.FileCount == expected.Count &&
                     MarkerFilesMatch(target, marker, expected);
             }
@@ -238,7 +249,7 @@ public sealed class BundledBilibiliPackageService
                 ValidateAllFiles(target, expected);
                 if (!markerMatches)
                 {
-                    WriteMarker(target, expected);
+                    WriteMarker(target, gameVersion, expected);
                 }
             }
 
@@ -364,6 +375,7 @@ public sealed class BundledBilibiliPackageService
 
     private void WriteMarker(
         string target,
+        string gameVersion,
         IReadOnlyDictionary<string, ExpectedFile> expected)
     {
         var path = Path.Combine(target, MarkerFileName);
@@ -379,7 +391,7 @@ public sealed class BundledBilibiliPackageService
             JsonSerializer.Serialize(stream, new BundleMarker
             {
                 BundleId = _bundleId,
-                GameVersion = _supportedGameVersion,
+                GameVersion = gameVersion,
                 FileCount = expected.Count,
                 Files = expected.Values.Select(item =>
                 {

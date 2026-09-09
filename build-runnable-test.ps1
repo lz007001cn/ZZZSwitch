@@ -104,6 +104,13 @@ try {
             throw "Refusing to replace unsafe runnable test path: $resolvedCurrent"
         }
 
+        # Check the executable before removing sidecars, so a running old build
+        # cannot be left without its configuration by a partially completed delete.
+        $currentExecutable = Join-Path $resolvedCurrent 'ZZZSwitch.exe'
+        if (Test-Path -LiteralPath $currentExecutable -PathType Leaf) {
+            $executableProbe = [IO.File]::Open($currentExecutable, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::None)
+            $executableProbe.Dispose()
+        }
         Remove-Item -LiteralPath $resolvedCurrent -Recurse -Force
     }
 

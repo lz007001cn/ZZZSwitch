@@ -23,6 +23,16 @@ public static class ProfileIds
 
 public sealed class ProfileDefinition
 {
+    public string? GameVersion { get; init; }
+    // Only the Bilibili overlay may be reused; regional core signatures remain version-specific.
+    public List<string> OverlayCompatibleGameVersions { get; init; } = [];
+    public bool ReuseOverlayAcrossGameVersions { get; init; }
+    public bool SupportsOverlayVersion(string? gameVersion) =>
+        Enabled && Id == ProfileIds.Bilibili && gameVersion is not null &&
+        (string.Equals(GameVersion, gameVersion, StringComparison.Ordinal) ||
+         OverlayCompatibleGameVersions.Contains(gameVersion, StringComparer.Ordinal) ||
+         (ReuseOverlayAcrossGameVersions && Version.TryParse(gameVersion, out var current) &&
+          current.Build >= 0 && current.Revision < 0 && Version.TryParse(GameVersion, out var original) && current >= original));
     public required string Id { get; init; }
     public required string DisplayName { get; init; }
     public required string PackageDirectoryName { get; init; }
@@ -36,6 +46,7 @@ public sealed class FileSignature
     public required string Path { get; init; }
     public long Length { get; init; }
     public string? Sha256 { get; init; }
+    public string? Md5 { get; init; }
 }
 
 public sealed class TransitionManifest
@@ -84,6 +95,7 @@ public sealed class DeleteFileEntry
 
 public sealed class AppState
 {
+    public ClientDetectionSnapshot? ClientDetection { get; set; }
     public string? GamePath { get; set; }
     public string? GameVersion { get; set; }
     public string? CurrentProfile { get; set; }
@@ -92,6 +104,12 @@ public sealed class AppState
     public int LastReplaceCount { get; set; }
     public int LastDeleteCount { get; set; }
     public string? LastBackupPath { get; set; }
+}
+
+public sealed class ClientDetectionSnapshot
+{
+    public string? Fingerprint { get; init; }
+    public DetectionResult? Result { get; init; }
 }
 
 public sealed class BackupRecord

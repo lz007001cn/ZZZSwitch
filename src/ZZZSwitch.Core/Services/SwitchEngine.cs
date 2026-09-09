@@ -117,6 +117,7 @@ public sealed class SwitchEngine
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var sourceWasConfirmed = ProfileDetector.HasConfirmedSource(_paths, plan, _stateStore.Load());
             Report("正在检测实际文件变更", false, indeterminate: true);
             MeasureAction("detectChanges", () =>
             {
@@ -375,7 +376,7 @@ public sealed class SwitchEngine
             WriteLog(null, "not_required");
 
             // The state is deliberately the final throwing commit step. No earlier step writes it.
-            _stateStore.Save(new AppState
+            var committedState = new AppState
             {
                 GamePath = plan.GamePath,
                 GameVersion = plan.Manifest.GameVersion,
@@ -385,7 +386,9 @@ public sealed class SwitchEngine
                 LastReplaceCount = successfulReplace,
                 LastDeleteCount = successfulDelete,
                 LastBackupPath = plan.BackupPath
-            });
+            };
+            if (sourceWasConfirmed) ProfileDetector.RememberSuccessfulSwitch(_paths, committedState);
+            _stateStore.Save(committedState);
             if (hotUpdateTransaction is not null)
             {
                 _hotUpdateCaches!.Commit(hotUpdateTransaction);

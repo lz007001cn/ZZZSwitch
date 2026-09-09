@@ -1,5 +1,6 @@
 {
   "id": "cn_official",
+  "gameVersion": "3.1.0",
   "displayName": "绝区零国服",
   "packageDirectoryName": "cn_official",
   "enabled": true,

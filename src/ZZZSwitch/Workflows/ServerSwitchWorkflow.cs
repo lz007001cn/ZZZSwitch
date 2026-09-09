@@ -84,6 +84,15 @@ public sealed class ServerSwitchWorkflow
         var sourceResourceProfile = ProfileIds.ToResourceProfile(sourceProfile);
         var targetResourceProfile = ProfileIds.ToResourceProfile(targetProfile);
         var usesBilibili = UsesBilibili(sourceProfile, targetProfile);
+        if (usesBilibili && _bundledBilibiliPackage is not null && !_bundledBilibiliPackage.SupportsVersion(gameVersion))
+        {
+            _dialogs.Show(
+                T("当前版本暂不支持 B 服切换", "Bilibili switching is unavailable for this version"),
+                T($"游戏版本 {gameVersion} 没有匹配的 B 服组件和切换清单。请等待适配此版本的组件；无需清空缓存。",
+                    $"No matching Bilibili components and transition manifest are available for game version {gameVersion}. Wait for updated components; clearing caches is unnecessary."),
+                MessageTone.Warning);
+            return;
+        }
         var usesLocalBilibiliOverlayOnly = usesBilibili && string.Equals(
             sourceResourceProfile,
             targetResourceProfile,
@@ -175,6 +184,7 @@ public sealed class ServerSwitchWorkflow
         var errors = plan.Issues.Where(x => x.Severity == IssueSeverity.Error).ToArray();
         if (errors.Length > 0)
         {
+            _context.InvalidateDetection?.Invoke();
             _dialogs.Show(
                 T("切换前检查未通过", "Pre-switch checks failed"),
                 string.Join(Environment.NewLine, errors.Select(FormatValidationIssue)),
@@ -221,7 +231,8 @@ public sealed class ServerSwitchWorkflow
         }
         finally
         {
-            _context.SetBusyStatus("操作结束，正在重新检查…");
+            if (result?.Success != true) _context.InvalidateDetection?.Invoke();
+            _context.SetBusyStatus(T("操作结束，正在更新状态…", "Updating status…"));
             await _context.RefreshInspectionWhileBusy();
             _context.SetBusy(false, "操作结束");
         }

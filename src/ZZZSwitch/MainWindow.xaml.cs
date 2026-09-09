@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.ComponentModel;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Windows;
@@ -111,13 +112,14 @@ public partial class MainWindow : Window
         _inspection = new InspectionService(
             _configuration,
             gameDirectory,
-            new ProfileDetector(),
+            new ProfileDetector(_paths),
             _stateStore,
             _processMonitor,
             _fileTransactions,
             files,
             _storageLayout,
-            inspectLocalPackages: false);
+            inspectLocalPackages: false,
+            reuseConfirmedDetection: true);
         _planner = new SwitchPlanner(_configuration, gameDirectory, _processMonitor, files, _paths, _snapshots, _hotUpdateCaches, _fileTransactions);
         _engine = new SwitchEngine(files, _paths, _backups, _stateStore, new OperationLogger(_paths), _snapshots, _hotUpdateCaches, _fileTransactions);
         var pendingRecovery = new PendingTransactionRecoveryService(
@@ -146,7 +148,8 @@ public partial class MainWindow : Window
             ShowInlineSwitchResult,
             ProfileBrush,
             OpenDirectory,
-            _localization.Choose);
+            _localization.Choose,
+            _inspection.InvalidateDetection);
         _serverSwitchWorkflow = new ServerSwitchWorkflow(
             _planner,
             _engine,
@@ -233,6 +236,7 @@ public partial class MainWindow : Window
             var recovery = startup.Recovery;
             if (recovery.Found)
             {
+                _inspection.InvalidateDetection();
                 _dialogs.Show(
                     recovery.Success
                         ? _localization.Choose("上次切换已恢复", "Previous switch recovered")
@@ -302,6 +306,8 @@ public partial class MainWindow : Window
         return true;
     }
 
+    private readonly HashSet<string> _attemptedDetectionManifests = new(StringComparer.Ordinal);
+
     private async Task RefreshInspectionAsync(
         bool showReadOnlyBanner = false,
         bool offerStorageRecovery = false,
@@ -317,19 +323,48 @@ public partial class MainWindow : Window
         InspectionReport? report = null;
         if (managesBusyState)
         {
-            SetBusy(true, "正在只读扫描游戏目录与服务器状态…");
+            SetBusy(true, _localization.Choose("正在读取客户端状态…", "Loading client status…"));
         }
         else
         {
-            _viewModel.BusyStatus = _localization.TranslateKnown(
-                "正在重新检查游戏目录与服务器状态…");
+            _viewModel.BusyStatus = _localization.Choose("正在读取客户端状态…", "Loading client status…");
             _viewModel.IsProgressIndeterminate = true;
             _viewModel.ProgressValue = 0;
         }
         try
         {
             var path = _viewModel.GamePath.Trim();
-            report = await Task.Run(() => _inspection.Inspect(path));
+            report = await Task.Run(() => _inspection.Inspect(path, readOnly: showReadOnlyBanner));
+            if (!showReadOnlyBanner && report.Game.IsValid && report.Detection.NeedsManifestRefresh &&
+                report.Game.GameVersion is { } detectionVersion && !_fileTransactions.Exists &&
+                _attemptedDetectionManifests.Add(detectionVersion))
+            {
+                _viewModel.BusyStatus = _localization.Choose(
+                    $"正在获取 {detectionVersion} 客户端识别清单…",
+                    $"Fetching client identification manifests for {detectionVersion}…");
+                try
+                {
+                    await _onlineDifferences.RefreshManifestsAsync(detectionVersion);
+                    report = await Task.Run(() => _inspection.Inspect(path));
+                }
+                catch (Exception ex) when (ex is IOException or InvalidDataException or HttpRequestException or TaskCanceledException or UnauthorizedAccessException)
+                {
+                    report.Issues.Add(new(IssueSeverity.Warning, "detection.manifest.failed",
+                        _localization.Choose(
+                            $"识别清单获取失败，可在差异包管理中更新 Manifest 后重试：{ex.Message}",
+                            $"Could not fetch identification manifests. Retry Refresh Manifest in client package management: {ex.Message}")));
+                }
+            }
+            if (!showReadOnlyBanner && report.Detection.Profile == DetectedProfile.Bilibili)
+            {
+                IDisposable? versionLease = null;
+                // Pre-switch refresh already runs under the workflow's lease.
+                if (_operations.IsBusy || _operations.TryBegin(out versionLease))
+                {
+                    using (versionLease)
+                        await Task.Run(() => _inspection.SynchronizeBilibiliVersion(report));
+                }
+            }
             if (report.Game.IsValid && report.Game.GameVersion is { } gameVersion)
             {
                 var packageKey = $"{Path.GetFullPath(path)}|{gameVersion}";

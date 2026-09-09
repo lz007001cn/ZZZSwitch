@@ -16,4 +16,5 @@ public sealed record MainWindowWorkflowContext(
     Action<string, string, bool> ShowInlineSwitchResult,
     Func<string?, MediaBrush> ProfileBrush,
     Action<string, bool> OpenDirectory,
-    Func<string, string, string> Localize);
+    Func<string, string, string> Localize,
+    Action? InvalidateDetection = null);

@@ -88,6 +88,15 @@ internal static class Program
                    bundledInstall.FileCount > 0 &&
                    bundledInstall.TotalBytes > 0,
                 "正式程序内置 B 服组件没有完整解压并通过切换清单校验。");
+            var upgradedInstall = bundledInstaller.EnsureInstalled(bundledInstallGame, "3.2.0");
+            Assert(upgradedInstall.Status == BundledBilibiliPackageStatus.Installed &&
+                   upgradedInstall.FileCount == bundledInstall.FileCount &&
+                   upgradedInstall.TotalBytes == bundledInstall.TotalBytes &&
+                   upgradedInstall.PackageDirectory != bundledInstall.PackageDirectory &&
+                   bundledInstaller.EnsureInstalled(bundledInstallGame, "3.2.0", true).Status ==
+                       BundledBilibiliPackageStatus.AlreadyInstalled &&
+                   bundledInstaller.SupportsVersion("3.3.0") && !bundledInstaller.SupportsVersion("2.9.0"),
+                "正式内置归档必须在 3.2 安装并校验通过，保留旧版目录且支持后续版本复用。");
             Assert(main.Title == "ZZZSwitch",
                 "Window title should not include the version number.");
             Assert(Require<ScrollViewer>(main, "MainScrollViewer").FocusVisualStyle is null,
@@ -117,6 +126,7 @@ internal static class Program
             VerifyCommandRouting();
             VerifyStartupWorkflowAndDialogRouting(main, tempRoot);
             VerifyMainWindowWorkflows(tempRoot);
+            VerifyPackageDeletion(tempRoot);
             Assert(main.FindName("RestoreLatestButton") is null,
                 "主界面不应继续显示独立的恢复上次状态按钮。");
             Require<Button>(main, "BackupDirectoryButton");
@@ -290,11 +300,39 @@ internal static class Program
             Assert(Require<Button>(onlineResources, "RefreshButton").IsEnabled &&
                    Require<Button>(onlineResources, "RefreshManifestButton").IsEnabled &&
                    Require<Button>(onlineResources, "BrowseManifestButton").IsEnabled &&
-                   packageList.SelectedIndex >= 0 &&
+                   packageList.SelectedItems.Count == 0 &&
+                   !Require<Button>(onlineResources, "DeleteButton").IsEnabled &&
+                   !Require<Button>(onlineResources, "PreviewButton").IsEnabled &&
+                   Require<TextBlock>(onlineResources, "SelectedCountText").Text == "已选 0 项",
+                "差异包管理应等待明确勾选，未选中时禁用删除和单项操作。");
+            Layout(onlineResources, 820, 520);
+            var firstPackageItem = (ListBoxItem)packageList.ItemContainerGenerator.ContainerFromIndex(0);
+            var secondPackageItem = (ListBoxItem)packageList.ItemContainerGenerator.ContainerFromIndex(1);
+            var firstCheck = VisualChild<CheckBox>(firstPackageItem);
+            var secondCheck = VisualChild<CheckBox>(secondPackageItem);
+            Toggle(firstCheck);
+            Assert(firstPackageItem.IsSelected && packageList.SelectedItems.Count == 1 &&
                    Require<Button>(onlineResources, "PreviewButton").IsEnabled &&
                    Require<Button>(onlineResources, "VerifyButton").IsEnabled &&
-                   Require<Button>(onlineResources, "UpdatePackageButton").IsEnabled,
-                "进入差异包管理后没有默认选中当前版本包，或操作按钮仍不可用。");
+                   Require<Button>(onlineResources, "UpdatePackageButton").IsEnabled &&
+                   Require<Button>(onlineResources, "OpenButton").IsEnabled &&
+                   Require<Button>(onlineResources, "DeleteButton").IsEnabled,
+                "勾选一个差异包后，选择状态与单项操作没有同步。");
+            Toggle(secondCheck);
+            Assert(firstCheck.IsChecked == true && secondPackageItem.IsSelected &&
+                   packageList.SelectedItems.Count == 2 &&
+                   Require<TextBlock>(onlineResources, "SelectedCountText").Text == "已选 2 项" &&
+                   Require<Button>(onlineResources, "DeleteButton").IsEnabled &&
+                   !Require<Button>(onlineResources, "PreviewButton").IsEnabled &&
+                   !Require<Button>(onlineResources, "VerifyButton").IsEnabled &&
+                   !Require<Button>(onlineResources, "UpdatePackageButton").IsEnabled &&
+                   !Require<Button>(onlineResources, "OpenButton").IsEnabled,
+                "勾选多个差异包应保留原选择并仅启用批量删除。");
+            packageList.UnselectAll();
+            Assert(firstCheck.IsChecked == false && secondCheck.IsChecked == false &&
+                   !Require<Button>(onlineResources, "DeleteButton").IsEnabled,
+                "取消选择没有同步复选框与删除按钮。");
+            Toggle(firstCheck);
             var updatePackageButton = Require<Button>(onlineResources, "UpdatePackageButton");
             Assert(updatePackageButton.Background is SolidColorBrush updateBackground &&
                    updateBackground.Color == Color.FromRgb(39, 39, 39) &&
@@ -620,6 +658,19 @@ internal static class Program
                    !englishPresentation.Packages.Contains("可用", StringComparison.Ordinal) &&
                    !englishPresentation.CacheSummary.Contains("活动中", StringComparison.Ordinal),
                 "English 动态检测结果仍混有中文。" );
+            foreach (var language in new[] { AppLanguage.Chinese, AppLanguage.English })
+            {
+                var upgraded = presentationBuilder.Build(new InspectionReport
+                {
+                    Game = new GameDirectoryResult { GamePath = Path.Combine(tempRoot, "Game"), IsValid = true, GameVersion = "3.2.0" },
+                    Detection = new DetectionResult { Profile = DetectedProfile.Unknown, NeedsManifestRefresh = true },
+                    Issues = [new(IssueSeverity.Warning, "detection.manifest.required", "需要更新识别清单。")]
+                }, [], false, language);
+                Assert(upgraded.CanManageOnlineResources && upgraded.ExpandDetails && upgraded.ActiveProfile is null,
+                    "新版本未知状态仍须允许刷新 Manifest，并展开原因。");
+                if (language == AppLanguage.English)
+                    Assert(upgraded.Report.Contains("refresh Manifest", StringComparison.Ordinal), "英文版未解释重新识别入口。");
+            }
             var summary = Require<InspectionSummaryCard>(main, "InspectionSummary");
             Assert(Require<Button>(summary, "CacheManagementButton").IsEnabled,
                 "摘要控件未绑定缓存管理可用状态。");
@@ -682,6 +733,12 @@ internal static class Program
                    !(bool)shouldOpenFromTray.Invoke(null, [System.Windows.Forms.MouseButtons.Right])!,
                 "托盘图标应仅在左键单击时打开窗口，右键必须保留给菜单。" );
 
+            Toggle(secondCheck);
+            Require<Button>(onlineResources, "DeleteButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert(onlineResources.Selection.Action == OnlineResourceManagementAction.Delete &&
+                   onlineResources.Selection.Package is null && onlineResources.Selection.Packages.Count == 2 &&
+                   onlineResources.Selection.Packages.Select(p => p.TargetProfile).Distinct().Count() == 2,
+                "批量删除没有传递全部勾选包。");
             Console.WriteLine("PASS  正式版显示国际服/国服/B服。");
             Console.WriteLine("PASS  默认与窄窗口在扫描前后宽高保持不变。");
             Console.WriteLine("PASS  125%/150%/200% 布局缩放压力验证通过。");
@@ -697,7 +754,7 @@ internal static class Program
             Console.WriteLine("PASS  扫描展示格式化器与独立摘要控件绑定通过。");
             Console.WriteLine("PASS  缓存管理窗口显示自定义位置与旧版本清理操作。");
             Console.WriteLine("PASS  主界面显示备份目录，恢复上次状态已集成到备份历史。");
-            Console.WriteLine("PASS  客户端差异包管理窗口显示双向差异包与 Manifest 占用，并适配主题。");
+            Console.WriteLine("PASS  差异包复选框、多选计数、单项操作及批量删除范围、取消、部分失败验证通过。");
             Console.WriteLine("PASS  客户端差异包下载窗口显示断点进度、换行错误，且失败后可重试。");
             return 0;
         }
@@ -777,6 +834,30 @@ internal static class Program
             root.LayoutTransform = originalTransform;
         }
     }
+
+    private static IEnumerable<T> VisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match)
+            {
+                yield return match;
+            }
+            foreach (var descendant in VisualChildren<T>(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static T VisualChild<T>(DependencyObject parent) where T : DependencyObject =>
+        VisualChildren<T>(parent).First();
+
+    private static void Toggle(CheckBox checkBox) =>
+        ((System.Windows.Automation.Provider.IToggleProvider)
+            new System.Windows.Automation.Peers.CheckBoxAutomationPeer(checkBox)
+                .GetPattern(System.Windows.Automation.Peers.PatternInterface.Toggle)).Toggle();
 
     private static void Layout(Window window, double width, double height)
     {
@@ -1165,6 +1246,7 @@ internal static class Program
         File.WriteAllText(Path.Combine(game, "ZenlessZoneZero.exe"), "fixture");
         File.WriteAllText(Path.Combine(game, "GameAssembly.dll"), "fixture");
         File.WriteAllText(Path.Combine(game, "version_info"), "3.1.0");
+        File.WriteAllText(Path.Combine(game, "config.ini"), "[General]\ngame_version=3.1.0\n");
         File.WriteAllText(Path.Combine(persistent, "data_version"), "source-version");
         var package = GameStorageLayout.GetPackageDirectory(game, "3.1.0", ProfileIds.Bilibili);
         Directory.CreateDirectory(package);
@@ -1206,6 +1288,7 @@ internal static class Program
         var dialogs = new TestMainWindowDialogs { ConfirmSwitchResult = true };
         var busy = false;
         var inlineCount = 0;
+        var detectionInvalidations = 0;
         string? inlineMessage = null;
         var report = new InspectionReport
         {
@@ -1225,12 +1308,14 @@ internal static class Program
                 inlineMessage = english ? englishText : chinese;
             },
             _ => Brushes.Transparent, (_, _) => { },
-            (chinese, englishText) => english ? englishText : chinese);
+            (chinese, englishText) => english ? englishText : chinese,
+            () => detectionInvalidations++);
         var workflow = new ServerSwitchWorkflow(planner, engine, operations, null!, dialogs, context);
         // No WPF callbacks run in this fixture; avoid capturing the UI synchronization context.
         Task.Run(() => workflow.RunAsync(ProfileIds.Bilibili, compact)).GetAwaiter().GetResult();
 
         Assert(files.FailurePath is not null, "流程未到达预期的文件故障，可能被提前预检拦截。" + dialogs.LastMessage);
+        Assert(detectionInvalidations == 1, "切换失败后应使已确认状态失效并重新识别。");
         Assert(!busy && !operations.IsBusy, "失败后应释放界面忙碌状态和操作锁。");
         Assert(dialogs.ConfirmSwitchCalled == !compact && dialogs.ShowCount == (compact ? 0 : 1) &&
                inlineCount == (compact ? 1 : 0), "主窗口应确认并弹出结果；精简模式应只报告行内结果。");
@@ -1294,6 +1379,69 @@ internal static class Program
             }
             _inner.MoveFile(source, target, overwrite);
         }
+    }
+
+    private static void VerifyPackageDeletion(string tempRoot)
+    {
+        var paths = new AppPaths(Path.Combine(tempRoot, "PackageDeletion"), Path.Combine(tempRoot, "config"));
+        var catalog = new OnlineDifferencePackageCatalog(paths);
+        var operations = new OperationCoordinator(paths);
+        var dialogs = new TestMainWindowDialogs();
+        var busy = false;
+        var refreshes = 0;
+        var context = new MainWindowWorkflowContext(
+            () => busy, () => string.Empty, () => null,
+            () => Task.CompletedTask,
+            () => { refreshes++; return Task.CompletedTask; },
+            (value, _) => busy = value, _ => { }, () => { }, _ => { },
+            (_, _, _) => { }, _ => Brushes.Transparent, (_, _) => { }, (chinese, _) => chinese);
+        var workflow = new OnlineResourceManagementWorkflow(catalog, null!, operations, dialogs, context);
+        foreach (var (version, target) in new[]
+                 {
+                     ("3.1.0", ProfileIds.CnOfficial), ("3.1.0", ProfileIds.Global),
+                     ("3.2.0", ProfileIds.CnOfficial)
+                 })
+        {
+            var content = Path.Combine(paths.OnlineDifferenceFilesRoot, version, target, "fixture", "content");
+            Directory.CreateDirectory(content);
+            File.WriteAllText(Path.Combine(content, "payload.bin"), "preserve unless selected");
+        }
+        var original = catalog.GetInventory().Packages;
+        var old = original.Where(p => p.GameVersion == "3.1.0").ToArray();
+        var current = original.Single(p => p.GameVersion == "3.2.0");
+        var batch = new OnlineResourceManagementSelection(OnlineResourceManagementAction.Delete, null)
+        {
+            Packages = [old[0], old[1], old[0]]
+        };
+        dialogs.ConfirmDeletion = false;
+        dialogs.PackageSelections.Enqueue(batch);
+        workflow.ManageAsync().GetAwaiter().GetResult();
+        Assert(original.All(p => Directory.Exists(p.WorkspacePath)) && refreshes == 0 &&
+               dialogs.LastConfirmation?.Contains("选中的 2 个") == true &&
+               !dialogs.LastConfirmation.Contains("3.2.0", StringComparison.Ordinal),
+            "取消批量删除应保留所有包，确认列表应去重且只列出勾选项。");
+
+        dialogs.ConfirmDeletion = true;
+        dialogs.PackageSelections.Enqueue(batch);
+        using (var locked = File.Open(Path.Combine(old[0].WorkspacePath, "content", "payload.bin"),
+                   FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            workflow.ManageAsync().GetAwaiter().GetResult();
+            Assert(Directory.Exists(old[0].WorkspacePath) && !Directory.Exists(old[1].WorkspacePath) &&
+                   Directory.Exists(current.WorkspacePath) &&
+                   dialogs.LastTitle == "部分差异包未能删除" &&
+                   dialogs.LastMessage?.Contains("已删除 1 个") == true &&
+                   dialogs.LastMessage.Contains("3.1.0", StringComparison.Ordinal) &&
+                   refreshes == 1 && !busy && !operations.IsBusy,
+                "批量删除应准确报告部分失败、继续处理其他勾选项、保留未选项并释放忙碌状态。");
+        }
+        dialogs.PackageSelections.Enqueue(new(OnlineResourceManagementAction.Delete, old[0]));
+        workflow.ManageAsync().GetAwaiter().GetResult();
+        Assert(!Directory.Exists(old[0].WorkspacePath) &&
+               File.ReadAllText(Path.Combine(current.WorkspacePath, "content", "payload.bin")) == "preserve unless selected" &&
+               catalog.GetInventory().Packages.Count == 1 && dialogs.LastTitle == "客户端差异包已删除" &&
+               refreshes == 2 && !busy && !operations.IsBusy,
+            "重试删除单项失败包后应刷新列表并完整保留未勾选的新版本包。");
     }
 
     private static void VerifyMainWindowWorkflows(string tempRoot)
@@ -1363,6 +1511,18 @@ internal static class Program
             paths,
             new ProfileSnapshotService(paths, files));
         var onlineRoutingProbe = new FailingOnlineDifferenceService();
+        report = new InspectionReport
+        {
+            Game = new GameDirectoryResult { GamePath = Path.Combine(workflowRoot, "Game"), IsValid = true, GameVersion = "3.2.0" },
+            Detection = new DetectionResult { Profile = DetectedProfile.Global }
+        };
+        var unsupportedBundle = new BundledBilibiliPackageService(new ConfigurationRepository(paths),
+            () => throw new InvalidOperationException("Unsupported bundle must not be opened"), "3.1.0", "test");
+        new ServerSwitchWorkflow(legacyPlanner, null!, operations, onlineRoutingProbe, dialogs, context, unsupportedBundle)
+            .RunAsync(ProfileIds.Bilibili).GetAwaiter().GetResult();
+        Assert(dialogs.LastTitle == "当前版本暂不支持 B 服切换" && onlineRoutingProbe.AnalyzeCalls == 0 &&
+               onlineRoutingProbe.TryGetReadyCalls == 0 && !operations.IsBusy,
+            "新版 B 服方向应在下载基础差异包或打开旧组件前解释版本不支持。");
         var bilibiliWorkflow = new ServerSwitchWorkflow(
             legacyPlanner,
             null!,
@@ -1563,6 +1723,9 @@ internal static class Program
         public int ShowCount { get; private set; }
         public BackupLocationAction BackupAction { get; set; }
         public CacheManagementAction CacheAction { get; set; }
+        public bool ConfirmDeletion { get; set; } = true;
+        public string? LastConfirmation { get; private set; }
+        public Queue<OnlineResourceManagementSelection> PackageSelections { get; } = new();
 
         public bool? Show(
             string title,
@@ -1575,6 +1738,11 @@ internal static class Program
             LastTitle = title;
             LastMessage = message;
             ShowCount++;
+            if (showCancel)
+            {
+                LastConfirmation = message;
+                return ConfirmDeletion;
+            }
             return true;
         }
 
@@ -1594,7 +1762,7 @@ internal static class Program
         public Task<OnlineResourceManagementSelection> SelectOnlineResourceManagementAsync(
             OnlineDifferenceInventory inventory,
             string? currentGameVersion) =>
-            Task.FromResult(new OnlineResourceManagementSelection(
+            Task.FromResult(PackageSelections.TryDequeue(out var selection) ? selection : new OnlineResourceManagementSelection(
                 OnlineResourceManagementAction.None,
                 null));
 

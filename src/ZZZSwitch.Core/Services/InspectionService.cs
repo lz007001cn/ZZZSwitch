@@ -13,6 +13,57 @@ public sealed class InspectionService
     private readonly FileIntegrityService _integrity;
     private readonly StorageLayoutService _storageLayout;
     private readonly bool _inspectLocalPackages;
+    private readonly bool _reuseConfirmedDetection;
+    private bool _forceDetection;
+
+    public void InvalidateDetection() => _forceDetection = true;
+
+    // Explicit write entry point; the caller holds the normal operation lease.
+    public bool SynchronizeBilibiliVersion(InspectionReport report)
+    {
+        if (!report.Game.IsValid || report.Detection.Profile != DetectedProfile.Bilibili ||
+            report.Game.GameVersion is not { } version || report.RunningProcesses.Count > 0 ||
+            report.Issues.Any(issue => issue.Severity == IssueSeverity.Error) ||
+            _detector.HasPendingTransaction || _fileTransactions?.Exists == true ||
+            _processMonitor.FindRelatedProcesses().Count > 0) return false;
+
+        var game = _gameDirectory.Validate(report.Game.GamePath);
+        if (!game.IsValid || game.GameVersion != version) return false;
+        var path = Path.Combine(game.GamePath, "config.ini");
+        var backup = path + ".zzzswitch-version.bak";
+        var patch = new IniFilePatch
+        {
+            Target = "config.ini", Section = "General",
+            Values = new Dictionary<string, string> { ["game_version"] = version }
+        };
+        var editor = new IniFileEditor();
+        if (editor.Matches(path, patch)) return false;
+        foreach (var candidate in new[] { game.GamePath, path, backup })
+            if (Path.Exists(candidate) && (File.GetAttributes(candidate) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("拒绝通过重解析点更新 B 服版本配置。");
+        editor.Apply(path, patch, backup);
+
+        // The only change was our atomic INI patch. Preserve the already-confirmed
+        // client result instead of hashing the same core again on the next refresh.
+        if (_reuseConfirmedDetection)
+        {
+            var loaded = _stateStore.LoadWithStatus();
+            if (loaded.Warning is null)
+            {
+                var state = loaded.State ?? new AppState();
+                var profiles = _configuration.LoadProfilesWithStatus();
+                var fingerprint = profiles.Errors.Count == 0
+                    ? _detector.GetCacheFingerprint(game.GamePath, profiles.Items, state, version) : null;
+                state.ClientDetection = fingerprint is null ? null : new ClientDetectionSnapshot
+                {
+                    Fingerprint = fingerprint, Result = report.Detection
+                };
+                try { _stateStore.Save(state); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+        }
+        return true;
+    }
 
     public InspectionService(
         ConfigurationRepository configuration,
@@ -23,7 +74,8 @@ public sealed class InspectionService
         FileTransactionJournalStore? fileTransactions = null,
         IFileOperations? files = null,
         StorageLayoutService? storageLayout = null,
-        bool inspectLocalPackages = true)
+        bool inspectLocalPackages = true,
+        bool reuseConfirmedDetection = false)
     {
         _configuration = configuration;
         _gameDirectory = gameDirectory;
@@ -34,9 +86,10 @@ public sealed class InspectionService
         _integrity = new FileIntegrityService(files ?? new PhysicalFileOperations());
         _storageLayout = storageLayout ?? new StorageLayoutService();
         _inspectLocalPackages = inspectLocalPackages;
+        _reuseConfirmedDetection = reuseConfirmedDetection;
     }
 
-    public InspectionReport Inspect(string gamePath)
+    public InspectionReport Inspect(string gamePath, bool readOnly = false)
     {
         var game = _gameDirectory.Validate(gamePath);
         var issues = new List<ValidationIssue>(game.Issues);
@@ -116,8 +169,17 @@ public sealed class InspectionService
         }
 
         var detection = game.IsValid
-            ? _detector.Detect(game.GamePath, profiles, stateLoad.State)
+            ? Detect(game, profiles, stateLoad, readOnly,
+                profileLoad.Errors.Count > 0 || _detector.HasPendingTransaction || _fileTransactions?.Exists == true)
             : new DetectionResult { Profile = DetectedProfile.Unknown };
+        issues.AddRange(detection.Issues);
+        if (game.GameVersion is not null && stateLoad.State is { } previous &&
+            string.Equals(previous.GamePath, game.GamePath, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(previous.GameVersion, game.GameVersion, StringComparison.Ordinal))
+        {
+            issues.Add(new(IssueSeverity.Information, "game.version.changed",
+                $"游戏版本已由 {previous.GameVersion} 更新为 {game.GameVersion}；旧状态不参与识别，旧版本差异包与缓存保留但不用于当前版本。"));
+        }
 
         var running = _processMonitor.FindRelatedProcesses();
         if (running.Count > 0)
@@ -134,6 +196,46 @@ public sealed class InspectionService
             Issues = issues,
             RunningProcesses = running.ToList()
         };
+    }
+
+    private DetectionResult Detect(GameDirectoryResult game, IReadOnlyList<ProfileDefinition> profiles,
+        StateLoadResult stateLoad, bool readOnly, bool abnormal)
+    {
+        if (!_reuseConfirmedDetection)
+            return _detector.Detect(game.GamePath, profiles, stateLoad.State, game.GameVersion);
+
+        var state = stateLoad.State ?? new AppState();
+        var fingerprint = _detector.GetCacheFingerprint(game.GamePath, profiles, state, game.GameVersion);
+        var saved = state.ClientDetection;
+        var cached = saved?.Result;
+        if (!readOnly && !_forceDetection && !abnormal && stateLoad.Warning is null && fingerprint is not null &&
+            fingerprint == saved?.Fingerprint && cached is not null && cached.Profile.ToProfileId() is not null &&
+            !cached.NeedsManifestRefresh && cached.Issues is { Count: 0 } &&
+            cached.Matches is not null && cached.Mismatches is not null)
+        {
+            return new DetectionResult
+            {
+                Profile = cached.Profile, StateHint = cached.StateHint, Matches = cached.Matches,
+                Mismatches = cached.Mismatches, ReusedConfirmedState = true
+            };
+        }
+
+        var result = _detector.Detect(game.GamePath, profiles, stateLoad.State, game.GameVersion);
+        _forceDetection = readOnly && (saved?.Result?.Profile != result.Profile || result.Issues.Count > 0);
+        if (!readOnly && stateLoad.Warning is null)
+        {
+            state.ClientDetection = !abnormal && result.Profile.ToProfileId() is not null &&
+                result.Issues.Count == 0 && fingerprint is not null &&
+                fingerprint == _detector.GetCacheFingerprint(game.GamePath, profiles, state, game.GameVersion)
+                ? new ClientDetectionSnapshot { Fingerprint = fingerprint, Result = result }
+                : null;
+            try { _stateStore.Save(state); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // An optional cache must not turn a successful inspection into a failure.
+            }
+        }
+        return result;
     }
 
     private static void AddConfigurationErrors(

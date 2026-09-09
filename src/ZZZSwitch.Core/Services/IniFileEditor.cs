@@ -5,7 +5,7 @@ namespace ZZZSwitch.Core.Services;
 
 public sealed class IniFileEditor
 {
-    public void Apply(string path, IniFilePatch patch)
+    public void Apply(string path, IniFilePatch patch, string? backupPath = null)
     {
         if (!File.Exists(path))
         {
@@ -94,7 +94,8 @@ public sealed class IniFileEditor
                 stream.Flush(true);
             }
 
-            File.Move(temp, path, true);
+            if (backupPath is null) File.Move(temp, path, true);
+            else File.Replace(temp, path, backupPath);
         }
         finally
         {

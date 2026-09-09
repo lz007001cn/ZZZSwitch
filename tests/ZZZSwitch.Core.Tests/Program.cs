@@ -18,6 +18,9 @@ internal static class Program
         ("识别国服", () => DetectionExact(ProfileIds.CnOfficial, DetectedProfile.CnOfficial)),
         ("识别未知状态", DetectionUnknown),
         ("识别混合状态", DetectionMixed),
+        ("升级后使用当前版本清单识别并双向切换", VersionedManifestDetectionAndSwitch),
+        ("正常启动复用识别结果且版本文件清单异常触发重检", ConfirmedDetectionReuse),
+        ("新版游戏拒绝旧版备份恢复", RestoreRejectsDifferentGameVersion),
         ("叠加型B服优先于国服基础匹配", BilibiliOverlayDetection),
         ("B服资源与热更新缓存归一到国服", BilibiliResourceProfileMapping),
         ("拒绝包含 .. 的路径", () => PathRejected(@"a\..\b")),
@@ -98,6 +101,8 @@ internal static class Program
         ("差异包导入拒绝跨目录路径", PackageArchiveRejectsTraversal),
         ("差异包导入拒绝错误游戏版本", PackageArchiveRejectsWrongVersion),
         ("首次运行自动安装内置B服组件", BundledBilibiliPackageInstallsOnFirstRun),
+        ("升级后复用B服组件并完成四向切换且保留版本", () => BilibiliOverlayReuseAfterUpgrade("3.2.0", false)),
+        ("后续版本自动复用B服组件并更新INI版本", () => BilibiliOverlayReuseAfterUpgrade("3.3.0", true)),
         ("损坏的内置B服组件会自动修复", BundledBilibiliPackageRepairsCorruption),
         ("内置B服组件拒绝异常归档路径", BundledBilibiliPackageRejectsUnsafeArchive),
         ("主题偏好可持久化且损坏设置安全回退", ThemePreferencePersistsAndFallsBack),
@@ -211,6 +216,202 @@ internal static class Program
         }).ToArray();
         var result = new ProfileDetector().Detect(fixture.Game, profiles);
         Equal(expected, result.Profile);
+        return Task.CompletedTask;
+    }
+
+    private static async Task VersionedManifestDetectionAndSwitch()
+    {
+        using var fixture = new TempFixture();
+        fixture.CreateGameMarkers("3.2.0");
+        string[] keys = ["GameAssembly.dll", "ZenlessZoneZero.exe"];
+        var profiles = ProfileIds.All.Select(id => new ProfileDefinition
+        {
+            Id = id, DisplayName = id, PackageDirectoryName = id, GameVersion = "3.1.0",
+            KeyFiles = keys.Select(path => new FileSignature { Path = path, Length = 3 })
+                .Concat(id == ProfileIds.Bilibili ? [new FileSignature { Path = "bilibili-sdk.bin", Length = 3 }] : []).ToList()
+        }).ToArray();
+        foreach (var profile in profiles)
+            File.WriteAllText(Path.Combine(fixture.Config, "profiles", profile.Id + ".json"), JsonSerializer.Serialize(profile, JsonSupport.Options));
+        var stateStore = new StateStore(fixture.Paths);
+        stateStore.Save(new AppState { GamePath = fixture.Game, GameVersion = "3.1.0", CurrentProfile = ProfileIds.Global });
+        var stateBefore = File.ReadAllText(fixture.Paths.StateFile);
+        var cache = new ManifestCache(fixture.Paths.ManifestCacheRoot, JsonSupport.Options);
+        var old = Snapshot(SophonRegion.OS, "3.1.0");
+        await cache.SaveAsync(old);
+        var oldCachePath = cache.GetPath(SophonRegion.OS, "3.1.0", "game");
+        var oldBytes = File.ReadAllBytes(oldCachePath);
+        var inspector = new InspectionService(new ConfigurationRepository(fixture.Paths), new GameDirectoryService(),
+            new ProfileDetector(fixture.Paths), stateStore, new FakeProcessMonitor(), inspectLocalPackages: false);
+
+        var report = inspector.Inspect(fixture.Game);
+        True(report.Detection.NeedsManifestRefresh && report.Detection.Profile == DetectedProfile.Unknown,
+            "新版本即使碰巧匹配旧文件长度，也不能使用旧签名或旧状态。");
+        True(report.Detection.StateHint is null && report.Issues.Any(issue => issue.Code == "game.version.changed"),
+            "跨版本状态应被忽略并解释版本变化。");
+
+        await cache.SaveAsync(Snapshot(SophonRegion.OS, "3.2.0"));
+        True(inspector.Inspect(fixture.Game).Detection.NeedsManifestRefresh, "只下载一服清单时不能放行。");
+        await cache.SaveAsync(Snapshot(SophonRegion.CN, "3.2.0"));
+        foreach (var key in keys) File.WriteAllText(Path.Combine(fixture.Game, key), Content(SophonRegion.OS, key));
+        report = inspector.Inspect(fixture.Game);
+        Equal(DetectedProfile.Global, report.Detection.Profile);
+        True(!report.Detection.NeedsManifestRefresh, "有效缓存应支持离线重新识别。");
+        Equal(stateBefore, File.ReadAllText(fixture.Paths.StateFile));
+
+        // Exercise the actual planner/engine with the new-version files in both directions.
+        var files = new PhysicalFileOperations();
+        var planner = new SwitchPlanner(new ConfigurationRepository(fixture.Paths), new GameDirectoryService(),
+            new FakeProcessMonitor(), files, fixture.Paths, new ProfileSnapshotService(fixture.Paths, files));
+        foreach (var target in new[] { SophonRegion.CN, SophonRegion.OS })
+        {
+            var targetId = target == SophonRegion.OS ? ProfileIds.Global : ProfileIds.CnOfficial;
+            var sourceId = target == SophonRegion.OS ? ProfileIds.CnOfficial : ProfileIds.Global;
+            var entries = keys.Select(key =>
+            {
+                File.WriteAllText(Path.Combine(fixture.Package, key), Content(target, key));
+                return new ReplaceFileEntry { Source = key, Target = key,
+                    Length = new FileInfo(Path.Combine(fixture.Package, key)).Length,
+                    Sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(fixture.Package, key)))) };
+            }).ToList();
+            var materialization = new OnlineDifferenceMaterialization
+            {
+                PackageRoot = fixture.Package, PackageDirectory = fixture.Package,
+                Manifest = new TransitionManifest { SourceProfile = sourceId, TargetProfile = targetId,
+                    GameVersion = "3.2.0", ReplaceFiles = entries }
+            };
+            var plan = planner.CreateOnlinePlan(fixture.Game, materialization);
+            True(plan.Issues.All(issue => issue.Severity != IssueSeverity.Error), "新版在线计划不应受旧清单版本限制。");
+            var switched = await fixture.CreateEngine().ExecuteAsync(plan);
+            True(switched.Success, switched.Error ?? "新版切换失败。");
+            Equal(target == SophonRegion.OS ? DetectedProfile.Global : DetectedProfile.CnOfficial,
+                inspector.Inspect(fixture.Game).Detection.Profile);
+        }
+
+        File.WriteAllText(Path.Combine(fixture.Game, keys[0]), Content(SophonRegion.CN, keys[0]));
+        Equal(DetectedProfile.Mixed, inspector.Inspect(fixture.Game).Detection.Profile);
+        File.WriteAllText(Path.Combine(fixture.Game, keys[0]), new string('x', Content(SophonRegion.OS, keys[0]).Length));
+        Equal(DetectedProfile.Unknown, inspector.Inspect(fixture.Game).Detection.Profile);
+        foreach (var key in keys) File.WriteAllText(Path.Combine(fixture.Game, key), Content(SophonRegion.CN, key));
+        File.WriteAllText(Path.Combine(fixture.Game, "bilibili-sdk.bin"), "sdk");
+        report = inspector.Inspect(fixture.Game);
+        Equal(DetectedProfile.Unknown, report.Detection.Profile);
+        True(report.Issues.Any(issue => issue.Code == "detection.bilibili.unsupported"), "新版 B 服不得误认作国服。");
+        File.Delete(Path.Combine(fixture.Game, "bilibili-sdk.bin"));
+
+        var currentCache = cache.GetPath(SophonRegion.OS, "3.2.0", "game");
+        File.WriteAllBytes(currentCache, oldBytes);
+        True(inspector.Inspect(fixture.Game).Detection.NeedsManifestRefresh, "缓存路径正确而内容版本错误时应拒绝。");
+        File.WriteAllText(currentCache, "{broken");
+        True(inspector.Inspect(fixture.Game).Detection.NeedsManifestRefresh, "损坏缓存应可刷新恢复。");
+        True(oldBytes.SequenceEqual(File.ReadAllBytes(oldCachePath)), "新版本检测和切换不得清理旧版 Manifest。");
+
+        static string Content(SophonRegion region, string key) => $"{region}:{key}:new";
+        ManifestSnapshot Snapshot(SophonRegion region, string version) => new(
+            SophonRegionConfig.Game, region, version, "game", $"{region}-{version}", DateTimeOffset.UtcNow,
+            keys.Select(key => new ManifestEntry(key, Encoding.UTF8.GetByteCount(Content(region, key)),
+                Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(Content(region, key)))))).ToArray());
+    }
+
+    private static async Task ConfirmedDetectionReuse()
+    {
+        using var fixture = new TempFixture();
+        fixture.CreateGameMarkers("3.2.0");
+        const string key = "GameAssembly.dll";
+        var stateStore = new StateStore(fixture.Paths);
+        stateStore.Save(new AppState { GamePath = fixture.Game, GameVersion = "3.2.0", CurrentProfile = ProfileIds.CnOfficial });
+        foreach (var id in ProfileIds.All)
+        {
+            var profile = new ProfileDefinition
+            {
+                Id = id, DisplayName = id, PackageDirectoryName = id, GameVersion = "3.1.0",
+                KeyFiles = [new FileSignature { Path = key, Length = 3 }]
+            };
+            File.WriteAllText(Path.Combine(fixture.Config, "profiles", id + ".json"), JsonSerializer.Serialize(profile, JsonSupport.Options));
+        }
+        var cache = new ManifestCache(fixture.Paths.ManifestCacheRoot, JsonSupport.Options);
+        foreach (var region in new[] { SophonRegion.OS, SophonRegion.CN })
+        {
+            var content = region == SophonRegion.OS ? "global" : "china!";
+            await cache.SaveAsync(new ManifestSnapshot(SophonRegionConfig.Game, region, "3.2.0", "game", region.ToString(),
+                DateTimeOffset.UtcNow, [new ManifestEntry(key, content.Length,
+                    Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(content))))]));
+        }
+        var gameKey = Path.Combine(fixture.Game, key);
+        File.WriteAllText(gameKey, "global");
+        InspectionService Inspector() => new(new ConfigurationRepository(fixture.Paths), new GameDirectoryService(),
+            new ProfileDetector(fixture.Paths), new StateStore(fixture.Paths), new FakeProcessMonitor(),
+            inspectLocalPackages: false, reuseConfirmedDetection: true);
+        var inspector = Inspector();
+        var first = inspector.Inspect(fixture.Game).Detection;
+        True(!first.ReusedConfirmedState && first.Profile == DetectedProfile.Global, "普通旧状态不能代替首次识别。");
+        var persisted = File.ReadAllText(fixture.Paths.StateFile);
+
+        // Exclusive locks prove that a fresh service (a new launch) does not read
+        // either the large key-file contents or the regional Manifest contents.
+        using (File.Open(gameKey, FileMode.Open, FileAccess.Read, FileShare.None))
+        using (File.Open(cache.GetPath(SophonRegion.OS, "3.2.0", "game"), FileMode.Open, FileAccess.Read, FileShare.None))
+        using (File.Open(cache.GetPath(SophonRegion.CN, "3.2.0", "game"), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var cached = Inspector().Inspect(fixture.Game).Detection;
+            True(cached.ReusedConfirmedState && cached.Profile == DetectedProfile.Global, "启动时应只读取属性并复用已确认的状态。");
+        }
+        Equal(persisted, File.ReadAllText(fixture.Paths.StateFile));
+        True(!inspector.Inspect(fixture.Game, readOnly: true).Detection.ReusedConfirmedState, "显式只读检查应完整识别。");
+        Equal(persisted, File.ReadAllText(fixture.Paths.StateFile));
+        inspector.InvalidateDetection();
+        True(!inspector.Inspect(fixture.Game).Detection.ReusedConfirmedState, "操作异常后必须重检，即使文件属性未变化。");
+        True(inspector.Inspect(fixture.Game).Detection.ReusedConfirmedState, "异常重检成功后应恢复复用。");
+
+        File.WriteAllText(gameKey, "broken");
+        File.SetLastWriteTimeUtc(gameKey, DateTime.UtcNow.AddSeconds(1));
+        var changed = inspector.Inspect(fixture.Game).Detection;
+        True(!changed.ReusedConfirmedState && changed.Profile == DetectedProfile.Unknown, "同长度文件变化必须重新校验内容。");
+        True(!inspector.Inspect(fixture.Game).Detection.ReusedConfirmedState, "未知结果不得缓存放行。");
+        File.Delete(gameKey);
+        True(!inspector.Inspect(fixture.Game).Game.IsValid, "缺失关键文件必须报告异常。");
+        File.WriteAllText(gameKey, "global");
+        inspector.Inspect(fixture.Game);
+
+        File.WriteAllText(Path.Combine(fixture.Game, "config.ini"), "[General]\ngame_version=3.2.0\nchannel=14\n");
+        True(!inspector.Inspect(fixture.Game).Detection.ReusedConfirmedState, "外部修改渠道配置应触发重检。");
+        var profilePath = Path.Combine(fixture.Config, "profiles", "global.json");
+        File.WriteAllText(profilePath, File.ReadAllText(profilePath).Replace("\"length\": 3", "\"length\": 4"));
+        True(!inspector.Inspect(fixture.Game).Detection.ReusedConfirmedState, "识别配置改变应触发重检。");
+
+        var manifestPath = cache.GetPath(SophonRegion.OS, "3.2.0", "game");
+        var manifestContent = File.ReadAllText(manifestPath);
+        File.WriteAllText(manifestPath, "{broken");
+        var invalidManifest = inspector.Inspect(fixture.Game).Detection;
+        True(!invalidManifest.ReusedConfirmedState && invalidManifest.NeedsManifestRefresh, "损坏 Manifest 不得继续复用旧结果。");
+        File.WriteAllText(manifestPath, manifestContent);
+        inspector.Inspect(fixture.Game);
+
+        File.WriteAllText(fixture.Paths.HotUpdateJournalFile, "{}");
+        True(!inspector.Inspect(fixture.Game).Detection.ReusedConfirmedState, "未完成事务应禁用缓存。");
+        File.Delete(fixture.Paths.HotUpdateJournalFile);
+        inspector.Inspect(fixture.Game);
+        var state = stateStore.Load()!;
+        state.ClientDetection = new ClientDetectionSnapshot { Fingerprint = state.ClientDetection!.Fingerprint, Result = null };
+        stateStore.Save(state);
+        True(!Inspector().Inspect(fixture.Game).Detection.ReusedConfirmedState, "不完整识别缓存应安全重建。");
+
+        File.WriteAllText(Path.Combine(fixture.Game, "version_info"), "3.3.0");
+        var upgraded = Inspector().Inspect(fixture.Game).Detection;
+        True(!upgraded.ReusedConfirmedState && upgraded.NeedsManifestRefresh, "版本升级必须重新读取匹配清单。");
+    }
+
+    private static Task RestoreRejectsDifferentGameVersion()
+    {
+        using var fixture = new TempFixture();
+        fixture.CreateGameMarkers("3.2.0");
+        var state = new StateStore(fixture.Paths);
+        var files = new PhysicalFileOperations();
+        var policy = new LegacyRestoreSafetyPolicy(state, new HotUpdateCacheService(fixture.Paths, new FakeProcessMonitor()));
+        var restore = new RestoreService(new BackupService(files, fixture.Paths), new FakeProcessMonitor(), files, state, policy);
+        var result = restore.Restore(Path.Combine(fixture.Root, "nonexistent-backup"), fixture.CreateBackupRecord(), fixture.Game);
+        True(!result.Success && result.Error?.Contains("不能跨版本恢复", StringComparison.Ordinal) == true,
+            "应在读取备份或修改游戏前拒绝旧版本恢复。");
+        Equal("dll", File.ReadAllText(Path.Combine(fixture.Game, "GameAssembly.dll")));
         return Task.CompletedTask;
     }
 
@@ -2659,6 +2860,164 @@ internal static class Program
 
         True(rejected, "自定义缓存目录不得与同盘切换暂存区重叠。");
         return Task.CompletedTask;
+    }
+
+    private static async Task BilibiliOverlayReuseAfterUpgrade(string version, bool automaticReuse)
+    {
+        using var fixture = new TempFixture();
+        fixture.CreateGameMarkers(version);
+        const string payload = "verified-sdk";
+        PrepareBundledBilibiliConfiguration(fixture, payload);
+        string[] keys = ["GameAssembly.dll", "ZenlessZoneZero.exe"];
+        foreach (var id in ProfileIds.All)
+        {
+            WriteProfile(id, [version]);
+        }
+        void WriteProfile(string id, List<string> compatibleVersions)
+        {
+            var profile = new ProfileDefinition
+            {
+                Id = id, DisplayName = id, PackageDirectoryName = id, GameVersion = "3.1.0",
+                OverlayCompatibleGameVersions = id == ProfileIds.Bilibili && !automaticReuse ? compatibleVersions : [],
+                ReuseOverlayAcrossGameVersions = id == ProfileIds.Bilibili && automaticReuse && compatibleVersions.Count > 0,
+                KeyFiles = keys.Select(key => new FileSignature { Path = key, Length = 3 })
+                    .Concat(id == ProfileIds.Bilibili
+                        ? [new FileSignature { Path = "payload.bin", Length = payload.Length, Sha256 = Sha256Text(payload) }]
+                        : []).ToList()
+            };
+            File.WriteAllText(Path.Combine(fixture.Config, "profiles", id + ".json"),
+                JsonSerializer.Serialize(profile, JsonSupport.Options));
+        }
+
+        var configuration = new ConfigurationRepository(fixture.Paths);
+        var overlay = configuration.FindTransition(ProfileIds.CnOfficial, ProfileIds.Bilibili)!;
+        foreach (var (source, target) in new[]
+        {
+            (ProfileIds.CnOfficial, ProfileIds.Bilibili), (ProfileIds.Bilibili, ProfileIds.CnOfficial),
+            (ProfileIds.Global, ProfileIds.Bilibili), (ProfileIds.Bilibili, ProfileIds.Global)
+        })
+        {
+            var manifest = new TransitionManifest
+            {
+                SourceProfile = source, TargetProfile = target, GameVersion = "3.1.0",
+                ReplaceFiles = target == ProfileIds.Bilibili ? overlay.ReplaceFiles : [],
+                IniPatches = [ProfilePatch(target)],
+                OptionalDeleteFiles = source == ProfileIds.Bilibili ? [new DeleteFileEntry { Target = "payload.bin" }] : []
+            };
+            File.WriteAllText(Path.Combine(fixture.Config, "transitions", source + "-to-" + target + ".json"),
+                JsonSerializer.Serialize(manifest, JsonSupport.Options));
+        }
+        // Remove the helper's original differently named direction file.
+        File.Delete(Path.Combine(fixture.Config, "transitions", "cn-official-to-bilibili.json"));
+
+        var archive = CreateBundledBilibiliArchive("3.1.0", payload);
+        var installer = new BundledBilibiliPackageService(configuration, () => new MemoryStream(archive), "3.1.0", "sdk-fixture");
+        var oldInstall = installer.EnsureInstalled(fixture.Game, "3.1.0");
+        var oldMarker = File.ReadAllText(Path.Combine(oldInstall.PackageDirectory, ".bundled-package.json"));
+        var installed = installer.EnsureInstalled(fixture.Game, version);
+        Equal(BundledBilibiliPackageStatus.Installed, installed.Status);
+        Equal(BundledBilibiliPackageStatus.AlreadyInstalled, installer.EnsureInstalled(fixture.Game, version).Status);
+        using (var marker = JsonDocument.Parse(File.ReadAllText(Path.Combine(installed.PackageDirectory, ".bundled-package.json"))))
+            Equal(version, marker.RootElement.GetProperty("gameVersion").GetString());
+        File.WriteAllText(Path.Combine(installed.PackageDirectory, "payload.bin"), new string('x', payload.Length));
+        Equal(BundledBilibiliPackageStatus.Repaired, installer.EnsureInstalled(fixture.Game, version, true).Status);
+        var unsupportedVersion = automaticReuse ? "2.9.0" : "3.3.0";
+        Equal(BundledBilibiliPackageStatus.UnsupportedVersion, installer.EnsureInstalled(fixture.Game, unsupportedVersion).Status);
+        True(!Directory.Exists(GameStorageLayout.GetPackageRoot(fixture.Game, unsupportedVersion)), "不支持的版本不得创建组件目录。");
+
+        var cache = new ManifestCache(fixture.Paths.ManifestCacheRoot, JsonSupport.Options);
+        foreach (var region in new[] { SophonRegion.OS, SophonRegion.CN })
+            await cache.SaveAsync(new ManifestSnapshot(SophonRegionConfig.Game, region, version, "game",
+                region + "-3.2", DateTimeOffset.UtcNow,
+                keys.Select(key => new ManifestEntry(key, Content(region, key).Length,
+                    Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(Content(region, key)))))).ToArray()));
+        var inspector = new InspectionService(configuration, new GameDirectoryService(), new ProfileDetector(fixture.Paths),
+            new StateStore(fixture.Paths), new FakeProcessMonitor(), inspectLocalPackages: false, reuseConfirmedDetection: true);
+        foreach (var key in keys) File.WriteAllText(Path.Combine(fixture.Game, key), Content(SophonRegion.OS, key));
+        File.WriteAllText(Path.Combine(fixture.Game, "config.ini"), "[General]\ngame_version=3.1.0\ncps=global\nkeep=yes\n");
+        Equal(DetectedProfile.Global, inspector.Inspect(fixture.Game).Detection.Profile);
+        var planner = CreatePlanner(fixture);
+        True(!planner.CreatePlan(fixture.Game, ProfileIds.Global, ProfileIds.Bilibili).CanExecute,
+            "新版跨区域切换缺少在线核心时不得只应用覆盖层。");
+        var sourceId = ProfileIds.Global;
+        foreach (var targetId in new[] { ProfileIds.Bilibili, ProfileIds.CnOfficial, ProfileIds.Bilibili, ProfileIds.Global })
+        {
+            Equal(sourceId, inspector.Inspect(fixture.Game).Detection.Profile.ToProfileId());
+            SwitchPlan plan;
+            if (ProfileIds.ToResourceProfile(sourceId) == ProfileIds.ToResourceProfile(targetId))
+                plan = planner.CreatePlan(fixture.Game, sourceId, targetId);
+            else
+            {
+                var region = targetId == ProfileIds.Global ? SophonRegion.OS : SophonRegion.CN;
+                var onlineRoot = Path.Combine(fixture.Root, "online-" + targetId);
+                Directory.CreateDirectory(onlineRoot);
+                foreach (var key in keys) File.WriteAllText(Path.Combine(onlineRoot, key), Content(region, key));
+                plan = planner.CreateBilibiliCompositePlan(fixture.Game, sourceId, targetId, new OnlineDifferenceMaterialization
+                {
+                    PackageRoot = onlineRoot, PackageDirectory = onlineRoot,
+                    Manifest = new TransitionManifest
+                    {
+                        SourceProfile = ProfileIds.ToResourceProfile(sourceId), TargetProfile = ProfileIds.ToResourceProfile(targetId),
+                        GameVersion = version,
+                        ReplaceFiles = keys.Select(key => new ReplaceFileEntry
+                        {
+                            Source = key, Target = key, Length = Content(region, key).Length, Sha256 = Sha256Text(Content(region, key))
+                        }).ToList()
+                    }
+                });
+            }
+            True(plan.CanExecute, string.Join(" | ", plan.Issues.Select(issue => issue.Message)));
+            Equal(version, plan.Manifest.GameVersion);
+            var result = await fixture.CreateEngine().ExecuteAsync(plan);
+            True(result.Success, result.Error ?? "升级后的 B 服切换失败。");
+            var afterSwitch = inspector.Inspect(fixture.Game).Detection;
+            Equal(targetId, afterSwitch.Profile.ToProfileId());
+            True(afterSwitch.ReusedConfirmedState, "成功切换应直接更新目标状态，无需再次识别。");
+            var ini = File.ReadAllText(Path.Combine(fixture.Game, "config.ini"));
+            True(ini.Contains("game_version=" + version) && ini.Contains("keep=yes") && ini.Contains("cps=" + targetId),
+                "渠道切换必须保留当前游戏版本和无关配置。");
+            if (targetId == ProfileIds.Bilibili)
+            {
+                var iniPath = Path.Combine(fixture.Game, "config.ini");
+                var outdatedIni = ini.Replace("game_version=" + version, "game_version=3.1.0");
+                File.WriteAllText(iniPath, outdatedIni);
+                var versionReport = inspector.Inspect(fixture.Game);
+                File.WriteAllText(fixture.Paths.FileTransactionJournalFile, "{}");
+                True(!inspector.SynchronizeBilibiliVersion(versionReport), "有待恢复事务时不得自动修改 INI。");
+                File.Delete(fixture.Paths.FileTransactionJournalFile);
+                var busyInspector = new InspectionService(configuration, new GameDirectoryService(), new ProfileDetector(fixture.Paths),
+                    new StateStore(fixture.Paths), new FakeProcessMonitor("ZenlessZoneZero.exe"), inspectLocalPackages: false);
+                True(!busyInspector.SynchronizeBilibiliVersion(versionReport), "游戏运行时不得自动修改 INI。");
+                inspector.Inspect(fixture.Game, readOnly: true);
+                Equal(outdatedIni, File.ReadAllText(iniPath));
+                True(inspector.SynchronizeBilibiliVersion(versionReport), "已更新的 B 服应自动同步 INI 游戏版本。");
+                Equal(ini, File.ReadAllText(iniPath));
+                Equal(outdatedIni, File.ReadAllText(iniPath + ".zzzswitch-version.bak"));
+                var writeTime = File.GetLastWriteTimeUtc(iniPath);
+                True(!inspector.SynchronizeBilibiliVersion(versionReport), "版本一致时不得重复写入。");
+                Equal(writeTime, File.GetLastWriteTimeUtc(iniPath));
+                True(inspector.Inspect(fixture.Game).Detection.ReusedConfirmedState, "只同步版本不应触发重复核心识别。");
+                File.WriteAllText(Path.Combine(fixture.Game, "payload.bin"), new string('x', payload.Length));
+                Equal(DetectedProfile.Unknown, inspector.Inspect(fixture.Game).Detection.Profile);
+                File.WriteAllText(Path.Combine(fixture.Game, "payload.bin"), payload);
+                File.WriteAllText(Path.Combine(fixture.Game, keys[0]), Content(SophonRegion.OS, keys[0]));
+                Equal(DetectedProfile.Unknown, inspector.Inspect(fixture.Game).Detection.Profile);
+                File.WriteAllText(Path.Combine(fixture.Game, keys[0]), Content(SophonRegion.CN, keys[0]));
+                WriteProfile(ProfileIds.Bilibili, []);
+                Equal(DetectedProfile.Unknown, inspector.Inspect(fixture.Game).Detection.Profile);
+                True(!planner.CreatePlan(fixture.Game, ProfileIds.Bilibili, ProfileIds.CnOfficial).CanExecute,
+                    "没有明确兼容声明时必须拒绝复用。");
+                WriteProfile(ProfileIds.Bilibili, [version]);
+            }
+            sourceId = targetId;
+        }
+        // Valid overlay with Global core is inconsistent, even with an exact regional match.
+        File.WriteAllText(Path.Combine(fixture.Game, "payload.bin"), payload);
+        Equal(DetectedProfile.Unknown, inspector.Inspect(fixture.Game).Detection.Profile);
+        Equal(oldMarker, File.ReadAllText(Path.Combine(oldInstall.PackageDirectory, ".bundled-package.json")));
+        Equal(payload, File.ReadAllText(Path.Combine(oldInstall.PackageDirectory, "payload.bin")));
+
+        string Content(SophonRegion region, string key) => $"{region}:{key}:{version}";
     }
 
     private static Task BundledBilibiliPackageInstallsOnFirstRun()
