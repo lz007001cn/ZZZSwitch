@@ -148,11 +148,16 @@ public enum FileTransactionStage
     BlocksTransitioned,
     FilesApplied,
     MetadataRestored,
-    Staging
+    Staging,
+    RestoreStaging,
+    RestorePrepared,
+    RestoreApplied,
+    RestoreRolledBack
 }
 
 public sealed class FileTransactionJournal
 {
+    public string? RestoreRecordPath { get; init; }
     public required string OperationId { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public required string BackupPath { get; init; }

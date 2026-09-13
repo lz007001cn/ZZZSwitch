@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ZZZSwitch.Core.Models;
 
 namespace ZZZSwitch.Core.Services;
@@ -56,74 +57,7 @@ public sealed class RestoreService
             };
         }
 
-        var blockers = _processMonitor.FindRelatedProcesses().Where(x =>
-            x.StartsWith("ZenlessZoneZero", StringComparison.OrdinalIgnoreCase) ||
-            x.StartsWith("HYUpdater", StringComparison.OrdinalIgnoreCase) ||
-            x.StartsWith("PCGamePlatform", StringComparison.OrdinalIgnoreCase) ||
-            x.StartsWith("game_security_protection", StringComparison.OrdinalIgnoreCase) ||
-            x.StartsWith("ZZZSwitch", StringComparison.OrdinalIgnoreCase)).ToArray();
-        if (blockers.Length > 0)
-        {
-            return new()
-            {
-                OperationId = $"restore_{record.OperationId}",
-                Success = false,
-                Error = $"以下进程阻止恢复：{string.Join("、", blockers)}"
-            };
-        }
-
-        foreach (var relative in record.BackedUpFiles.Concat(record.OriginallyMissingFiles).Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            var target = PathSafety.ResolveOrThrow(record.GamePath, relative);
-            if (!_files.FileExists(target))
-            {
-                continue;
-            }
-
-            try
-            {
-                using var handle = _files.OpenExclusive(target);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return new()
-                {
-                    OperationId = $"restore_{record.OperationId}",
-                    Success = false,
-                    Error = $"文件被占用，无法恢复：{target}"
-                };
-            }
-        }
-
-        var success = _backups.Rollback(backupPath, record, out var detail);
-        if (success)
-        {
-            record.RestoredAt = DateTimeOffset.Now;
-            record.RollbackResult = "manual_restore_success";
-            _backups.SaveRecord(backupPath, record);
-            _stateStore.Save(new AppState
-            {
-                GamePath = record.GamePath,
-                GameVersion = record.GameVersion,
-                CurrentProfile = record.SourceProfile,
-                LastSuccessfulSwitch = record.RestoredAt,
-                LastOperationId = $"restore_{record.OperationId}",
-                LastReplaceCount = record.BackedUpFiles.Count,
-                LastDeleteCount = record.OriginallyMissingFiles.Count,
-                LastBackupPath = backupPath
-            });
-        }
-
-        return new()
-        {
-            OperationId = $"restore_{record.OperationId}",
-            Success = success,
-            RolledBack = success,
-            SuccessfulReplace = success ? record.BackedUpFiles.Count : 0,
-            SuccessfulDelete = success ? record.OriginallyMissingFiles.Count : 0,
-            BackupPath = backupPath,
-            Error = success ? null : detail
-        };
+        return new RestoreTransactionService(_backups, _stateStore, _processMonitor).Execute(backupPath, record, expectedGamePath);
     }
 
     private (string Path, BackupRecord? Record) FindLatest(string expectedGamePath)
@@ -173,7 +107,7 @@ public sealed class RestoreService
         }
         catch (Exception ex) when (
             ex is ArgumentException or NotSupportedException or PathTooLongException or
-                IOException or UnauthorizedAccessException or InvalidDataException)
+                IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException)
         {
             return (string.Empty, null);
         }

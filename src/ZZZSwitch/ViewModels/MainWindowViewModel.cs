@@ -23,6 +23,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _issueSummary = string.Empty;
     private string _report = string.Empty;
     private string _busyStatus = "正在处理…";
+    private (string Chinese, string English)? _inlineSwitchStatus;
     private bool _isBusy;
     private bool _showCompactStatus;
     private bool _isProgressIndeterminate;
@@ -45,6 +46,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ICommand OnlineResourcesCommand { get; private set; } = DisabledCommand;
     public ICommand BackupsCommand { get; private set; } = DisabledCommand;
     public ICommand BackupDirectoryCommand { get; private set; } = DisabledCommand;
+    public ICommand CheckCommand { get; private set; } = DisabledCommand;
     public ICommand LogsCommand { get; private set; } = DisabledCommand;
     public ICommand OpenPackagesCommand { get; private set; } = DisabledCommand;
     public ICommand SettingsCommand { get; private set; } = DisabledCommand;
@@ -192,19 +194,72 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public void SetInspectionCapabilities(bool canManageCache, bool canManageOnlineResources)
     {
+        var changed = false;
         if (_inspectionCanManageCache != canManageCache)
         {
+            changed = true;
             _inspectionCanManageCache = canManageCache;
             OnPropertyChanged(nameof(CanManageCache));
         }
 
         if (_inspectionCanManageOnlineResources != canManageOnlineResources)
         {
+            changed = true;
             _inspectionCanManageOnlineResources = canManageOnlineResources;
             OnPropertyChanged(nameof(CanManageOnlineResources));
         }
 
-        RefreshCommandStates();
+        if (changed) RefreshCommandStates();
+    }
+
+    public void SetBusy(bool busy, string status, bool compactMode)
+    {
+        if (busy)
+        {
+            _inlineSwitchStatus = null;
+        }
+        // BusyIndicator 是根网格上的浮层，不参与主 StackPanel 测量；显示进度不会推动页面内容。
+        BusyStatus = status;
+        IsBusy = busy;
+        ShowCompactStatus =
+            busy && compactMode;
+        IsProgressIndeterminate = busy;
+        if (!busy)
+        {
+            ProgressValue = 0;
+        }
+    }
+
+    public void ApplyOperationProgress(OperationProgress progress, string step, Func<string, string, string> localize)
+    {
+        BusyStatus = progress.IsRollingBack
+            ? localize($"回滚中：{progress.Step}", $"Rolling back: {step}")
+            : step;
+        IsProgressIndeterminate = progress.IsIndeterminate || progress.IsRollingBack;
+        ProgressMaximum = Math.Max(
+            1,
+            progress.PlannedReplace + progress.PlannedDelete + progress.PlannedCacheRestore);
+        ProgressValue =
+            progress.SuccessfulReplace +
+            progress.SuccessfulDelete +
+            progress.SuccessfulCacheRestore;
+        Report = OperationProgressFormatting.Report(progress, step, localize);
+    }
+
+    public void ApplyInlineSwitchResult(string chineseStatus, string englishStatus, bool success, Func<string, string, string> localize)
+    {
+        _inlineSwitchStatus = (chineseStatus, englishStatus);
+        BusyStatus = localize(chineseStatus, englishStatus);
+        IsProgressIndeterminate = false;
+        ProgressMaximum = 1;
+        ProgressValue = success ? 1 : 0;
+        ShowCompactStatus = true;
+    }
+
+    public void RefreshInlineLanguage(Func<string, string, string> localize)
+    {
+        if (ShowCompactStatus && _inlineSwitchStatus is { } status)
+            BusyStatus = localize(status.Chinese, status.English);
     }
 
     public void ApplyInspection(InspectionPresentation presentation)
@@ -243,6 +298,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void ConfigureCommands(MainWindowCommandHandlers handlers)
     {
         _refreshCommandStates.Clear();
+        CheckCommand = Async(handlers.Check ?? (() => Task.CompletedTask), () => IsInteractionEnabled, handlers.HandleUnexpectedError);
         AutoDetectCommand = Async(handlers.AutoDetect, () => IsInteractionEnabled, handlers.HandleUnexpectedError);
         ChooseDirectoryCommand = Async(handlers.ChooseDirectory, () => IsInteractionEnabled, handlers.HandleUnexpectedError);
         SwitchGlobalCommand = Async(
@@ -330,6 +386,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         nameof(OnlineResourcesCommand),
         nameof(BackupsCommand),
         nameof(BackupDirectoryCommand),
+        nameof(CheckCommand),
         nameof(LogsCommand),
         nameof(OpenPackagesCommand),
         nameof(SettingsCommand)
@@ -362,4 +419,5 @@ public sealed record MainWindowCommandHandlers(
     Action OpenLogs,
     Func<Task> ImportPackages,
     Func<Task> OpenSettings,
-    Action<Exception> HandleUnexpectedError);
+    Action<Exception> HandleUnexpectedError,
+    Func<Task>? Check = null);

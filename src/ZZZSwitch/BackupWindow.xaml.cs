@@ -2,6 +2,8 @@ using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using ZZZSwitch.Core.Models;
+using ZZZSwitch.Workflows;
+using ZZZSwitch.Presentation;
 using ZZZSwitch.Core.Services;
 
 namespace ZZZSwitch;
@@ -10,6 +12,8 @@ public partial class BackupWindow : Window
 {
     private readonly BackupService _backups;
     private readonly RestoreService _restore;
+    private readonly BackupRestoreWorkflow _restoreWorkflow;
+    private bool _restoring;
     private readonly LegacyRestoreSafetyPolicy _safetyPolicy;
     private readonly OperationCoordinator _operations;
     private readonly string _currentGamePath;
@@ -20,7 +24,8 @@ public partial class BackupWindow : Window
         RestoreService restore,
         LegacyRestoreSafetyPolicy safetyPolicy,
         OperationCoordinator operations,
-        string currentGamePath)
+        string currentGamePath,
+        MainWindowWorkflowContext? context = null)
     {
         InitializeComponent();
         var app = (App)System.Windows.Application.Current;
@@ -28,6 +33,8 @@ public partial class BackupWindow : Window
         SourceInitialized += (_, _) => app.Theme.ApplyWindow(this);
         _backups = backups;
         _restore = restore;
+        _restoreWorkflow = new BackupRestoreWorkflow(operations, context);
+        Closing += (_, e) => e.Cancel = _restoring;
         _safetyPolicy = safetyPolicy;
         _operations = operations;
         _currentGamePath = currentGamePath;
@@ -52,79 +59,46 @@ public partial class BackupWindow : Window
 
     private async void RestoreLatest_Click(object sender, RoutedEventArgs e)
     {
-        var candidate = _restore.FindLatestRecord(_currentGamePath);
-        if (candidate is null)
-        {
-            ThemedMessageWindow.Show(
-                this,
-                T("没有可恢复的上次状态", "No last state to restore"),
-                T("未找到与状态记录中最后一次切换精确对应的可恢复备份。", "No restorable backup exactly matching the last switch was found."),
-                MessageTone.Information);
-            return;
-        }
-
-        var safety = _safetyPolicy.Evaluate(_currentGamePath, candidate);
-        if (!safety.CanRestore)
-        {
-            ThemedMessageWindow.Show(
-                this,
-                T("无法恢复", "Unable to restore"),
-                safety.Reason ?? T("当前备份不能安全恢复。", "This backup cannot be restored safely."),
-                MessageTone.Warning);
-            return;
-        }
-
-        if (ThemedMessageWindow.Show(
-                this,
-                T("确认恢复上次状态", "Confirm restoring the last state"),
-                T(
-                    "将使用状态记录精确对应的最后一次切换备份，恢复切换前状态。\n\n请确认游戏与启动器均已退出。",
-                    "The backup exactly matching the last switch will restore the pre-switch state.\n\nMake sure the game and launcher are closed."),
-                MessageTone.Warning,
-                showCancel: true,
-                primaryText: T("恢复上次状态", "Restore last state")) != true)
-        {
-            return;
-        }
-
-        if (!_operations.TryBegin(out var lease))
-        {
-            ThemedMessageWindow.Show(
-                this,
-                T("操作正在进行", "Operation in progress"),
-                _operations.LastFailure ?? T("请等待当前操作完成后再试。", "Wait for the current operation to finish and try again."),
-                MessageTone.Information);
-            return;
-        }
-
-        using var operation = lease!;
-        OperationResult result;
-        IsEnabled = false;
-        Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
         try
         {
-            result = await Task.Run(() => _restore.RestoreLatest(_currentGamePath));
-        }
-        catch (Exception ex) when (
-            ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException or ArgumentException)
-        {
-            ThemedMessageWindow.Show(this, T("恢复失败", "Restore failed"), ex.Message, MessageTone.Error);
-            return;
-        }
-        finally
-        {
-            Mouse.OverrideCursor = null;
-            IsEnabled = true;
-        }
+            var candidate = _restore.FindLatestRecord(_currentGamePath);
+            if (candidate is null)
+            {
+                ThemedMessageWindow.Show(
+                    this,
+                    T("没有可恢复的上次状态", "No last state to restore"),
+                    T("未找到与状态记录中最后一次切换精确对应的可恢复备份。", "No restorable backup exactly matching the last switch was found."),
+                    MessageTone.Information);
+                return;
+            }
 
-        ThemedMessageWindow.Show(
-            this,
-            result.Success ? T("恢复成功", "Restore complete") : T("恢复失败", "Restore failed"),
-            result.Success
-                ? T("已恢复最后一次切换前的状态。", "The state before the last switch has been restored.")
-                : result.Error ?? T("恢复操作未完成。", "The restore operation did not complete."),
-            result.Success ? MessageTone.Success : MessageTone.Error);
-        LoadRows();
+            var safety = _safetyPolicy.Evaluate(_currentGamePath, candidate);
+            if (!safety.CanRestore)
+            {
+                ThemedMessageWindow.Show(
+                    this,
+                    T("无法恢复", "Unable to restore"),
+                    safety.Reason ?? T("当前备份不能安全恢复。", "This backup cannot be restored safely."),
+                    MessageTone.Warning);
+                return;
+            }
+
+            if (ThemedMessageWindow.Show(
+                    this,
+                    T("确认恢复上次状态", "Confirm restoring the last state"),
+                    T(
+                        "将使用状态记录精确对应的最后一次切换备份，恢复切换前状态。\n\n请确认游戏与启动器均已退出。",
+                        "The backup exactly matching the last switch will restore the pre-switch state.\n\nMake sure the game and launcher are closed."),
+                    MessageTone.Warning,
+                    showCancel: true,
+                    primaryText: T("恢复上次状态", "Restore last state")) != true)
+            {
+                return;
+            }
+
+            await RunRestoreAsync(() => _restore.RestoreLatest(_currentGamePath));
+        }
+        catch (Exception ex) { ShowRestoreError(ex); }
     }
 
     private async void Restore_Click(object sender, RoutedEventArgs e)
@@ -139,73 +113,60 @@ public partial class BackupWindow : Window
             return;
         }
 
-        if (!_operations.TryBegin(out var lease))
+        try
         {
-            ThemedMessageWindow.Show(
-                this,
-                T("操作正在进行", "Operation in progress"),
-                _operations.LastFailure ?? T("请等待当前操作完成后再试。", "Wait for the current operation to finish and try again."),
-                MessageTone.Information);
-            return;
-        }
+            var safety = _safetyPolicy.Evaluate(_currentGamePath, row.Record);
+            if (!safety.CanRestore)
+            {
+                ThemedMessageWindow.Show(
+                    this,
+                    T("无法恢复", "Unable to restore"),
+                    safety.Reason ?? T("当前备份不能安全恢复。", "This backup cannot be restored safely."),
+                    MessageTone.Warning);
+                return;
+            }
 
-        using var operation = lease!;
-        var safety = _safetyPolicy.Evaluate(_currentGamePath, row.Record);
-        if (!safety.CanRestore)
-        {
-            ThemedMessageWindow.Show(
-                this,
-                T("无法恢复", "Unable to restore"),
-                safety.Reason ?? T("当前备份不能安全恢复。", "This backup cannot be restored safely."),
-                MessageTone.Warning);
-            return;
-        }
+            if (ThemedMessageWindow.Show(
+                    this,
+                    T("确认恢复", "Confirm restore"),
+                    T(
+                        $"将恢复备份：\n{row.Path}\n\n这会修改对应游戏目录中的文件。请确认游戏与启动器均已退出。",
+                        $"The following backup will be restored:\n{row.Path}\n\nThis modifies files in the corresponding game directory. Make sure the game and launcher are closed."),
+                    MessageTone.Warning,
+                    showCancel: true,
+                    primaryText: T("恢复备份", "Restore backup")) != true)
+            {
+                return;
+            }
 
-        if (ThemedMessageWindow.Show(
-                this,
-                T("确认恢复", "Confirm restore"),
-                T(
-                    $"将恢复备份：\n{row.Path}\n\n这会修改对应游戏目录中的文件。请确认游戏与启动器均已退出。",
-                    $"The following backup will be restored:\n{row.Path}\n\nThis modifies files in the corresponding game directory. Make sure the game and launcher are closed."),
-                MessageTone.Warning,
-                showCancel: true,
-                primaryText: T("恢复备份", "Restore backup")) != true)
-        {
-            return;
+            await RunRestoreAsync(() => _restore.Restore(row.Path, row.Record, _currentGamePath));
         }
+        catch (Exception ex) { ShowRestoreError(ex); }
+    }
 
-        OperationResult result;
+    private async Task RunRestoreAsync(Func<OperationResult> restore)
+    {
+        if (_restoring) return;
+        _restoring = true;
         IsEnabled = false;
         Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
         try
         {
-            result = await Task.Run(() => _restore.Restore(row.Path, row.Record, _currentGamePath));
-        }
-        catch (Exception ex) when (
-            ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException or ArgumentException)
-        {
-            ThemedMessageWindow.Show(
-                this,
-                T("恢复失败", "Restore failed"),
-                ex.Message,
-                MessageTone.Error);
-            return;
+            var result = await _restoreWorkflow.RunAsync(restore);
+            var presentation = BackupRestorePresentation.From(result.Result, T, result.RefreshWarning);
+            ThemedMessageWindow.Show(this, presentation.Title, presentation.Message, presentation.Tone);
+            LoadRows();
         }
         finally
         {
             Mouse.OverrideCursor = null;
             IsEnabled = true;
+            _restoring = false;
         }
-
-        ThemedMessageWindow.Show(
-            this,
-            result.Success ? T("恢复成功", "Restore complete") : T("恢复失败", "Restore failed"),
-            result.Success
-                ? T("备份中的文件已恢复。", "The files in the backup have been restored.")
-                : result.Error ?? T("恢复操作未完成。", "The restore operation did not complete."),
-            result.Success ? MessageTone.Success : MessageTone.Error);
-        LoadRows();
     }
+
+    private void ShowRestoreError(Exception ex) =>
+        ThemedMessageWindow.Show(this, T("恢复失败", "Restore failed"), ex.Message, MessageTone.Error);
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
@@ -249,7 +210,7 @@ public partial class BackupWindow : Window
             _backups.DeleteBackup(row.Path);
             LoadRows();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
         {
             ThemedMessageWindow.Show(
                 this,

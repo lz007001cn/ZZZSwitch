@@ -115,6 +115,7 @@ public sealed class SwitchPlanner
         {
             OperationId = operationId,
             GamePath = Path.GetFullPath(gamePath),
+            SourceFileStamps = PlanFileGuard.ForPlan(gamePath, manifest, targetSnapshot, issues),
             PackageRoot = packageRoot,
             PackageDirectory = packageDirectory,
             Manifest = manifest,
@@ -166,6 +167,7 @@ public sealed class SwitchPlanner
         {
             OperationId = operationId,
             GamePath = Path.GetFullPath(gamePath),
+            SourceFileStamps = PlanFileGuard.ForPlan(gamePath, manifest, targetSnapshot, issues),
             PackageRoot = materialization.PackageRoot,
             PackageDirectory = materialization.PackageDirectory,
             Manifest = manifest,
@@ -368,6 +370,7 @@ public sealed class SwitchPlanner
         {
             OperationId = operationId,
             GamePath = Path.GetFullPath(gamePath),
+            SourceFileStamps = PlanFileGuard.ForPlan(gamePath, composite, targetSnapshot, issues),
             PackageRoot = baseMaterialization.PackageRoot,
             PackageDirectory = baseMaterialization.PackageDirectory,
             ResolvedSourceFiles = resolvedSources,
@@ -404,6 +407,13 @@ public sealed class SwitchPlanner
         IReadOnlyDictionary<string, string>? resolvedSourceFiles = null)
     {
         var issues = new List<ValidationIssue>();
+        OrdinaryPathGuard ordinaryPaths;
+        try { ordinaryPaths = PlanFileGuard.CheckPaths(gamePath, manifest, targetSnapshot, _paths.BackupsRoot); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
+        {
+            issues.Add(new(IssueSeverity.Error, "path.target.unsafe", ex.Message));
+            return issues;
+        }
         var game = _gameDirectory.Validate(gamePath);
         issues.AddRange(game.Issues);
 
@@ -460,8 +470,9 @@ public sealed class SwitchPlanner
                     packageDirectory,
                     entry,
                     resolvedSourceFiles);
+                ordinaryPaths.Ensure(source);
             }
-            catch (InvalidDataException ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
             {
                 issues.Add(new(IssueSeverity.Error, "path.source.unsafe", ex.Message, entry.Source));
                 continue;

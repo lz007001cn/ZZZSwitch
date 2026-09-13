@@ -3,14 +3,15 @@ namespace ZZZSwitch.Core.Services;
 public sealed class OperationCoordinator
 {
     private readonly string? _lockFile;
+    private readonly AppPaths? _paths;
     private int _active;
 
-    public OperationCoordinator(AppPaths? paths = null) => _lockFile = paths?.OperationLockFile;
+    public OperationCoordinator(AppPaths? paths = null) { _paths = paths; _lockFile = paths?.OperationLockFile; }
 
     public bool IsBusy => Volatile.Read(ref _active) != 0;
     public string? LastFailure { get; private set; }
 
-    public bool TryBegin(out IDisposable? lease)
+    public bool TryBegin(out IDisposable? lease, bool allowPendingRecovery = false)
     {
         if (Interlocked.CompareExchange(ref _active, 1, 0) != 0)
         {
@@ -29,6 +30,15 @@ public sealed class OperationCoordinator
             return false;
         }
 
+        if (!allowPendingRecovery && _paths is not null &&
+            (File.Exists(_paths.FileTransactionJournalFile) || File.Exists(_paths.HotUpdateJournalFile)))
+        {
+            processLease?.Dispose();
+            Release();
+            lease = null;
+            LastFailure = "有未完成事务，请在检查中重试恢复。";
+            return false;
+        }
         LastFailure = null;
         lease = new OperationLease(this, processLease);
         return true;

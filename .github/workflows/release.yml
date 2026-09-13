@@ -102,9 +102,11 @@ jobs:
             gh release upload $env:RELEASE_TAG "$archive" --clobber
           }
           else {
+            $notesFile = Join-Path $env:RUNNER_TEMP "release-notes.txt"
+            [IO.File]::WriteAllText($notesFile, "")
             gh release create $env:RELEASE_TAG `
               "$archive" `
               --verify-tag `
-              --generate-notes `
+              --notes-file "$notesFile" `
               --title "ZZZSwitch $env:RELEASE_TAG"
           }

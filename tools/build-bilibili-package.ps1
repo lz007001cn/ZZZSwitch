@@ -14,6 +14,7 @@ $SdkPath = if ([string]::IsNullOrWhiteSpace($SdkPath)) {
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $stableConfigRoot = Join-Path $projectRoot 'config'
 $stagingRoot = Join-Path $projectRoot '_release-staging\bilibili-package'
+$candidateConfigRoot = Join-Path $stagingRoot 'config'
 $packageArchiveRoot = Join-Path $stagingRoot 'package-archive'
 $packageDirectory = Join-Path $packageArchiveRoot ".zzzswitch\packages\$GameVersion\bilibili"
 $packageZip = Join-Path $stagingRoot "ZZZSwitch-Bilibili-Packages-$GameVersion.zip"
@@ -106,6 +107,10 @@ function New-Transition(
     }
 }
 
+$baseCnProfile = Get-Content -Raw -Encoding UTF8 (Join-Path $stableConfigRoot 'profiles\cn_official.json') | ConvertFrom-Json
+if ($GameVersion -ne $baseCnProfile.gameVersion) {
+    throw "GameVersion must match the core profile baseline ($($baseCnProfile.gameVersion)); cross-version overlay reuse is resolved by the app. Supply current core profiles before changing this baseline."
+}
 if (-not (Test-Path -LiteralPath $LauncherRoot -PathType Container)) {
     throw "Bilibili launcher directory not found: $LauncherRoot"
 }
@@ -129,9 +134,8 @@ foreach ($signedFile in @($platformExe, $protectionExe, $SdkPath)) {
     }
 }
 
-New-Item -ItemType Directory -Path (Join-Path $stableConfigRoot 'profiles') -Force | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $stableConfigRoot 'transitions') -Force | Out-Null
 Reset-GeneratedDirectory $stagingRoot
+Copy-Item -LiteralPath $stableConfigRoot -Destination $candidateConfigRoot -Recurse
 New-Item -ItemType Directory -Path $packageDirectory -Force | Out-Null
 
 # The B package contains only the overlay. CN core files are read from the existing
@@ -149,6 +153,7 @@ $sdkRecord = [ordered]@{
 
 $globalProfile = Get-Content -Raw -Encoding UTF8 (Join-Path $stableConfigRoot 'profiles\global.json') | ConvertFrom-Json
 $cnProfile = Get-Content -Raw -Encoding UTF8 (Join-Path $stableConfigRoot 'profiles\cn_official.json') | ConvertFrom-Json
+$previousBProfile = Get-Content -Raw -Encoding UTF8 (Join-Path $stableConfigRoot 'profiles\bilibili.json') | ConvertFrom-Json
 $globalToCn = Get-Content -Raw -Encoding UTF8 (Join-Path $stableConfigRoot 'transitions\global-to-cn-official.json') | ConvertFrom-Json
 $cnToGlobal = Get-Content -Raw -Encoding UTF8 (Join-Path $stableConfigRoot 'transitions\cn-official-to-global.json') | ConvertFrom-Json
 
@@ -167,6 +172,9 @@ $optionalDelete = @($overlayEntries | ForEach-Object { [pscustomobject][ordered]
 
 $bProfile = [pscustomobject][ordered]@{
     id = 'bilibili'
+    gameVersion = $cnProfile.gameVersion
+    reuseOverlayAcrossGameVersions = [bool]$previousBProfile.reuseOverlayAcrossGameVersions
+    overlayCompatibleGameVersions = @($previousBProfile.overlayCompatibleGameVersions | Where-Object { $null -ne $_ })
     displayName = "$([char]0x7EDD)$([char]0x533A)$([char]0x96F6)B$([char]0x670D)"
     packageDirectoryName = 'bilibili'
     enabled = $true
@@ -188,7 +196,7 @@ $bProfile = [pscustomobject][ordered]@{
         }
     )
 }
-Write-Json (Join-Path $stableConfigRoot 'profiles\bilibili.json') $bProfile
+Write-Json (Join-Path $candidateConfigRoot 'profiles\bilibili.json') $bProfile
 
 $bPatch = @(New-IniPatch 'zzz_bilibili_pc' '14' '0' '{"hyp":{"uapc":""},"nap_cn":{"uapc":""}}')
 $cnPatch = @(New-IniPatch 'zzz_mktbackup2_pc' '1' '2' '{"hyp":{"uapc":""},"nap_cn":{"uapc":""}}')
@@ -196,13 +204,13 @@ $globalPatch = @(New-IniPatch 'zzz_oversea_gw_pc' '1' '0' '{"hyp":{"uapc":""},"n
 $cnCoreFromSharedPackage = @($globalToCn.replaceFiles | ForEach-Object { Copy-ReplaceEntry $_ 'cn_official' })
 $globalCore = @($cnToGlobal.replaceFiles | ForEach-Object { Copy-ReplaceEntry $_ })
 
-Write-Json (Join-Path $stableConfigRoot 'transitions\cn-official-to-bilibili.json') (
+Write-Json (Join-Path $candidateConfigRoot 'transitions\cn-official-to-bilibili.json') (
     New-Transition 'cn_official' 'bilibili' $overlayEntries $bPatch @() 'Keep CN core; add the signed Bilibili SDK/login window and patch config.ini keys.')
-Write-Json (Join-Path $stableConfigRoot 'transitions\global-to-bilibili.json') (
+Write-Json (Join-Path $candidateConfigRoot 'transitions\global-to-bilibili.json') (
     New-Transition 'global' 'bilibili' ($cnCoreFromSharedPackage + $overlayEntries) $bPatch @() 'Reuse cn_official package files, then add the Bilibili SDK/login window.')
-Write-Json (Join-Path $stableConfigRoot 'transitions\bilibili-to-cn-official.json') (
+Write-Json (Join-Path $candidateConfigRoot 'transitions\bilibili-to-cn-official.json') (
     New-Transition 'bilibili' 'cn_official' @() $cnPatch $optionalDelete 'Keep CN core, remove Bilibili overlay files when present, and restore CN config values.')
-Write-Json (Join-Path $stableConfigRoot 'transitions\bilibili-to-global.json') (
+Write-Json (Join-Path $candidateConfigRoot 'transitions\bilibili-to-global.json') (
     New-Transition 'bilibili' 'global' $globalCore $globalPatch $optionalDelete 'Restore global core, remove Bilibili overlay files when present, and restore global config values.')
 
 $packageReadme = @"
@@ -216,6 +224,8 @@ Do not copy BLPlatform64 into the game root manually; the app installs it after 
 "@
 [IO.File]::WriteAllText((Join-Path $packageArchiveRoot 'README-BILIBILI.txt'), $packageReadme, $utf8NoBom)
 
+dotnet run --project (Join-Path $projectRoot 'tests\ZZZSwitch.Core.Tests\ZZZSwitch.Core.Tests.csproj') -c Release -- --validate-generated-config $candidateConfigRoot
+if ($LASTEXITCODE -ne 0) { throw 'Generated configuration validation failed. Existing config was not modified.' }
 dotnet run --project (Join-Path $projectRoot 'tests\ZZZSwitch.Core.Tests\ZZZSwitch.Core.Tests.csproj') -c Release
 if ($LASTEXITCODE -ne 0) {
     throw "Core test suite failed with exit code $LASTEXITCODE"

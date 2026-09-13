@@ -19,8 +19,30 @@ using ZZZSwitch.ManifestTool.Sophon;
 
 namespace ZZZSwitch.Ui.Smoke;
 
-internal static class Program
+internal static partial class Program
 {
+    private sealed class CheckWindowTestScope : IDisposable
+    {
+        public CheckWindow Window { get; } = new(_ => Task.FromResult("检查完成"),
+            "选择检查或修复操作。重新检测只读取游戏文件；修复资源仅处理软件缓存。\n\n当前目录：E:\\Games\\ZenlessZoneZero");
+        public void Dispose() => Window.Close();
+    }
+
+    private static void SaveReviewImage(Window window, string name)
+    {
+        var directory = Environment.GetEnvironmentVariable("ZZZSWITCH_QA_DIR");
+        if (string.IsNullOrWhiteSpace(directory)) return;
+        Directory.CreateDirectory(directory);
+        var root = (FrameworkElement)window.Content;
+        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(
+            (int)Math.Ceiling(window.Width), (int)Math.Ceiling(window.Height), 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(root);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+        using var stream = File.Create(Path.Combine(directory, name));
+        encoder.Save(stream);
+    }
+
     [STAThread]
     private static int Main()
     {
@@ -124,12 +146,32 @@ internal static class Program
             viewModel.IsBusy = false;
             main.UpdateLayout();
             VerifyCommandRouting();
+            Task.Run(() => VerifyBackupRestoreWorkflow(tempRoot)).GetAwaiter().GetResult();
+            Task.Run(() => VerifyInspectionMaintenanceWorkflows(tempRoot)).GetAwaiter().GetResult();
             VerifyStartupWorkflowAndDialogRouting(main, tempRoot);
             VerifyMainWindowWorkflows(tempRoot);
             VerifyPackageDeletion(tempRoot);
+            VerifyInvalidPackageRepair(tempRoot);
             Assert(main.FindName("RestoreLatestButton") is null,
                 "主界面不应继续显示独立的恢复上次状态按钮。");
-            Require<Button>(main, "BackupDirectoryButton");
+            Assert(main.FindName("BackupDirectoryButton") is null, "备份目录应并入备份菜单。");
+            var backupButton = Require<Button>(main, "BackupsButton");
+            Assert(backupButton.ContextMenu?.Items.Count == 2, "备份菜单必须保留历史和目录两个入口。");
+            var checkButton = Require<Button>(main, "CheckButton");
+            Assert(ReferenceEquals(checkButton.Command, viewModel.CheckCommand) && Grid.GetColumn(checkButton) == 1,
+                "检查按钮必须位于备份之后，并绑定检查命令。");
+            using (var checkScope = new CheckWindowTestScope())
+            {
+                var checks = checkScope.Window;
+                Layout(checks, 620, 440);
+                checks.Show();
+                checks.UpdateLayout();
+                Assert(Require<WrapPanel>(checks, "Actions").ActualHeight > 0, "检查操作区不能为空。");
+                foreach (var name in new[] { "DetectButton", "RepairButton", "PackagesButton", "ResetButton", "RecoverButton" })
+                    Assert(Require<Button>(checks, name).IsEnabled, "未知区服时检查入口仍应可用。");
+                SaveReviewImage(checks, "check-window.png");
+            }
+            SaveReviewImage(main, "main-toolbar.png");
             var compactModeButton = Require<Button>(main, "CompactModeButton");
             var settingsButton = Require<Button>(main, "SettingsButton");
             Assert(Grid.GetColumn(settingsButton) == 2 && Grid.GetColumn(compactModeButton) == 3,
@@ -137,7 +179,7 @@ internal static class Program
             Assert(new[]
                    {
                        Require<TextBlock>(main, "BackupHistoryIcon"),
-                       Require<TextBlock>(main, "BackupDirectoryIcon"),
+                       Require<TextBlock>(main, "CheckIcon"),
                        Require<TextBlock>(main, "CompactModeIcon"),
                        Require<TextBlock>(main, "SettingsIcon")
                    }.All(icon => icon.VerticalAlignment == VerticalAlignment.Center && icon.FontSize == 15),
@@ -859,6 +901,36 @@ internal static class Program
             new System.Windows.Automation.Peers.CheckBoxAutomationPeer(checkBox)
                 .GetPattern(System.Windows.Automation.Peers.PatternInterface.Toggle)).Toggle();
 
+    private static void VerifyInvalidPackageRepair(string tempRoot)
+    {
+        var paths = new AppPaths(Path.Combine(tempRoot, "verify-invalid"));
+        var workspace = Path.Combine(paths.OnlineDifferenceFilesRoot, "3.2.0", ProfileIds.CnOfficial, "test");
+        Directory.CreateDirectory(Path.Combine(workspace, "content"));
+        var source = Path.Combine(workspace, "content", "payload.bin");
+        File.WriteAllText(source, "good");
+        var manifest = new TransitionManifest
+        {
+            SourceProfile = ProfileIds.Global, TargetProfile = ProfileIds.CnOfficial, GameVersion = "3.2.0",
+            ReplaceFiles = [new() { Source = "payload.bin", Target = "payload.bin", Length = 4,
+                Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData("good"u8)) }]
+        };
+        File.WriteAllText(Path.Combine(workspace, "transition-manifest.json"),
+            System.Text.Json.JsonSerializer.Serialize(manifest, JsonSupport.Options));
+        var catalog = new OnlineDifferencePackageCatalog(paths);
+        catalog.MarkInvalidSource(source);
+        var dialog = new OnlineResourceManagementWindow(catalog.GetInventory(), "3.2.0");
+        Require<ListBox>(dialog, "PackageList").SelectedIndex = 0;
+        var verify = Require<Button>(dialog, "VerifyButton");
+        Assert(verify.IsEnabled, "标记为损坏的包必须能发起重新验证。");
+        verify.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert(dialog.Selection.Action == OnlineResourceManagementAction.Verify && dialog.Selection.Package is not null,
+            "验证按钮必须路由到所选损坏包。");
+        catalog.VerifyPackage(dialog.Selection.Package!);
+        Assert(catalog.TryGetReadyMaterialization(ProfileIds.Global, ProfileIds.CnOfficial, "3.2.0", out _),
+            "从界面选中并验证后必须恢复为可用包。");
+        Console.WriteLine("PASS  损坏包可从界面发起验证，完整性通过后重新可用。");
+    }
+
     private static void Layout(Window window, double width, double height)
     {
         window.Width = width;
@@ -1121,6 +1193,10 @@ internal static class Program
         ((AsyncRelayCommand)viewModel.SwitchBilibiliCommand).ExecuteAsync().GetAwaiter().GetResult();
         Assert(switchedProfile == ProfileIds.Bilibili, "B服 Command 未路由到正确目标 profile。");
         Assert(viewModel.CacheManagementCommand.CanExecute(null), "有效扫描状态下缓存 Command 应可执行。");
+        var commandRefreshes = 0;
+        viewModel.CacheManagementCommand.CanExecuteChanged += (_, _) => commandRefreshes++;
+        viewModel.SetInspectionCapabilities(true, true);
+        Assert(commandRefreshes == 0, "相同检查能力不能重复刷新 Command。");
 
         viewModel.IsBusy = true;
         Assert(!viewModel.SwitchGlobalCommand.CanExecute(null) &&
@@ -1170,6 +1246,11 @@ internal static class Program
         var failedResult = failedPrune.RunAsync(null).GetAwaiter().GetResult();
         Assert(failedResult.BackupPruneAttempted && !failedResult.BackupPruneSucceeded,
             "启动备份轮换失败应被记录且不能中断启动流程。");
+        var failedRecovery = new StartupWorkflow(
+            () => new PendingRecoveryResult { Found = true, Success = false, Message = "pending" },
+            () => throw new Exception("恢复失败不得进入轮换"),
+            _ => throw new Exception("恢复材料不能清理")).RunAsync(null).GetAwaiter().GetResult();
+        Assert(!failedRecovery.BackupPruneAttempted, "恢复失败应跳过轮换。");
 
         var dialogs = new MainWindowDialogCoordinator(main);
         var candidate = new GameDirectoryCandidate(Path.Combine(tempRoot, "Game"), "测试");
@@ -1723,6 +1804,7 @@ internal static class Program
         public int ShowCount { get; private set; }
         public BackupLocationAction BackupAction { get; set; }
         public CacheManagementAction CacheAction { get; set; }
+        public MainWindowWorkflowContext? BackupContext { get; private set; }
         public bool ConfirmDeletion { get; set; } = true;
         public string? LastConfirmation { get; private set; }
         public Queue<OnlineResourceManagementSelection> PackageSelections { get; } = new();
@@ -1790,8 +1872,10 @@ internal static class Program
             RestoreService restore,
             LegacyRestoreSafetyPolicy safetyPolicy,
             OperationCoordinator operations,
-            string gamePath)
+            string gamePath,
+            MainWindowWorkflowContext? context = null)
         {
+            BackupContext = context;
         }
 
         public void Reset()

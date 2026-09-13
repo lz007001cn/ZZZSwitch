@@ -46,7 +46,9 @@ public sealed class ProfileDetector
             }
             var bytes = JsonSerializer.SerializeToUtf8Bytes(new
             {
-                Schema = 1, GamePath = Path.GetFullPath(gamePath).TrimEnd('\\', '/').ToUpperInvariant(),
+                // Only cached built-in Bilibili detection used the old unsafe rule.
+                Schema = profiles.Any(p => p.Id == ProfileIds.Bilibili && p.GameVersion == gameVersion) ? 2 : 1,
+                GamePath = Path.GetFullPath(gamePath).TrimEnd('\\', '/').ToUpperInvariant(),
                 GameVersion = gameVersion, Profiles = profiles, Stamps = stamps,
                 SavedPath = state?.GamePath, SavedVersion = state?.GameVersion, state?.CurrentProfile, state?.LastOperationId
             }, JsonSupport.Options);
@@ -96,7 +98,6 @@ public sealed class ProfileDetector
         string? gameVersion = null)
     {
         var configuredProfiles = profiles;
-        var usesManifest = false;
         if (gameVersion is not null && profiles.Any(profile => profile.GameVersion is not null))
         {
             profiles = profiles.Where(profile => string.Equals(profile.GameVersion, gameVersion, StringComparison.Ordinal)).ToArray();
@@ -105,7 +106,6 @@ public sealed class ProfileDetector
                 try
                 {
                     profiles = LoadManifestProfiles(gameVersion, configuredProfiles);
-                    usesManifest = true;
                 }
                 catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or UnauthorizedAccessException or ArgumentException or System.Text.Json.JsonException)
                 {
@@ -141,7 +141,7 @@ public sealed class ProfileDetector
         // A regional Manifest does not describe the Bilibili overlay. Its presence
         // must not silently turn an unsupported Bilibili client into CN Official.
         var issues = new List<ValidationIssue>();
-        if (usesManifest)
+        if (configuredProfiles.Any(p => p.Id == ProfileIds.Bilibili))
         {
             var cnPaths = configuredProfiles.Where(p => p.Id == ProfileIds.CnOfficial)
                 .SelectMany(p => p.KeyFiles).Select(file => file.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);

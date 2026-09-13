@@ -428,6 +428,21 @@ public sealed partial class HotUpdateCacheService
         TryDeleteJournal();
     }
 
+    internal void ValidatePendingPair(FileTransactionJournal files, bool committed)
+    {
+        if (!File.Exists(_paths.HotUpdateJournalFile)) return;
+        using var stream = File.OpenRead(_paths.HotUpdateJournalFile);
+        var blocks = JsonSerializer.Deserialize<HotUpdateTransaction>(stream, JsonSupport.Options)
+            ?? throw new InvalidDataException("Blocks 事务为空。");
+        ValidateTransactionPaths(blocks);
+        if (!string.Equals(Path.GetFullPath(blocks.GamePath).TrimEnd('\\', '/'), Path.GetFullPath(files.GamePath).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase) ||
+            blocks.GameVersion != files.GameVersion ||
+            blocks.SourceProfile != ProfileIds.ToResourceProfile(files.SourceProfile) ||
+            blocks.TargetProfile != ProfileIds.ToResourceProfile(files.TargetProfile) ||
+            (blocks.Committed && !committed))
+            throw new InvalidDataException("普通文件与 Blocks 的安装、版本、方向或提交状态不一致。");
+    }
+
     public string? RecoverPending(string? committedProfile)
     {
         if (!File.Exists(_paths.HotUpdateJournalFile))
@@ -452,6 +467,7 @@ public sealed partial class HotUpdateCacheService
             return "已清理上次已完成切换遗留的事务记录。";
         }
 
+        RecoveryGuard.EnsureVersion(transaction.GamePath, transaction.GameVersion);
         if (!Rollback(transaction))
         {
             throw new IOException("未完成的 Blocks 缓存事务自动恢复失败。");

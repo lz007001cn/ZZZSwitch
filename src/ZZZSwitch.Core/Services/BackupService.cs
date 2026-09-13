@@ -5,6 +5,13 @@ namespace ZZZSwitch.Core.Services;
 
 public sealed class BackupService
 {
+    internal AppPaths Paths => _paths;
+    internal IFileOperations Files => _files;
+    internal string GetRestoreSource(string backupPath, BackupRecord record, string relative)
+    {
+        EnsureUnderBackupsRoot(backupPath);
+        return ResolveBackupSource(record, Path.Combine(backupPath, "files"), relative);
+    }
     private readonly IFileOperations _files;
     private readonly AppPaths _paths;
     private readonly VerifiedFileTransfer _transfers;
@@ -28,12 +35,19 @@ public sealed class BackupService
 
     public BackupRecord CreateBackupForAffectedFiles(SwitchPlan plan, IEnumerable<string> affectedFiles)
     {
-        _paths.EnsureWritableDirectories();
         EnsureUnderBackupsRoot(plan.BackupPath);
-        _files.CreateDirectory(plan.BackupPath);
         var affected = affectedFiles
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        var paths = new OrdinaryPathGuard();
+        paths.Ensure(plan.BackupPath);
+        foreach (var relative in affected)
+        {
+            paths.Ensure(PathSafety.ResolveOrThrow(plan.GamePath, relative));
+            paths.Ensure(PathSafety.ResolveOrThrow(Path.Combine(plan.BackupPath, "files"), relative));
+        }
+        _paths.EnsureWritableDirectories();
+        _files.CreateDirectory(plan.BackupPath);
 
         var record = new BackupRecord
         {
@@ -75,6 +89,23 @@ public sealed class BackupService
     public bool Rollback(string backupPath, BackupRecord record, out string detail)
     {
         EnsureUnderBackupsRoot(backupPath);
+        try
+        {
+            var paths = new OrdinaryPathGuard();
+            paths.Ensure(backupPath);
+            foreach (var relative in record.BackedUpFiles)
+            {
+                paths.Ensure(GetRestoreSource(backupPath, record, relative));
+                paths.Ensure(PathSafety.ResolveOrThrow(record.GamePath, relative));
+            }
+            foreach (var relative in record.OriginallyMissingFiles)
+                paths.Ensure(PathSafety.ResolveOrThrow(record.GamePath, relative));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
+        {
+            detail = "回滚输入或路径检查失败，未写入游戏文件：" + ex.Message;
+            return false;
+        }
         var failures = new List<string>();
         var filesRoot = Path.Combine(backupPath, "files");
 
@@ -191,7 +222,10 @@ public sealed class BackupService
 
     public void DeleteBackup(string backupPath)
     {
+        if (File.Exists(_paths.FileTransactionJournalFile) || File.Exists(_paths.HotUpdateJournalFile))
+            throw new InvalidOperationException("有未完成事务，备份暂不能删除。");
         EnsureUnderBackupsRoot(backupPath);
+        new OrdinaryPathGuard().Ensure(backupPath);
         if (Directory.Exists(backupPath))
         {
             _files.DeleteDirectory(backupPath, true);
@@ -200,6 +234,7 @@ public sealed class BackupService
 
     public int PruneRedundantBackups(string retainedBackupPath, string gamePath)
     {
+        if (File.Exists(_paths.FileTransactionJournalFile) || File.Exists(_paths.HotUpdateJournalFile)) return 0;
         EnsureUnderBackupsRoot(retainedBackupPath);
         var retained = Path.GetFullPath(retainedBackupPath)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -222,6 +257,7 @@ public sealed class BackupService
 
     public int PruneAllBackups(string? retainedBackupPath = null)
     {
+        if (File.Exists(_paths.FileTransactionJournalFile) || File.Exists(_paths.HotUpdateJournalFile)) return 0;
         var protectedBackupPath = TryNormalizeBackupPath(retainedBackupPath);
         var candidates = ListBackups();
         var keep = SelectLatestSourceBackups(candidates, protectedBackupPath);
@@ -266,7 +302,7 @@ public sealed class BackupService
                 DeleteBackup(candidate.Path);
                 removed++;
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             {
                 // Rotation is best effort. A locked old backup must never turn a
                 // successfully committed server switch into a failed transaction.
@@ -278,12 +314,13 @@ public sealed class BackupService
 
     public bool TryDeleteBackup(string backupPath)
     {
+        if (File.Exists(_paths.FileTransactionJournalFile) || File.Exists(_paths.HotUpdateJournalFile)) return false;
         try
         {
             DeleteBackup(backupPath);
             return !Directory.Exists(backupPath);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             return false;
         }
@@ -295,6 +332,9 @@ public sealed class BackupService
     {
         EnsureUnderBackupsRoot(backupPath);
         var path = Path.Combine(backupPath, "backup.json");
+        var guard = new OrdinaryPathGuard();
+        guard.Ensure(path);
+        guard.Ensure(path + ".tmp");
         AtomicJsonFile.Write(path, record);
     }
 

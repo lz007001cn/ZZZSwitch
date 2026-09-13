@@ -31,7 +31,10 @@ public sealed partial class PendingTransactionRecoveryService
 
     public PendingRecoveryResult RecoverPending()
     {
-        var state = _stateStore.LoadWithStatus().State;
+        var stateLoad = _stateStore.LoadWithStatus();
+        if (stateLoad.Warning is not null && (_fileTransactions.Exists || File.Exists(_paths.HotUpdateJournalFile)))
+            return new() { Found = true, Success = false, Message = stateLoad.Warning + " 提交状态无法确认，已保留事务和副本，停止恢复。" };
+        var state = stateLoad.State;
         if (!_fileTransactions.Exists)
         {
             try
@@ -58,6 +61,8 @@ public sealed partial class PendingTransactionRecoveryService
         {
             journal = _fileTransactions.Load()
                       ?? throw new InvalidDataException("普通文件事务日志内容为空。");
+            if (RestoreTransactionService.IsRestore(journal.Stage))
+                return new RestoreTransactionService(_backups, _stateStore, _processMonitor).Recover(journal);
             ValidateJournal(journal);
         }
         catch (Exception ex) when (
@@ -99,7 +104,14 @@ public sealed partial class PendingTransactionRecoveryService
             };
         }
 
-        if (IsCommitted(state, journal))
+        var committed = IsCommitted(state, journal);
+        try { _hotUpdateCaches.ValidatePendingPair(journal, committed); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or ArgumentException)
+        {
+            return new() { Found = true, Success = false, Message = "事务依据冲突，已保留记录并停止恢复：" + ex.Message };
+        }
+
+        if (committed)
         {
             try
             {
@@ -132,6 +144,11 @@ public sealed partial class PendingTransactionRecoveryService
             }
         }
 
+        try { RecoveryGuard.EnsureVersion(journal.GamePath, journal.GameVersion); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
+        {
+            return new() { Found = true, Success = false, Message = ex.Message };
+        }
         var details = new List<string>();
         var blocksRecovered = false;
         try
@@ -175,7 +192,7 @@ public sealed partial class PendingTransactionRecoveryService
             {
                 _backups.SaveRecord(journal.BackupPath, record);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
             {
                 recovered = false;
                 details.Add($"备份记录更新失败：{ex.Message}");

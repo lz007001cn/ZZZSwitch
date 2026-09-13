@@ -69,7 +69,7 @@ public partial class OnlineResourceManagementWindow : Window
         OpenButton.IsEnabled = selected;
         DeleteButton.IsEnabled = count > 0;
         PreviewButton.IsEnabled = selected;
-        VerifyButton.IsEnabled = row?.Package.State == OnlineDifferencePackageState.Ready;
+        VerifyButton.IsEnabled = selected;
         UpdatePackageButton.IsEnabled = selected;
         SelectedCountText.Text = ((App)System.Windows.Application.Current).Localization.Choose(
             $"已选 {count:N0} 项", $"{count:N0} selected");

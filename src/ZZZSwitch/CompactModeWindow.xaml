@@ -86,7 +86,10 @@
                              Margin="0,6,0,0" />
             </Grid>
 
-            <Button Grid.Column="1"
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <Button Command="{Binding CheckCommand}" Content="{DynamicResource L.Main.Check}"
+                    Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" />
+            <Button
                     x:Name="FullModeButton"
                     Click="FullMode_Click"
                     Style="{StaticResource SecondaryButtonStyle}">
@@ -100,6 +103,7 @@
                                VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

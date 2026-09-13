@@ -7,6 +7,8 @@ namespace ZZZSwitch.Core.Services;
 
 public sealed class OnlineDifferencePackageCatalog
 {
+    private const string InvalidMarker = ".invalid-package.json";
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> InvalidInSession = new(StringComparer.OrdinalIgnoreCase);
     private const string TransitionManifestName = "transition-manifest.json";
     private readonly AppPaths _paths;
 
@@ -23,10 +25,19 @@ public sealed class OnlineDifferencePackageCatalog
                 {
                     foreach (var workspace in SafeDirectories(targetDirectory.FullName))
                     {
-                        packages.Add(InspectWorkspace(
+                        try { packages.Add(InspectWorkspace(
                             versionDirectory.Name,
                             targetDirectory.Name,
-                            workspace));
+                            workspace)); }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
+                        {
+                            packages.Add(new OnlineDifferencePackageInfo
+                            {
+                                GameVersion = versionDirectory.Name, SourceProfile = "unknown", TargetProfile = targetDirectory.Name,
+                                ManifestId = workspace.Name, WorkspacePath = workspace.FullName,
+                                State = OnlineDifferencePackageState.Invalid, Problem = ex.Message
+                            });
+                        }
                     }
                 }
             }
@@ -189,6 +200,8 @@ public sealed class OnlineDifferencePackageCatalog
         }
 
         var content = Path.Combine(workspace, "content");
+        try
+        {
         foreach (var entry in manifest!.ReplaceFiles)
         {
             if (!entry.Length.HasValue || string.IsNullOrWhiteSpace(entry.Sha256))
@@ -199,17 +212,19 @@ public sealed class OnlineDifferencePackageCatalog
             var path = SophonFileDownloader.ResolveUnderRoot(content, entry.Source);
             if (!File.Exists(path) || new FileInfo(path).Length != entry.Length.Value)
             {
-                throw new InvalidDataException($"差异包文件缺失或长度不匹配：{entry.Source}");
+                throw new SourceIntegrityException(path);
             }
 
             using var stream = File.OpenRead(path);
             var actual = Convert.ToHexString(SHA256.HashData(stream));
             if (!string.Equals(actual, entry.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException($"差异包文件完整性不匹配：{entry.Source}");
+                throw new SourceIntegrityException(path);
             }
         }
-
+        }
+        catch (SourceIntegrityException ex) { MarkInvalidSource(ex.SourcePath); throw; }
+        MarkReady(workspace);
     }
 
     public int DeleteSupersededPackages(
@@ -278,6 +293,11 @@ public sealed class OnlineDifferencePackageCatalog
             version, targetProfile, content, manifest!, out var readyProblem)
             ? OnlineDifferencePackageState.Ready
             : OnlineDifferencePackageState.Invalid;
+        if (File.Exists(Path.Combine(workspace.FullName, InvalidMarker)) || InvalidInSession.ContainsKey(workspace.FullName))
+        {
+            state = OnlineDifferencePackageState.Invalid;
+            readyProblem = "此差异包曾校验失败，请修复或重新验证后使用。";
+        }
         return new OnlineDifferencePackageInfo
         {
             GameVersion = version,
@@ -313,7 +333,7 @@ public sealed class OnlineDifferencePackageCatalog
 
         foreach (var entry in manifest.ReplaceFiles)
         {
-            if (!entry.Length.HasValue)
+            if (!entry.Length.HasValue || !FileIntegrityService.IsValidSha256(entry.Sha256))
             {
                 problem = $"清单缺少文件长度：{entry.Source}";
                 return false;
@@ -363,13 +383,32 @@ public sealed class OnlineDifferencePackageCatalog
                 throw new InvalidDataException("动态切换清单为空。");
             }
 
+            ConfigurationRepository.ValidateConfiguration(manifest, path);
             return true;
         }
-        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
         {
             problem = ex.Message;
             return false;
         }
+    }
+
+    public void MarkInvalidSource(string sourcePath)
+    {
+        var root = Path.GetFullPath(_paths.OnlineDifferenceFilesRoot).TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+        var full = Path.GetFullPath(sourcePath);
+        if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return;
+        var parts = Path.GetRelativePath(root, full).Split(Path.DirectorySeparatorChar);
+        if (parts.Length < 5 || parts[3] != "content") return;
+        var workspace = Path.Combine(root, parts[0], parts[1], parts[2]);
+        InvalidInSession[workspace] = 0;
+        AtomicJsonFile.Write(Path.Combine(workspace, InvalidMarker), new { Reason = "source.integrity", File = string.Join('/', parts.Skip(4)) });
+    }
+
+    internal static void MarkReady(string workspace)
+    {
+        File.Delete(Path.Combine(workspace, InvalidMarker));
+        InvalidInSession.TryRemove(Path.GetFullPath(workspace), out _);
     }
 
     private static DirectoryInfo[] SafeDirectories(string path) =>

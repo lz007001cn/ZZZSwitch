@@ -10,7 +10,7 @@ using ZZZSwitch.ManifestTool.Sophon;
 
 namespace ZZZSwitch.Core.Tests;
 
-internal static class Program
+internal static partial class Program
 {
     private static readonly List<(string Name, Func<Task> Test)> Tests =
     [
@@ -139,11 +139,14 @@ internal static class Program
 
     public static async Task<int> Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--validate-generated-config") return ValidateGeneratedConfig(args[1]);
+        if (args.Length == 3 && args[0] == "--restore-crash") return RunCrashRestore(args[1], args[2]);
         if (args.Length == 3 && args[0] == "--inspect-live-read-only")
         {
             return InspectLiveReadOnly(args[1], args[2]);
         }
 
+        Tests.AddRange(ReviewRegressionTests());
         var passed = 0;
         foreach (var (name, test) in Tests)
         {
@@ -1173,18 +1176,18 @@ internal static class Program
         {
             catalog.VerifyPackage(package);
         }
-        catch (InvalidDataException)
+        catch (SourceIntegrityException)
         {
             rejected = true;
         }
 
         True(rejected, "差异包管理的手动校验必须识别同长度 SHA-256 损坏。");
-        True(catalog.TryGetReadyMaterialization(
+        True(!catalog.TryGetReadyMaterialization(
                 ProfileIds.Global,
                 ProfileIds.CnOfficial,
                 "3.1.0",
                 out _),
-            "就绪查询只负责确认文件存在和长度；实际切换计划会按清单校验内容哈希。");
+            "已经确认损坏的包不能继续进入就绪结果。");
         return Task.CompletedTask;
     }
 
@@ -4407,6 +4410,9 @@ internal static class Program
             Config = Path.Combine(Root, "config");
             Package = Path.Combine(Root, "package");
             Directory.CreateDirectory(Game);
+            // A real installation always has a version witness. Tests deleting it
+            // explicitly exercise the unknown-version safety boundary.
+            File.WriteAllText(Path.Combine(Game, "version_info"), "3.0.0");
             Directory.CreateDirectory(Package);
             Directory.CreateDirectory(Path.Combine(Config, "profiles"));
             Directory.CreateDirectory(Path.Combine(Config, "transitions"));

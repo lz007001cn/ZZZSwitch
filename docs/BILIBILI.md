@@ -4,6 +4,8 @@ ZZZSwitch 1.2.0 已将原 B服实验能力纳入普通 Release 构建。1.3.4 �
 
 ## 资源与缓存模型
 
+`tools/build-bilibili-package.ps1` 将候选配置写入 `_release-staging/bilibili-package/config`，不直接覆盖正式 `config`。生成时保留国服核心基线 `gameVersion`、跨版本复用开关及兼容版本列表；请求版本必须匹配核心基线，不能把旧核心哈希直接标成新版。候选配置必须通过运行时配置契约检查后才打包；审核后再单独纳入正式配置。
+
 - B服 = 国服核心文件 + `PCGameSDK.dll` + `BLPlatform64` 登录窗 + `sdk_pkg_version`。
 - B服与国服共用国服 `Persistent\Blocks` 和 version/revision 快照，不创建第三套热更新缓存。
 - 进入 B服时只按键修改 `config.ini` 的 `General` 段，保留游戏版本、插件和其他配置。

@@ -117,6 +117,7 @@ public sealed class SwitchEngine
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ValidatePlanSource(plan);
             var sourceWasConfirmed = ProfileDetector.HasConfirmedSource(_paths, plan, _stateStore.Load());
             Report("正在检测实际文件变更", false, indeterminate: true);
             MeasureAction("detectChanges", () =>
@@ -202,6 +203,7 @@ public sealed class SwitchEngine
             record.TargetSnapshotPath = plan.TargetSnapshot?.SnapshotPath;
             record.CacheRestoreCount = plan.TargetSnapshot?.Files.Count ?? 0;
             _backups.SaveRecord(plan.BackupPath, record);
+            ValidatePlanSource(plan);
             fileTransaction!.Stage = FileTransactionStage.Prepared;
             _fileTransactions.Save(fileTransaction);
             changesMayHaveStarted = true;
@@ -427,6 +429,12 @@ public sealed class SwitchEngine
         }
         catch (Exception ex)
         {
+            if (ex is SourceIntegrityException sourceError)
+            {
+                try { new OnlineDifferencePackageCatalog(_paths).MarkInvalidSource(sourceError.SourcePath); }
+                catch (Exception markerError) when (markerError is IOException or UnauthorizedAccessException)
+                { failedFiles.Add("损坏包标记保存失败：" + markerError.Message); }
+            }
             var rolledBack = false;
             var rollbackDetail = "未创建完整备份，未执行回滚。";
             if (changesMayHaveStarted)
@@ -500,7 +508,7 @@ public sealed class SwitchEngine
             if (fileTransaction is not null && !changesMayHaveStarted &&
                 !Directory.Exists(stagingRoot))
             {
-                _fileTransactions.TryDelete();
+                if (_fileTransactions.TryDelete()) _backups.TryDeleteBackup(plan.BackupPath);
             }
         }
 
@@ -625,6 +633,14 @@ public sealed class SwitchEngine
                 throw new IOException($"最终校验发现删除目标仍存在：{entry.Target}");
             }
         }
+    }
+
+    private static void ValidatePlanSource(SwitchPlan plan)
+    {
+        var paths = PlanFileGuard.CheckPaths(plan.GamePath, plan.Manifest, plan.TargetSnapshot, plan.BackupPath);
+        foreach (var entry in plan.Manifest.ReplaceFiles) paths.Ensure(ResolveSource(plan, entry));
+        RecoveryGuard.EnsureVersion(plan.GamePath, plan.Manifest.GameVersion);
+        PlanFileGuard.Validate(plan.GamePath, plan.SourceFileStamps);
     }
 
     private static OperationResult Failure(

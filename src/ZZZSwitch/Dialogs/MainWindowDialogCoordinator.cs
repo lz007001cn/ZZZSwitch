@@ -1,3 +1,4 @@
+using ZZZSwitch.Workflows;
 using System.IO;
 using System.Windows;
 using ZZZSwitch.Core.Models;
@@ -46,7 +47,8 @@ public interface IMainWindowDialogs
         RestoreService restore,
         LegacyRestoreSafetyPolicy safetyPolicy,
         OperationCoordinator operations,
-        string gamePath);
+        string gamePath,
+        MainWindowWorkflowContext? context = null);
 }
 
 public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
@@ -187,8 +189,9 @@ public sealed class MainWindowDialogCoordinator : IMainWindowDialogs
         RestoreService restore,
         LegacyRestoreSafetyPolicy safetyPolicy,
         OperationCoordinator operations,
-        string gamePath) =>
-        new BackupWindow(backups, restore, safetyPolicy, operations, gamePath)
+        string gamePath,
+        MainWindowWorkflowContext? context = null) =>
+        new BackupWindow(backups, restore, safetyPolicy, operations, gamePath, context)
         {
             Owner = ResolveOwner()
         }.Show();

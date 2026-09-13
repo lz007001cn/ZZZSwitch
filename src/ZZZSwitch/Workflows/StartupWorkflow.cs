@@ -27,6 +27,8 @@ public sealed class StartupWorkflow
     public async Task<StartupWorkflowResult> RunAsync(string? stateWarning)
     {
         var recovery = await Task.Run(_recoverPending);
+        if (!recovery.Success)
+            return new(recovery, stateWarning, BackupPruneAttempted: false, BackupPruneSucceeded: false);
         var pruneSucceeded = false;
         try
         {

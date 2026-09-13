@@ -318,6 +318,7 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
             Notes = "Sophon 在线差异源：已完成完整性校验；未使用 .zzzswitch\\packages。"
         };
         await WriteManifestAsync(workspace, manifest, cancellationToken).ConfigureAwait(false);
+        OnlineDifferencePackageCatalog.MarkReady(workspace);
         return new OnlineDifferenceMaterialization
         {
             PackageRoot = content,
@@ -456,6 +457,7 @@ public sealed class OnlineDifferenceService : IOnlineDifferenceService
                 Notes = "由当前客户端按 Sophon Manifest 校验并保存，可用于反向切换。"
             };
             await WriteManifestAsync(workspace, manifest, cancellationToken).ConfigureAwait(false);
+            OnlineDifferencePackageCatalog.MarkReady(workspace);
         }
 
         return new LocalSourceCaptureResult(preserved.Count, ready);

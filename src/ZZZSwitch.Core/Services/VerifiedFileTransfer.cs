@@ -62,7 +62,7 @@ public sealed class VerifiedFileTransfer
         if (copied != requiredLength ||
             !string.Equals(sourceSha256, requiredSha256, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidDataException($"复制源文件完整性不匹配：{source}");
+            throw new SourceIntegrityException(source);
         }
 
         var destinationIntegrity = _integrity.Validate(target, requiredLength, requiredSha256);

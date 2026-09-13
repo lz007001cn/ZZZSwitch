@@ -50,7 +50,8 @@ public sealed class BackupManagementWorkflow
                 _restore,
                 _restoreSafetyPolicy,
                 _operations,
-                _context.GetGamePath().Trim());
+                _context.GetGamePath().Trim(),
+                _context);
         }
         catch (Exception ex)
         {
@@ -131,7 +132,11 @@ public sealed class BackupManagementWorkflow
                 : T(
                     $"已将后续备份位置设置为：\n{result.TargetBackupRoot}",
                     $"Future backups will be stored at:\n{result.TargetBackupRoot}");
-            if (!result.SourceRemoved)
+            if (result.Warning is not null)
+            {
+                message += "\n\n" + result.Warning;
+            }
+            else if (!result.SourceRemoved)
             {
                 message += T(
                     $"\n\n新位置已经启用，但旧目录未能自动删除。确认新位置可用后可手动处理：\n{result.SourceBackupRoot}",

@@ -110,6 +110,7 @@ public sealed class InspectionReport
 
 public sealed class SwitchPlan
 {
+    public IReadOnlyDictionary<string, string>? SourceFileStamps { get; init; }
     public required string OperationId { get; init; }
     public required string GamePath { get; init; }
     public required string PackageRoot { get; init; }

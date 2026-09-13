@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.ComponentModel;
 using System.IO;
-using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Windows;
@@ -39,6 +38,8 @@ public partial class MainWindow : Window
     private readonly HotUpdateCacheService _hotUpdateCaches;
     private readonly FileTransactionJournalStore _fileTransactions;
     private readonly StartupWorkflow _startupWorkflow;
+    private readonly InspectionWorkflow _inspectionWorkflow;
+    private readonly MaintenanceWorkflow _maintenanceWorkflow;
     private readonly ServerSwitchWorkflow _serverSwitchWorkflow;
     private readonly CacheManagementWorkflow _cacheManagementWorkflow;
     private readonly OnlineResourceManagementWorkflow _onlineResourceManagementWorkflow;
@@ -54,14 +55,11 @@ public partial class MainWindow : Window
     private InspectionReport? _lastReport;
     private HotUpdateCacheStatus[] _lastCacheStatuses = [];
     private string? _lastHealthPromptKey;
-    private bool _busy;
-    private (string Chinese, string English)? _inlineSwitchStatus;
     private readonly string? _startupStateWarning;
     private readonly ThemeManager _theme;
     private readonly LocalizationManager _localization;
+    private readonly Func<string, string, string> _localize;
     private readonly UiSettingsService _uiSettingsService;
-    private readonly HashSet<string> _preparedBilibiliPackages =
-        new(StringComparer.OrdinalIgnoreCase);
     private UiSettings _uiSettings;
 
     public MainWindow()
@@ -72,6 +70,7 @@ public partial class MainWindow : Window
         app.RegisterMainWindow(this);
         _theme = app.Theme;
         _localization = app.Localization;
+        _localize = _localization.Choose;
         _viewModel.ApplyInitialLanguage(_localization.Language);
         _uiSettingsService = new UiSettingsService(_paths);
         _uiSettings = _uiSettingsService.Load();
@@ -129,14 +128,29 @@ public partial class MainWindow : Window
             _hotUpdateCaches,
             _fileTransactions,
             _processMonitor);
+        var inspectionUi = new InspectionUiContext(_viewModel, PublishInspection, SetBusy, _localization.Choose);
+        _inspectionWorkflow = new InspectionWorkflow(_inspection, _onlineDifferences, _bundledBilibiliPackage,
+            _fileTransactions, _paths, _operations, inspectionUi);
+        _maintenanceWorkflow = new MaintenanceWorkflow(_operations, _inspection, pendingRecovery,
+            new ClientMaintenanceService(_paths, _inspection), gameDirectory, _bundledBilibiliPackage,
+            _onlineDifferences, inspectionUi, () =>
+            {
+                _inspectionWorkflow.ResetManifestAttempts();
+                _lastHealthPromptKey = null;
+            });
         _startupWorkflow = new StartupWorkflow(
-            pendingRecovery.RecoverPending,
+            () =>
+            {
+                if (!_operations.TryBegin(out var lease, allowPendingRecovery: true))
+                    return new PendingRecoveryResult { Success = false, Message = _operations.LastFailure ?? "Operation in progress." };
+                using (lease) return pendingRecovery.RecoverPending();
+            },
             _stateStore.Load,
             lastBackupPath => _backups.PruneAllBackups(lastBackupPath));
         _restoreSafetyPolicy = new LegacyRestoreSafetyPolicy(_stateStore, _hotUpdateCaches);
         _restore = new RestoreService(_backups, _processMonitor, files, _stateStore, _restoreSafetyPolicy);
         var workflowContext = new MainWindowWorkflowContext(
-            () => _busy,
+            () => _viewModel.IsBusy,
             () => _viewModel.GamePath,
             () => _lastReport,
             () => RefreshInspectionAsync(),
@@ -223,7 +237,8 @@ public partial class MainWindow : Window
             OpenLogs,
             _packageImportWorkflow.ImportAsync,
             _settingsWorkflow.ShowAsync,
-            ShowUnexpectedCommandError));
+            ShowUnexpectedCommandError,
+            ShowChecksAsync));
         Loaded += async (_, _) =>
         {
             var inspectedDuringOnboarding = false;
@@ -306,113 +321,21 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private readonly HashSet<string> _attemptedDetectionManifests = new(StringComparer.Ordinal);
 
     private async Task RefreshInspectionAsync(
         bool showReadOnlyBanner = false,
         bool offerStorageRecovery = false,
         bool allowWhileBusy = false)
     {
-        // 切换、初始化和恢复完成后的复检复用现有忙碌状态，避免进度浮层闪退后立即重现。
-        var managesBusyState = !_busy;
-        if (!managesBusyState && !allowWhileBusy)
-        {
-            return;
-        }
-
-        InspectionReport? report = null;
-        if (managesBusyState)
-        {
-            SetBusy(true, _localization.Choose("正在读取客户端状态…", "Loading client status…"));
-        }
-        else
-        {
-            _viewModel.BusyStatus = _localization.Choose("正在读取客户端状态…", "Loading client status…");
-            _viewModel.IsProgressIndeterminate = true;
-            _viewModel.ProgressValue = 0;
-        }
-        try
-        {
-            var path = _viewModel.GamePath.Trim();
-            report = await Task.Run(() => _inspection.Inspect(path, readOnly: showReadOnlyBanner));
-            if (!showReadOnlyBanner && report.Game.IsValid && report.Detection.NeedsManifestRefresh &&
-                report.Game.GameVersion is { } detectionVersion && !_fileTransactions.Exists &&
-                _attemptedDetectionManifests.Add(detectionVersion))
-            {
-                _viewModel.BusyStatus = _localization.Choose(
-                    $"正在获取 {detectionVersion} 客户端识别清单…",
-                    $"Fetching client identification manifests for {detectionVersion}…");
-                try
-                {
-                    await _onlineDifferences.RefreshManifestsAsync(detectionVersion);
-                    report = await Task.Run(() => _inspection.Inspect(path));
-                }
-                catch (Exception ex) when (ex is IOException or InvalidDataException or HttpRequestException or TaskCanceledException or UnauthorizedAccessException)
-                {
-                    report.Issues.Add(new(IssueSeverity.Warning, "detection.manifest.failed",
-                        _localization.Choose(
-                            $"识别清单获取失败，可在差异包管理中更新 Manifest 后重试：{ex.Message}",
-                            $"Could not fetch identification manifests. Retry Refresh Manifest in client package management: {ex.Message}")));
-                }
-            }
-            if (!showReadOnlyBanner && report.Detection.Profile == DetectedProfile.Bilibili)
-            {
-                IDisposable? versionLease = null;
-                // Pre-switch refresh already runs under the workflow's lease.
-                if (_operations.IsBusy || _operations.TryBegin(out versionLease))
-                {
-                    using (versionLease)
-                        await Task.Run(() => _inspection.SynchronizeBilibiliVersion(report));
-                }
-            }
-            if (report.Game.IsValid && report.Game.GameVersion is { } gameVersion)
-            {
-                var packageKey = $"{Path.GetFullPath(path)}|{gameVersion}";
-                if (!_preparedBilibiliPackages.Contains(packageKey))
-                {
-                    _viewModel.BusyStatus = _localization.Choose(
-                        "正在准备 B 服组件…",
-                        "Preparing Bilibili components…");
-                    try
-                    {
-                        await Task.Run(() =>
-                            _bundledBilibiliPackage.EnsureInstalled(path, gameVersion));
-                        _preparedBilibiliPackages.Add(packageKey);
-                    }
-                    catch (Exception ex) when (
-                        ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
-                    {
-                        report.Issues.Add(new(
-                            IssueSeverity.Warning,
-                            "bilibili.bundle.install.failed",
-                            _localization.Choose(
-                                $"B 服组件未能自动准备：{ex.Message}",
-                                $"Bilibili components could not be prepared automatically: {ex.Message}")));
-                    }
-                }
-            }
-
-            _lastReport = report;
-            RenderReport(report, showReadOnlyBanner);
-        }
-        catch (Exception ex)
-        {
-            _viewModel.HasStatusIssues = true;
-            _viewModel.OperationStatus = _localization.Choose("检查失败", "Inspection failed");
-            _viewModel.Report = ex.Message;
-        }
-        finally
-        {
-            if (managesBusyState)
-            {
-                SetBusy(false, _viewModel.OperationStatus);
-            }
-        }
-
+        var report = await _inspectionWorkflow.RunAsync(showReadOnlyBanner, allowWhileBusy);
         if (offerStorageRecovery && report is not null)
-        {
             await OfferStorageRecoveryAsync(report);
-        }
+    }
+
+    private void PublishInspection(InspectionReport? report, bool readOnlyBanner)
+    {
+        _lastReport = report;
+        if (report is not null) RenderReport(report, readOnlyBanner);
     }
 
     private static Stream OpenBundledBilibiliPackage() =>
@@ -514,63 +437,19 @@ public partial class MainWindow : Window
 
     private void SetBusy(bool busy, string status)
     {
-        _busy = busy;
-        if (busy)
-        {
-            _inlineSwitchStatus = null;
-        }
-        // BusyIndicator 是根网格上的浮层，不参与主 StackPanel 测量；显示进度不会推动页面内容。
-        _viewModel.BusyStatus = _localization.TranslateKnown(status);
-        _viewModel.IsBusy = busy;
-        _viewModel.ShowCompactStatus =
-            busy && ((App)System.Windows.Application.Current).IsCompactModeActive;
-        _viewModel.IsProgressIndeterminate = busy;
-        if (!busy)
-        {
-            _viewModel.ProgressValue = 0;
-        }
+        _viewModel.SetBusy(busy, _localization.TranslateKnown(status),
+            ((App)System.Windows.Application.Current).IsCompactModeActive);
         _viewModel.SetInspectionCapabilities(
             _lastReport?.Game.IsValid == true && _lastReport.Game.GameVersion is not null,
             _lastReport?.Detection.Profile.ToProfileId() is not null &&
             _lastReport.Game.GameVersion is not null);
     }
 
-    private void ShowOperationProgress(OperationProgress progress)
-    {
-        var step = _localization.TranslateKnown(progress.Step);
-        _viewModel.BusyStatus = progress.IsRollingBack
-            ? _localization.Choose($"回滚中：{progress.Step}", $"Rolling back: {step}")
-            : step;
-        _viewModel.IsProgressIndeterminate = progress.IsIndeterminate || progress.IsRollingBack;
-        _viewModel.ProgressMaximum = Math.Max(
-            1,
-            progress.PlannedReplace + progress.PlannedDelete + progress.PlannedCacheRestore);
-        _viewModel.ProgressValue =
-            progress.SuccessfulReplace +
-            progress.SuccessfulDelete +
-            progress.SuccessfulCacheRestore;
-        _viewModel.Report = _localization.Choose(
-            $"当前步骤：{progress.Step}\n" +
-            $"替换：{progress.SuccessfulReplace}/{progress.PlannedReplace}，失败 {progress.FailedReplace}\n" +
-            $"删除：{progress.SuccessfulDelete}/{progress.PlannedDelete}，失败 {progress.FailedDelete}\n" +
-            $"缓存恢复：{progress.SuccessfulCacheRestore}/{progress.PlannedCacheRestore}，失败 {progress.FailedCacheRestore}\n" +
-            $"正在回滚：{(progress.IsRollingBack ? "是" : "否")}",
-            $"Current step: {step}\n" +
-            $"Replaced: {progress.SuccessfulReplace}/{progress.PlannedReplace}, failed {progress.FailedReplace}\n" +
-            $"Deleted: {progress.SuccessfulDelete}/{progress.PlannedDelete}, failed {progress.FailedDelete}\n" +
-            $"Cache restored: {progress.SuccessfulCacheRestore}/{progress.PlannedCacheRestore}, failed {progress.FailedCacheRestore}\n" +
-            $"Rolling back: {(progress.IsRollingBack ? "Yes" : "No")}");
-    }
+    private void ShowOperationProgress(OperationProgress progress) =>
+        _viewModel.ApplyOperationProgress(progress, _localization.TranslateKnown(progress.Step), _localize);
 
-    private void ShowInlineSwitchResult(string chineseStatus, string englishStatus, bool success)
-    {
-        _inlineSwitchStatus = (chineseStatus, englishStatus);
-        _viewModel.BusyStatus = _localization.Choose(chineseStatus, englishStatus);
-        _viewModel.IsProgressIndeterminate = false;
-        _viewModel.ProgressMaximum = 1;
-        _viewModel.ProgressValue = success ? 1 : 0;
-        _viewModel.ShowCompactStatus = true;
-    }
+    private void ShowInlineSwitchResult(string chineseStatus, string englishStatus, bool success) =>
+        _viewModel.ApplyInlineSwitchResult(chineseStatus, englishStatus, success, _localize);
 
     private void SaveSelectedPath(string path)
     {
@@ -595,7 +474,7 @@ public partial class MainWindow : Window
 
     private async Task AutoDetectAsync()
     {
-        if (_busy)
+        if (_viewModel.IsBusy)
         {
             return;
         }
@@ -734,10 +613,7 @@ public partial class MainWindow : Window
     {
         _uiSettings = settings;
         DetailsExpander.IsExpanded = settings.ShowDetailedStatus;
-        if (_viewModel.ShowCompactStatus && _inlineSwitchStatus is { } status)
-        {
-            _viewModel.BusyStatus = _localization.Choose(status.Chinese, status.English);
-        }
+        _viewModel.RefreshInlineLanguage(_localize);
         if (_lastReport is not null)
         {
             RenderReport(_lastReport, readOnlyBanner: false);

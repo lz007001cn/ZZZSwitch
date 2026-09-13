@@ -139,7 +139,7 @@ public sealed class ConfigurationRepository
                 items.Add(Read<T>(path));
             }
             catch (Exception ex) when (
-                ex is JsonException or IOException or UnauthorizedAccessException or InvalidDataException)
+                ex is JsonException or IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
             {
                 errors.Add(new()
                 {
@@ -161,7 +161,7 @@ public sealed class ConfigurationRepository
         return value;
     }
 
-    private static void ValidateConfiguration<T>(T value, string path)
+    internal static void ValidateConfiguration<T>(T value, string path)
     {
         // required 只能保证 JSON 中出现属性；显式 null 和危险目录段仍需在这里拦截。
         switch (value)
@@ -210,6 +210,20 @@ public sealed class ConfigurationRepository
                     throw new InvalidDataException($"切换清单缺少必要字段或包含无效值：{path}");
                 }
 
+                var targets = transition.ReplaceFiles.Select(x => x.Target)
+                    .Concat(transition.IniPatches.Select(x => x.Target))
+                    .Concat(transition.DeleteFiles.Select(x => x.Target))
+                    .Concat(transition.OptionalDeleteFiles.Select(x => x.Target)).ToArray();
+                var validationRoot = Path.GetFullPath(Path.GetTempPath());
+                var normalized = targets.Select(x => PathSafety.ResolveOrThrow(validationRoot, x)).ToArray();
+                if (normalized.Distinct(StringComparer.OrdinalIgnoreCase).Count() != normalized.Length)
+                    throw new InvalidDataException($"切换清单存在重复或冲突目标：{path}");
+                foreach (var entry in transition.ReplaceFiles)
+                {
+                    _ = PathSafety.ResolveOrThrow(validationRoot, entry.Source);
+                    if (entry.Sha256 is not null && !FileIntegrityService.IsValidSha256(entry.Sha256))
+                        throw new InvalidDataException($"切换清单 SHA-256 无效：{entry.Source}");
+                }
                 break;
         }
     }

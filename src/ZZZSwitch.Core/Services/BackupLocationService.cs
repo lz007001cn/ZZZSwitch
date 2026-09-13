@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using ZZZSwitch.Core.Models;
 
 namespace ZZZSwitch.Core.Services;
 
@@ -45,6 +46,8 @@ public sealed class BackupLocationService
             throw new InvalidOperationException("目标备份目录必须为空。请新建或选择一个空目录。");
         }
 
+        var stateToRelocate = StateForRelocation(sourceRoot, targetRoot);
+
         var targetParent = Directory.GetParent(targetRoot)?.FullName
                            ?? throw new InvalidOperationException("无法确定目标备份目录的父目录。");
         Directory.CreateDirectory(targetParent);
@@ -76,6 +79,18 @@ public sealed class BackupLocationService
             SaveLocation(targetRoot);
             _paths.SetBackupsRoot(targetRoot);
             settingCommitted = true;
+
+            if (stateToRelocate is not null)
+            {
+                try { new StateStore(_paths).Save(stateToRelocate); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // The new location is already committed. Keep the old copy
+                    // until its exact last-backup association can be repaired.
+                    return new(sourceRoot, targetRoot, measure.FileCount, measure.TotalBytes, sourceExists, false,
+                        "新备份位置已启用，但最后一次备份关联保存失败；旧副本已保留。可从备份历史选择记录恢复。" + ex.Message);
+                }
+            }
 
             var sourceRemoved = true;
             if (sourceExists && Directory.Exists(sourceRoot))
@@ -111,6 +126,22 @@ public sealed class BackupLocationService
 
             throw;
         }
+    }
+
+    private AppState? StateForRelocation(string sourceRoot, string targetRoot)
+    {
+        var loaded = new StateStore(_paths).LoadWithStatus();
+        if (loaded.Warning is not null) throw new InvalidDataException(loaded.Warning);
+        var state = loaded.State;
+        if (string.IsNullOrWhiteSpace(state?.LastBackupPath)) return null;
+        var oldPath = Path.GetFullPath(state.LastBackupPath);
+        var prefix = sourceRoot.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+        if (!oldPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
+        // Relocate the existing association, never pick a newer backup by time.
+        // The associated record may already be restored or belong to an older
+        // game version. Keep its identity fields intact; only rebase this path.
+        state.LastBackupPath = PathSafety.ResolveOrThrow(targetRoot, Path.GetRelativePath(sourceRoot, oldPath));
+        return state;
     }
 
     public BackupLocationMigrationResult RestoreDefaultLocation(string? gamePath = null) =>
@@ -299,4 +330,5 @@ public sealed record BackupLocationMigrationResult(
     int MigratedFileCount,
     long MigratedBytes,
     bool ContentMoved,
-    bool SourceRemoved);
+    bool SourceRemoved,
+    string? Warning = null);
