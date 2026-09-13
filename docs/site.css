@@ -56,6 +56,9 @@ a:focus-visible, summary:focus-visible {
 .nav-links a:hover { color: #111; background: white; }
 .nav-links .nav-home { background: white; color: #111; }
 .nav-links .nav-download { background: var(--acid); color: #111; margin-left: 12px; }
+.lang-toggle { border: 1px solid #777; border-radius: 20px; padding: 5px 11px; background: transparent; color: white; font: 700 12px Arial, sans-serif; cursor: pointer; }
+.lang-toggle:hover { background: white; color: #111; }
+body[data-lang="en"] { font-family: Arial, "Segoe UI", sans-serif; }
 
 /* Oversized lettering, diagonal panels and a software window in place of character art. */
 .hero { position: relative; isolation: isolate; overflow: hidden; background: #eeeeec; border-bottom: 8px solid #161616; }
@@ -284,6 +287,7 @@ footer { background: #080808; color: #a2a29b; padding-block: 29px; }
 @media (max-width: 370px) {
   .wrap { width: calc(100% - 32px); }
   .nav-links .nav-download { margin-left: 0; padding-inline: 10px; font-size: 12px; }
+  .lang-toggle { padding-inline: 8px; }
   h1 { font-size: 46px; }
   .hero-subtitle { font-size: 23px; }
   .button { padding-inline: 13px; font-size: 13px; }
