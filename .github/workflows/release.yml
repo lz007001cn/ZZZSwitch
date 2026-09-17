@@ -67,12 +67,9 @@ jobs:
         shell: pwsh
         run: dotnet run --project tests/ZZZSwitch.ManifestTool.Tests/ZZZSwitch.ManifestTool.Tests.csproj -c Release --no-build
 
-      - name: Run WPF UI smoke tests
-        timeout-minutes: 5
-        shell: pwsh
-        env:
-          ZZZSWITCH_UI_SMOKE_HEADLESS: "1"
-        run: dotnet run --project tests/ZZZSwitch.Ui.Smoke/ZZZSwitch.Ui.Smoke.csproj -c Release --no-build
+      # ZZZSwitch.Ui.Smoke opens native WPF windows and requires an interactive
+      # desktop. The hosted runner uses a service session, so the full UI suite is
+      # run by build-runnable-test.ps1 on an interactive Windows machine instead.
 
       - name: Run Manifest diff demo tests
         shell: pwsh
