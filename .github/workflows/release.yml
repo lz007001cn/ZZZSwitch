@@ -70,6 +70,8 @@ jobs:
       - name: Run WPF UI smoke tests
         timeout-minutes: 5
         shell: pwsh
+        env:
+          ZZZSWITCH_UI_SMOKE_HEADLESS: "1"
         run: dotnet run --project tests/ZZZSwitch.Ui.Smoke/ZZZSwitch.Ui.Smoke.csproj -c Release --no-build
 
       - name: Run Manifest diff demo tests

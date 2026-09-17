@@ -46,6 +46,13 @@ internal static partial class Program
     [STAThread]
     private static int Main()
     {
+        var headless = string.Equals(
+            Environment.GetEnvironmentVariable("ZZZSWITCH_UI_SMOKE_HEADLESS"),
+            "1",
+            StringComparison.Ordinal);
+        Console.WriteLine(headless
+            ? "RUN   WPF UI smoke tests (headless CI mode)."
+            : "RUN   WPF UI smoke tests (interactive window mode).");
         var app = new App();
         app.InitializeComponent();
         // The smoke suite opens and closes modeless windows without running the
@@ -171,8 +178,11 @@ internal static partial class Program
             {
                 var checks = checkScope.Window;
                 Layout(checks, 620, 440);
-                checks.Show();
-                checks.UpdateLayout();
+                if (!headless)
+                {
+                    checks.Show();
+                    checks.UpdateLayout();
+                }
                 Assert(Require<WrapPanel>(checks, "Actions").ActualHeight > 0, "检查操作区不能为空。");
                 foreach (var name in new[] { "DetectButton", "RepairButton", "PackagesButton", "ResetButton", "RecoverButton" })
                     Assert(Require<Button>(checks, name).IsEnabled, "未知区服时检查入口仍应可用。");
@@ -210,25 +220,25 @@ internal static partial class Program
                 "浮层窗口不能从普通内容区拖动，或点击按钮时会误触拖动。");
             messageWindow.Close();
 
-            var originalShutdownMode = app.ShutdownMode;
-            app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            var modelessOwner = new Window { Width = 240, Height = 160, ShowInTaskbar = false };
-            modelessOwner.Show();
-            var modelessChild = new Window
+            if (!headless)
             {
-                Owner = modelessOwner,
-                Width = 180,
-                Height = 120,
-                ShowInTaskbar = false
-            };
-            var modelessTask = ModelessWindowPresenter.ShowAsync(modelessChild);
-            Assert(modelessOwner.IsEnabled && modelessChild.IsVisible && !modelessTask.IsCompleted,
-                "二级窗口仍以模态方式禁用底层页面。");
-            modelessChild.Close();
-            Assert(modelessTask.IsCompleted,
-                "二级窗口关闭后异步等待没有结束。");
-            modelessOwner.Close();
-            app.ShutdownMode = originalShutdownMode;
+                var modelessOwner = new Window { Width = 240, Height = 160, ShowInTaskbar = false };
+                modelessOwner.Show();
+                var modelessChild = new Window
+                {
+                    Owner = modelessOwner,
+                    Width = 180,
+                    Height = 120,
+                    ShowInTaskbar = false
+                };
+                var modelessTask = ModelessWindowPresenter.ShowAsync(modelessChild);
+                Assert(modelessOwner.IsEnabled && modelessChild.IsVisible && !modelessTask.IsCompleted,
+                    "二级窗口仍以模态方式禁用底层页面。");
+                modelessChild.Close();
+                Assert(modelessTask.IsCompleted,
+                    "二级窗口关闭后异步等待没有结束。");
+                modelessOwner.Close();
+            }
 
             var switchConfirmation = new SwitchConfirmationWindow(
                 ProfileIds.Global,
