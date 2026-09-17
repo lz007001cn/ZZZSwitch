@@ -580,6 +580,16 @@ internal static partial class Program
             var compactStatus = Require<Grid>(compact, "CompactOperationStatus");
             var compactProgress = Require<ProgressBar>(compact, "CompactOperationProgress");
             var fullModeButton = Require<Button>(compact, "FullModeButton");
+            var compactLocalization = new LocalizationManager(
+                app,
+                new AppPaths(
+                    Path.Combine(tempRoot, "CompactLanguageData"),
+                    Path.Combine(tempRoot, "CompactLanguageConfig")));
+            compactLocalization.SetLanguage(AppLanguage.English);
+            Assert(compactCn.ServerName == "CN" &&
+                   Require<ServerSwitchCard>(main, "SwitchCnButton").ServerName == "CN",
+                "英文精简窗口与完整版都应显示 CN。");
+            compactLocalization.SetLanguage(AppLanguage.Chinese);
             Assert(Math.Abs(compactGlobal.ActualHeight - 68) <= 1 &&
                    Math.Abs(compactCn.ActualHeight - 68) <= 1 &&
                    Math.Abs(compactBilibili.ActualHeight - 68) <= 1,
@@ -1100,7 +1110,7 @@ internal static partial class Program
                Require<TextBlock>(confirmation, "SourceLabelText").Text == "Current server" &&
                Require<TextBlock>(confirmation, "TargetLabelText").Text == "Target server" &&
                Require<TextBlock>(confirmation, "SourceProfileText").Text == "Global" &&
-               Require<TextBlock>(confirmation, "TargetProfileText").Text == "CN Official" &&
+               Require<TextBlock>(confirmation, "TargetProfileText").Text == "CN" &&
                Require<TextBlock>(confirmation, "FileOperationText").Text == "Replace 60 files · delete 0 files" &&
                Require<Button>(confirmation, "CancelButton").Content?.ToString() == "Cancel" &&
                Require<Button>(confirmation, "ConfirmButton").Content?.ToString() == "Confirm switch",
@@ -1975,7 +1985,9 @@ internal static partial class Program
                !window.ShowInTaskbar &&
                window.Background is SolidColorBrush background &&
                background.Color == Colors.Transparent &&
-               OverlayShell(window).CornerRadius == new CornerRadius(10),
+               OverlayShell(window).CornerRadius == new CornerRadius(10) &&
+               OverlayShell(window).BorderThickness == new Thickness(1, 2, 1, 1) &&
+               OverlayShell(window).BorderBrush is SolidColorBrush,
             $"{scenario}没有使用无系统标题栏的圆角浮层样式。");
     }
 

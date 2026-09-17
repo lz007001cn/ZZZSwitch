@@ -265,7 +265,7 @@ public sealed class LocalizationManager
             ["L.Common.Select"] = "Select",
             ["L.Main.SwitchServer"] = "Switch server",
             ["L.Server.Global"] = "Global",
-            ["L.Server.Cn"] = "CN Official",
+            ["L.Server.Cn"] = "CN",
             ["L.Server.Bilibili"] = "Bilibili",
             ["L.Main.Details"] = "Detailed status",
             ["L.Main.Tools"] = "Tools",

@@ -83,7 +83,7 @@
                             <Border x:Name="OverlayShell"
                                     Background="{DynamicResource WindowBrush}"
                                     BorderBrush="{DynamicResource StrongBorderBrush}"
-                                    BorderThickness="1"
+                                    BorderThickness="1,2,1,1"
                                     CornerRadius="10">
                                 <Border.Effect>
                                     <DropShadowEffect BlurRadius="24"
