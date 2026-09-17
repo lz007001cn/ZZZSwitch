@@ -27,13 +27,17 @@ public static class OverlayWindowDragBehavior
         return origin is not null;
     }
 
+    // ScrollViewer is a container: headings and ordinary content inside it remain draggable.
+    // ScrollBar/Slider (RangeBase), Thumb and selectable controls still own their input.
     private static bool IsInteractive(DependencyObject element) =>
         element is ButtonBase or
             TextBoxBase or
             PasswordBox or
             Selector or
+            System.Windows.Controls.TreeView or
+            MenuBase or
+            MenuItem or
             RangeBase or
-            ScrollViewer or
             Thumb or
             Hyperlink;
 

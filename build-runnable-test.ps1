@@ -42,6 +42,7 @@ Invoke-DotNet @('run', '--project', 'tests\ZZZSwitch.Core.Tests\ZZZSwitch.Core.T
 Invoke-DotNet @('run', '--project', 'tests\ZZZSwitch.ManifestTool.Tests\ZZZSwitch.ManifestTool.Tests.csproj', '-c', 'Release')
 Invoke-DotNet @('run', '--project', 'tests\ZZZSwitch.Ui.Smoke\ZZZSwitch.Ui.Smoke.csproj', '-c', 'Release')
 Invoke-DotNet @('run', '--project', 'tests\ZZZManifestDiffDemo.Tests\ZZZManifestDiffDemo.Tests.csproj', '-c', 'Release')
+Invoke-DotNet @('run', '--project', 'tests\ZZZSwitch.Update.Tests\ZZZSwitch.Update.Tests.csproj', '-c', 'Release')
 
 New-Item -ItemType Directory -Path $resolvedOutputRoot -Force | Out-Null
 try {
@@ -62,6 +63,7 @@ try {
         '-p:DebugSymbols=false',
         '-o', $stagingDirectory)
 
+    & (Join-Path $projectRoot 'tools\publish-updater.ps1') -OutputDirectory $stagingDirectory
     Copy-Item (Join-Path $projectRoot 'README.md') (Join-Path $stagingDirectory 'README.md') -Force
     $commit = (& git -C $projectRoot rev-parse --short HEAD 2>$null)
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commit)) {
@@ -84,6 +86,7 @@ try {
             manifestToolTests = 'passed'
             uiSmoke = 'passed'
             manifestDiffDemoTests = 'passed'
+            updateTests = 'passed'
         }
     }
     $buildInfo | ConvertTo-Json -Depth 4 | Set-Content `

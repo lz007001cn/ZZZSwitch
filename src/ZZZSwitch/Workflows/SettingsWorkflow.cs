@@ -21,6 +21,7 @@ public sealed class SettingsWorkflow
     private readonly Action<string, bool> _openDirectory;
     private readonly Action<UiSettings> _applySettings;
     private readonly Func<Task> _runOnboarding;
+    private readonly ApplicationUpdateModel? _update;
 
     public SettingsWorkflow(
         Window owner,
@@ -37,7 +38,8 @@ public sealed class SettingsWorkflow
         Func<Task> manageBackup,
         Action<string, bool> openDirectory,
         Action<UiSettings> applySettings,
-        Func<Task> runOnboarding)
+        Func<Task> runOnboarding,
+        ApplicationUpdateModel? update = null)
     {
         _owner = owner;
         _paths = paths;
@@ -54,6 +56,7 @@ public sealed class SettingsWorkflow
         _openDirectory = openDirectory;
         _applySettings = applySettings;
         _runOnboarding = runOnboarding;
+        _update = update;
     }
 
     public async Task ShowAsync()
@@ -61,7 +64,7 @@ public sealed class SettingsWorkflow
         while (true)
         {
             var viewData = await LoadViewDataAsync();
-            var window = new SettingsWindow(viewData) { Owner = _owner };
+            var window = new SettingsWindow(viewData, _update) { Owner = _owner };
             await ModelessWindowPresenter.ShowAsync(window);
             if (window.SelectedAction == SettingsAction.None)
             {

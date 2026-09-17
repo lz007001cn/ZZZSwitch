@@ -1,5 +1,8 @@
 using System.Windows;
 using System.Windows.Input;
+using System.IO;
+using System.Reflection;
+using ZZZSwitch.Update;
 using ZZZSwitch.Core.Services;
 using Forms = System.Windows.Forms;
 
@@ -15,14 +18,45 @@ public partial class App : System.Windows.Application
     private MainWindow? _mainWindow;
     private CompactModeWindow? _compactWindow;
     private bool _isExiting;
+    private string? _pendingUpdateSession;
 
     internal ThemeManager Theme => _theme ??= new ThemeManager(this, new AppPaths());
     internal LocalizationManager Localization =>
         _localization ??= new LocalizationManager(this, new AppPaths());
     internal bool IsCompactModeActive => _compactWindow?.IsVisible == true;
+    internal bool HasPendingUpdateSession => _pendingUpdateSession is not null;
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        try
+        {
+            // An unsupported update location must not prevent ordinary startup when no update exists.
+            var updateJournal = Path.Combine(AppContext.BaseDirectory, ".zzzswitch-update", "journal.json");
+            if (e.Args.Length == 2 && e.Args[0] is "--update-session" or "--update-health-probe")
+            {
+                var version = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
+                UpdateHandoff.ValidateStartup(AppContext.BaseDirectory, e.Args[1], version);
+                if (e.Args[0] == "--update-health-probe")
+                {
+                    var confirmed = UpdateHandoff.ConfirmStartup(AppContext.BaseDirectory, e.Args[1], version);
+                    StartupUri = null; Shutdown(confirmed ? 0 : 1); return;
+                }
+                _pendingUpdateSession = e.Args[1];
+            }
+            else if (File.Exists(updateJournal))
+            {
+                UpdateHandoff.StartRecovery(AppContext.BaseDirectory);
+                StartupUri = null; Shutdown(); return;
+            }
+        }
+        catch (Exception ex)
+        {
+            StartupUri = null;
+            UpdateLog.Write(UpdatePaths.DefaultRoot, ex.ToString());
+            if (!e.Args.Contains("--update-health-probe"))
+                System.Windows.MessageBox.Show("软件更新需要恢复，请保留 .zzzswitch-update 并重试。\nApplication update recovery required.\n\n" + ex.Message, "ZZZSwitch");
+            Shutdown(1); return;
+        }
         _ = Theme;
         _ = Localization;
         _singleInstanceMutex = new Mutex(true, @"Local\ZZZSwitch.SingleInstance", out var createdNew);
@@ -64,6 +98,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _mainWindow?.StopUpdateChecks();
         DisposeTrayIcon();
         _theme?.Dispose();
         _theme = null;
@@ -137,6 +172,11 @@ public partial class App : System.Windows.Application
 
     internal void RequestExit()
     {
+        if (_mainWindow?.IsUpdateSessionActive == true && !_updateExitApproved)
+        {
+            ShowFullWindow();
+            return;
+        }
         if (_isExiting)
         {
             return;
@@ -147,6 +187,23 @@ public partial class App : System.Windows.Application
         _compactWindow?.Close();
         _mainWindow?.Close();
         Shutdown();
+    }
+
+    private bool _updateExitApproved;
+    internal void ExitForUpdate() { _updateExitApproved = true; RequestExit(); }
+
+    internal async Task<bool> ConfirmUpdateStartupAsync()
+    {
+        if (_pendingUpdateSession is null) return true;
+        try
+        {
+            var version = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
+            var confirmed = await Task.Run(() => UpdateHandoff.ConfirmStartup(AppContext.BaseDirectory, _pendingUpdateSession, version));
+            _pendingUpdateSession = null;
+            if (confirmed) return true;
+        }
+        catch (Exception ex) { UpdateLog.Write(UpdatePaths.DefaultRoot, ex.ToString()); }
+        RequestExit(); return false;
     }
 
     private void EnsureTrayIcon()

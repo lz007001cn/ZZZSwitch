@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "version": "1.3.8",
+  "channel": "stable",
+  "mandatory": false,
+  "minSupportedVersion": "1.3.7",
+  "publishedAt": "2026-09-16T10:00:00+08:00",
+  "releaseNotes": {
+    "zh-CN": "示例。发布时填写实际更新说明、包大小和 SHA-256。",
+    "en-US": "Example. Replace notes, package size and SHA-256 before publication."
+  },
+  "package": {
+    "url": "https://updates.example.com/ZZZSwitch-win-x64-v1.3.8.zip",
+    "size": 12345678,
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

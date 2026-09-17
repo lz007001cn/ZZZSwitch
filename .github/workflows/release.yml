@@ -71,7 +71,12 @@ jobs:
         shell: pwsh
         run: dotnet run --project tests/ZZZManifestDiffDemo.Tests/ZZZManifestDiffDemo.Tests.csproj -c Release --no-build
 
+      - name: Run application update tests
+        shell: pwsh
+        run: dotnet run --project tests/ZZZSwitch.Update.Tests/ZZZSwitch.Update.Tests.csproj -c Release --no-build
+
       - name: Publish portable application
+        # The portable package contains both self-contained executables.
         shell: pwsh
         run: ./publish-win-x64.ps1 -Version $env:RELEASE_VERSION
 
@@ -102,8 +107,10 @@ jobs:
             gh release upload $env:RELEASE_TAG "$archive" --clobber
           }
           else {
-            $notesFile = Join-Path $env:RUNNER_TEMP "release-notes.txt"
-            [IO.File]::WriteAllText($notesFile, "")
+            $notesFile = "docs/releases/$env:RELEASE_TAG.txt"
+            if (-not (Test-Path -LiteralPath $notesFile -PathType Leaf)) {
+              throw "Missing release notes: $notesFile"
+            }
             gh release create $env:RELEASE_TAG `
               "$archive" `
               --verify-tag `

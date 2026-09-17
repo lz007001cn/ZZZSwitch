@@ -172,7 +172,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource SettingsCardStyle}">
+                <Border x:Name="LogsCard" Style="{StaticResource SettingsCardStyle}" Margin="0,0,0,10">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -198,6 +198,35 @@
                                 Style="{StaticResource SettingsButtonStyle}"
                                 VerticalAlignment="Center" />
                     </Grid>
+                </Border>
+                <Border x:Name="UpdateCard" Style="{StaticResource SettingsCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Heading}" Style="{StaticResource SettingsSectionTitleStyle}" Margin="0,0,0,10" />
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,14,0">
+                                <TextBlock Text="{Binding CurrentText}" Style="{StaticResource SettingsLabelStyle}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding LatestText}" Style="{StaticResource SettingsLabelStyle}" Margin="0,3,0,0" />
+                                <TextBlock Text="{Binding DateText}" Style="{StaticResource SettingsLabelStyle}" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <Button Grid.Column="1" x:Name="CheckApplicationUpdateButton" Content="{Binding ButtonText}"
+                                    Visibility="{Binding ShowAction, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    IsEnabled="{Binding CanAct}" Click="CheckApplicationUpdate_Click"
+                                    Style="{StaticResource SettingsButtonStyle}" VerticalAlignment="Center" />
+                        </Grid>
+                        <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,5,0,0">
+                            <TextBlock x:Name="UpdateNotesText" Text="{Binding Notes}" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                        </ScrollViewer>
+                        <TextBlock x:Name="UpdateStatusText" Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap" Margin="0,5,0,0" />
+                        <ProgressBar x:Name="UpdateProgress" Height="4" Margin="0,6,0,0" Maximum="100" Value="{Binding Percent, Mode=OneWay}" IsIndeterminate="{Binding IsIndeterminate}">
+                            <ProgressBar.Style>
+                                <Style TargetType="ProgressBar">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers><DataTrigger Binding="{Binding ShowProgress}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                                </Style>
+                            </ProgressBar.Style>
+                        </ProgressBar>
+                    </StackPanel>
                 </Border>
             </StackPanel>
         </ScrollViewer>

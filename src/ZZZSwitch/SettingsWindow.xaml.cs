@@ -23,9 +23,18 @@ public sealed record SettingsViewData(
 
 public partial class SettingsWindow : Window
 {
-    public SettingsWindow(SettingsViewData data)
+    private readonly ApplicationUpdateModel? _update;
+    private bool _closeAfterUpdate;
+    public SettingsWindow(SettingsViewData data, ApplicationUpdateModel? update = null)
     {
         InitializeComponent();
+        _update = update;
+        Loaded += async (_, _) => { if (_update is not null) await _update.EnsureCheckedAsync(); };
+        UpdateCard.DataContext = update;
+        if (update is null) CheckApplicationUpdateButton.IsEnabled = false;
+        Closing += (_, e) => { if (_update?.IsBusy == true && !_update.HasHandedOff) { _closeAfterUpdate = true; _update.Cancel(); e.Cancel = true; } };
+        if (_update is not null) _update.PropertyChanged += UpdateStateChanged;
+        Closed += (_, _) => { if (_update is not null) _update.PropertyChanged -= UpdateStateChanged; };
         SourceInitialized += (_, _) => ((App)System.Windows.Application.Current).Theme.ApplyWindow(this);
         var localization = ((App)System.Windows.Application.Current).Localization;
 
@@ -75,6 +84,12 @@ public partial class SettingsWindow : Window
         OriginalSettings = data.Settings;
     }
 
+    private void UpdateStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_closeAfterUpdate && _update is { IsBusy: false, HasHandedOff: false })
+        { _closeAfterUpdate = false; Dispatcher.BeginInvoke(new Action(Close)); }
+    }
+
     public SettingsAction SelectedAction { get; private set; }
     public UiSettings OriginalSettings { get; }
     public UiSettings UpdatedSettings { get; private set; } = new();
@@ -83,6 +98,7 @@ public partial class SettingsWindow : Window
     private void ManageBackup_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.ManageBackup);
     private void OpenLogs_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.OpenLogs);
     private void RunOnboarding_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.RunOnboarding);
+    private async void CheckApplicationUpdate_Click(object sender, RoutedEventArgs e) { if (_update is not null) await _update.ActAsync(); }
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
     private void Save_Click(object sender, RoutedEventArgs e) => Complete(SettingsAction.SaveAndClose);
 

@@ -146,6 +146,7 @@ internal static partial class Program
             viewModel.IsBusy = false;
             main.UpdateLayout();
             VerifyCommandRouting();
+            VerifyUpdateUi(app, tempRoot);
             Task.Run(() => VerifyBackupRestoreWorkflow(tempRoot)).GetAwaiter().GetResult();
             Task.Run(() => VerifyInspectionMaintenanceWorkflows(tempRoot)).GetAwaiter().GetResult();
             VerifyStartupWorkflowAndDialogRouting(main, tempRoot);

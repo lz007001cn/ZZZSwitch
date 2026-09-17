@@ -20,6 +20,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 }
 
 $publishDirectory = Join-Path $OutputRoot "ZZZSwitch-win-x64-v$Version"
+if (Test-Path -LiteralPath $publishDirectory) { throw "Preserve existing release: $publishDirectory" }
 
 dotnet publish $projectPath `
     -c Release `
@@ -40,6 +41,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE"
 }
 
+& (Join-Path $projectRoot 'tools\publish-updater.ps1') -OutputDirectory $publishDirectory
 Copy-Item (Join-Path $projectRoot 'README.md') (Join-Path $publishDirectory 'README.md') -Force
 
 Write-Host "ZZZSwitch v$Version published: $publishDirectory"

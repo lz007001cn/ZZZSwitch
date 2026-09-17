@@ -216,7 +216,8 @@ public partial class MainWindow : Window
             _backupManagementWorkflow.ManageDirectoryAsync,
             OpenDirectory,
             ApplyRuntimeSettings,
-            async () => _ = await RunOnboardingAsync());
+            async () => _ = await RunOnboardingAsync(),
+            ApplicationUpdate);
 
         var stateLoad = _stateStore.LoadWithStatus();
         _startupStateWarning = stateLoad.Warning;
@@ -241,6 +242,13 @@ public partial class MainWindow : Window
             ShowChecksAsync));
         Loaded += async (_, _) =>
         {
+            if (app.HasPendingUpdateSession)
+            {
+                SetBusy(true, _localize("正在完成启动…", "Completing startup…"));
+                var updateReady = await app.ConfirmUpdateStartupAsync();
+                SetBusy(false, "");
+                if (!updateReady) return;
+            }
             var inspectedDuringOnboarding = false;
             if (!_uiSettings.OnboardingCompleted)
             {
@@ -290,6 +298,7 @@ public partial class MainWindow : Window
             {
                 _ = Dispatcher.BeginInvoke(app.ShowCompactWindow);
             }
+            _ = CheckApplicationUpdateLaterAsync();
         };
     }
 
