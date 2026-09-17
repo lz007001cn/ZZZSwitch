@@ -48,6 +48,12 @@ internal static partial class Program
     {
         var app = new App();
         app.InitializeComponent();
+        // The smoke suite opens and closes modeless windows without running the
+        // normal application message loop. Keep the test Application alive until
+        // the suite explicitly tears it down in finally; otherwise closing the
+        // first visible window begins WPF application shutdown and later Show()
+        // calls can hang or fail on headless CI runners.
+        app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         var tempRoot = Path.Combine(Path.GetTempPath(), "ZZZSwitch.Ui.Smoke", Guid.NewGuid().ToString("N"));
         var main = new MainWindow();
         CacheManagementWindow? cache = null;
@@ -803,7 +809,7 @@ internal static partial class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"FAIL  {ex.Message}");
+            Console.Error.WriteLine($"FAIL  {ex}");
             return 1;
         }
         finally

@@ -2,8 +2,11 @@ name: Build and release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -32,6 +35,7 @@ jobs:
           global-json-file: global.json
 
       - name: Validate release tag and project version
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
           if ($env:RELEASE_TAG -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
@@ -64,6 +68,7 @@ jobs:
         run: dotnet run --project tests/ZZZSwitch.ManifestTool.Tests/ZZZSwitch.ManifestTool.Tests.csproj -c Release --no-build
 
       - name: Run WPF UI smoke tests
+        timeout-minutes: 5
         shell: pwsh
         run: dotnet run --project tests/ZZZSwitch.Ui.Smoke/ZZZSwitch.Ui.Smoke.csproj -c Release --no-build
 
@@ -76,11 +81,13 @@ jobs:
         run: dotnet run --project tests/ZZZSwitch.Update.Tests/ZZZSwitch.Update.Tests.csproj -c Release --no-build
 
       - name: Publish portable application
+        if: startsWith(github.ref, 'refs/tags/v')
         # The portable package contains both self-contained executables.
         shell: pwsh
         run: ./publish-win-x64.ps1 -Version $env:RELEASE_VERSION
 
       - name: Create ZIP
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
           $publishDirectory = "publish/ZZZSwitch-win-x64-v$env:RELEASE_VERSION"
@@ -90,6 +97,7 @@ jobs:
           Compress-Archive -Path "$publishDirectory/*" -DestinationPath $archive -CompressionLevel Optimal
 
       - name: Upload workflow artifact
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
           name: ZZZSwitch-win-x64-${{ github.ref_name }}
@@ -97,6 +105,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create or update GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
