@@ -24,6 +24,7 @@ Global ↔ CN Official switching uses the official Sophon manifests for the inst
 - Reuses verified local files and completed version packages, including resumable file and chunk downloads.
 - Preserves each server's hot-update cache automatically before switching.
 - Supports custom cache and backup locations, old-version cache cleanup, startup behavior, and log retention.
+- Checks GitHub Releases silently from Settings, shows the current and latest versions with release notes, and verifies update packages with GitHub's SHA-256 before installation.
 - Uses MD5/SHA-256 verification, transactional backups, rollback journals, process checks, and path-safety validation.
 
 ## Requirements
@@ -31,11 +32,11 @@ Global ↔ CN Official switching uses the official Sophon manifests for the inst
 - Windows x64.
 - An installed PC version of Zenless Zone Zero.
 - Internet access for Global ↔ CN Official manifests and any target files not already available locally.
-- Direct Global ↔ Bilibili switching still needs the matching Global/CN base difference files. The Bilibili channel components themselves no longer require a separate download.
+- Direct Global ↔ Bilibili switching requires the matching Global/CN base difference, which can be downloaded automatically or reused locally. The Bilibili channel components themselves no longer require a separate download.
 
 ## Usage
 
-1. Download `ZZZSwitch-win-x64-v1.3.4.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
+1. Download `ZZZSwitch-win-x64-v1.4.0.zip` from the [latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest), extract it to any folder, and run `ZZZSwitch.exe`.
 
 2. On first launch, complete the setup guide:
    - choose Chinese or English and the interface theme;
@@ -46,7 +47,7 @@ Global ↔ CN Official switching uses the official Sophon manifests for the inst
 
 4. Select the target server:
    - **Global ↔ CN Official:** ZZZSwitch checks both directions, reads the matching manifests when needed, preserves reusable source files, and downloads only missing target files.
-   - **Bilibili:** On the first inspection of a supported game version, ZZZSwitch verifies and installs its bundled channel components under `.zzzswitch\packages\<game-version>\bilibili`. Bilibili shares CN Blocks resources while retaining a separate channel identity.
+   - **Bilibili:** On the first inspection of a supported game version, ZZZSwitch verifies and installs its bundled channel components under `.zzzswitch\packages\<game-version>\bilibili`. CN ↔ Bilibili uses only that small overlay; Global ↔ Bilibili combines it with the online Global/CN base difference in one recoverable transaction. Bilibili shares CN Blocks resources while retaining a separate channel identity.
 
 5. In the full window, review and confirm the switch summary. In the compact window, selecting a server starts the switch directly and reports progress in the lower-left corner without extra confirmation or completion dialogs.
 
@@ -56,20 +57,28 @@ Global ↔ CN Official switching uses the official Sophon manifests for the inst
 
 8. Closing the application hides it in the system tray by default. Left-click the tray icon once to reopen the configured window, or use the right-click menu. Enable **Exit when closing a window** in Settings if preferred.
 
+## Application updates
+
+Starting with v1.4.0, opening **Settings** silently checks the latest stable GitHub Release and displays the current version, latest version, publication date, and release notes. The check does not interrupt normal use or show a separate prompt.
+
+Selecting **Install update** downloads the official Windows x64 ZIP, verifies its declared size and the SHA-256 digest supplied by GitHub, and only then hands it to the standalone updater. ZZZSwitch exits, replaces the program files, restarts automatically, and records the installation result. An incomplete package or failed digest is never installed.
+
+The public v1.3.7 release does not contain the updater, so upgrading from that public build to v1.4.0 requires one manual download. After v1.4.0 is installed, later compatible versions can use the in-app updater. A republished package with the same version number does not trigger another update because version comparison treats it as the installed version.
+
 ## Packages, Manifests, and caches
 
 Open **Manage packages** to view saved versions, update or browse manifests, preview and verify completed packages, resume package updates, and remove selected local data.
 
-Manifest metadata and automatic Global/CN packages are stored under `%LOCALAPPDATA%\ZZZSwitch`. Large server-specific Blocks caches remain separate and can be moved or cleaned through **Cache management**. Backup location, cache location, startup mode, close behavior, language, theme, and log retention are available in **Settings**.
+`%LOCALAPPDATA%\ZZZSwitch` stores settings, state, locks, logs, transaction-control files, and temporary application-update jobs. Managed game-switch payloads use explicit names under the current installation: transaction backups default to `.zzzswitch\app-data\backup-records`, automatic Global/CN downloads live in `.zzzswitch\app-data\downloads`, metadata lives in `snapshots`, `sophon-manifests`, and `blocks-manifests`, and the large server-specific Blocks store is `.zzzswitch\blocks-cache`. `.zzzswitch\packages` is separate because it contains read-only offline inputs: the bundled Bilibili overlay by default, plus Global/CN files only when the user deliberately imports a unified offline package. Legacy `data` / `cache` layouts and AppData payloads are migrated before use. The short-lived `backup-content` object layout remains readable for existing backups but is no longer created. Backup location, cache location, startup mode, close behavior, language, theme, and log retention are available in **Settings**.
 
-Packages and caches are isolated by game installation and version. After a game update, ZZZSwitch creates new manifest, package, and cache records instead of applying older-version files. Previous-version caches can be cleaned independently, including read-only leftovers.
+Packages and caches are isolated by game installation and version. After a game update, ZZZSwitch creates new manifest, package, and cache records instead of applying older-version files. Previous-version Blocks, owned manifests, and metadata snapshots can be cleaned together, including read-only leftovers. Legacy fixed `global` / `cn_official` package directories are accepted for compatibility but are no longer required by automatic switching and are not deleted without an explicit cleanup action.
 
 ## Safety notes
 
 > [!IMPORTANT]
 > Do not switch while Zenless Zone Zero or HoYoPlay is running. Keep both closed until ZZZSwitch reports that the operation has completed.
 
-- ZZZSwitch does not apply a package when the game version, file count, size, MD5, or SHA-256 validation fails.
+- ZZZSwitch does not apply a package when the game version, required file size, MD5, or SHA-256 validation fails.
 - Global/CN online switching never falls back to an old `.zzzswitch\packages` replacement package.
 - `Persistent\Blocks` is managed as a server cache; `Persistent\Video` is not moved, copied, verified, or deleted.
 - File replacement, Blocks exchange, state updates, and backups participate in the same recoverable transaction.
