@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-🌐 [中文项目主页](https://lz007001cn.github.io/ZZZSwitch/) · [下载最新版](https://github.com/lz007001cn/ZZZSwitch/releases/latest)
+🌐 [项目主页](https://lz007001cn.github.io/ZZZSwitch/) · [下载最新版](https://github.com/lz007001cn/ZZZSwitch/releases/latest)
 
 ZZZSwitch 是一款适用于 Windows 的《绝区零》服务器切换工具，支持**国际服、国服官服和 B服**客户端。
 

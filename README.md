@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-🌐 [Chinese project website](https://lz007001cn.github.io/ZZZSwitch/) · [Download the latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest)
+🌐 [Project website](https://lz007001cn.github.io/ZZZSwitch/) · [Download the latest release](https://github.com/lz007001cn/ZZZSwitch/releases/latest)
 
 ZZZSwitch is a Windows server switcher for **Zenless Zone Zero**, supporting **Global**, **CN Official**, and **Bilibili** clients.
 
