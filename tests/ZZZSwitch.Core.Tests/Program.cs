@@ -53,6 +53,9 @@ internal static partial class Program
         ("切换时恢复目标服缓存快照", SwitchRestoresTargetSnapshot),
         ("切换后快照覆盖差异包中的基础缓存文件", SnapshotOverridesPackageCacheFile),
         ("初始化当前服 Blocks 缓存", HotUpdateCacheInitialization),
+        ("3.3 空热更新缓存可往返切换并回滚", EmptyHotUpdateCacheRoundTrips),
+        ("空热更新缓存中断后可恢复", EmptyHotUpdateCacheRecovery),
+        ("空缓存支持仍拒绝目录缺失和未完成下载", EmptyHotUpdateCacheSafetyGuards),
         ("不同游戏目录的 Blocks 清单相互隔离", HotUpdateManifestsAreGameScoped),
         ("旧版 Blocks 清单按身份安全迁移", LegacyHotUpdateManifestMigrates),
         ("其他游戏目录不会认领旧版清单", ForeignGameDoesNotClaimLegacyManifest),
@@ -60,7 +63,8 @@ internal static partial class Program
         ("跨磁盘复制模式可交换并回滚 Blocks", HotUpdateVerifiedCopySwapAndRollback),
         ("首次移动前中断不会删除活动 Blocks", HotUpdateRecoveryBeforeFirstMove),
         ("目标服缓存仓库丢失时进入重建模式", LostTargetCacheUsesInitializationMode),
-        ("文件替换失败时 Blocks 与文件共同回滚", HotUpdateEngineFailureRollback),
+        ("文件替换失败时 Blocks 与文件共同回滚", () => HotUpdateEngineFailureRollback(false)),
+        ("空来源缓存在文件替换失败时共同回滚", () => HotUpdateEngineFailureRollback(true)),
         ("事务切换数量正确且成功后写状态", SwitchSuccess),
         ("准备阶段使用活动进度且替换阶段报告数量", SwitchProgressReportsPhases),
         ("已满足目标内容的文件不会重复暂存或备份", UnchangedTargetsAreSkipped),
@@ -1523,7 +1527,7 @@ internal static partial class Program
         return Task.CompletedTask;
     }
 
-    private static async Task HotUpdateEngineFailureRollback()
+    private static async Task HotUpdateEngineFailureRollback(bool emptySource)
     {
         using var fixture = new TempFixture();
         var blocks = Path.Combine(fixture.Game, HotUpdateCacheService.BlocksRelativePath);
@@ -1540,7 +1544,7 @@ internal static partial class Program
             fixture.Game,
             initIssues)!;
         hotUpdate.Commit(hotUpdate.BeginTransition(initPlan));
-        File.WriteAllText(Path.Combine(blocks, "global.blk"), "global-block");
+        if (!emptySource) File.WriteAllText(Path.Combine(blocks, "global.blk"), "global-block");
         hotUpdate.InitializeActive(ProfileIds.Global, "3.0.0", fixture.Game);
 
         var issues = new List<ValidationIssue>();
@@ -1579,7 +1583,9 @@ internal static partial class Program
         var result = await engine.ExecuteAsync(plan);
         True(!result.Success && result.RolledBack, "替换失败时应同时回滚 Blocks 和普通文件。");
         Equal("old", File.ReadAllText(target));
-        True(File.Exists(Path.Combine(blocks, "global.blk")), "活动 Blocks 未恢复为国际服。");
+        True(Directory.Exists(blocks), "回滚后活动 Blocks 目录必须存在。");
+        Equal(emptySource ? 0 : 1, Directory.EnumerateFiles(blocks, "*", SearchOption.AllDirectories).Count());
+        if (!emptySource) Equal("global-block", File.ReadAllText(Path.Combine(blocks, "global.blk")));
         var cnStatus = hotUpdate.GetStatus(ProfileIds.CnOfficial, "3.0.0", fixture.Game, ProfileIds.Global);
         True(cnStatus.IsAvailable, "国服缓存应恢复到仓库。");
     }

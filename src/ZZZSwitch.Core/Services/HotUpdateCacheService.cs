@@ -875,11 +875,10 @@ public sealed partial class HotUpdateCacheService
                 $"Blocks 中仍有 {temporaryFiles.Count} 个 .tmp 文件，资源下载尚未完成。");
         }
 
-        if (inventory.FileCount == 0)
-        {
-            throw new InvalidOperationException("Blocks 目录为空，不能初始化热更新缓存。");
-        }
-
+        // Persistent Blocks is only the hot-update overlay. After an upgrade or
+        // first switch it may legitimately be empty; base resources stay under
+        // StreamingAssets. Preserve an empty overlay as a zero-file cache so the
+        // user can switch back before the target client downloads any updates.
         return inventory;
     }
 
